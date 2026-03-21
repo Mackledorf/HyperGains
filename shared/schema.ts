@@ -1,6 +1,12 @@
 // Pure TypeScript types — no Drizzle/pg dependencies
 // All data is persisted in localStorage
 
+export type User = {
+  id: string;
+  name: string;
+  passwordHash: string;
+};
+
 export type Program = {
   id: string;
   name: string;

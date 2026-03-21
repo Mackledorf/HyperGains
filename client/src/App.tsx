@@ -8,11 +8,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
+import CreateUser from "@/pages/CreateUser";
 import Dashboard from "@/pages/Dashboard";
 import CreateProgram from "@/pages/CreateProgram";
 import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
 import ProgramDetail from "@/pages/ProgramDetail";
+import * as store from "@/lib/storage";
 
 const AUTH_SESSION_KEY = "hg_session";
 
@@ -30,13 +32,23 @@ function AppRouter() {
 }
 
 function App() {
-  const [authenticated, setAuthenticated] = useState(
-    () => sessionStorage.getItem(AUTH_SESSION_KEY) === "1"
-  );
+  const [activeUserId, setActiveUserId] = useState<string | null>(() => {
+    const stored = sessionStorage.getItem(AUTH_SESSION_KEY);
+    if (!stored) return null;
+    // Validate stored ID still corresponds to a real user
+    const valid = store.getUserById(stored);
+    if (valid) {
+      store.setActiveUser(stored);
+      return stored;
+    }
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    return null;
+  });
 
-  const handleAuthenticated = () => {
-    sessionStorage.setItem(AUTH_SESSION_KEY, "1");
-    setAuthenticated(true);
+  const handleAuthenticated = (userId: string) => {
+    store.setActiveUser(userId);
+    sessionStorage.setItem(AUTH_SESSION_KEY, userId);
+    setActiveUserId(userId);
   };
 
   return (
@@ -44,12 +56,21 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />
-          {authenticated ? (
+          {activeUserId ? (
             <Router hook={useHashLocation}>
               <AppRouter />
             </Router>
           ) : (
-            <Login onAuthenticated={handleAuthenticated} />
+            <Router hook={useHashLocation}>
+              <Switch>
+                <Route path="/create-user">
+                  <CreateUser onAuthenticated={handleAuthenticated} />
+                </Route>
+                <Route>
+                  <Login onAuthenticated={handleAuthenticated} />
+                </Route>
+              </Switch>
+            </Router>
           )}
         </TooltipProvider>
       </ThemeProvider>

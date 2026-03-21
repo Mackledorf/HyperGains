@@ -4,11 +4,24 @@
  * All data is persisted locally in the browser.
  */
 import type {
+  User,
   Program,
   ProgramExercise,
   WorkoutSession,
   SetLog,
 } from "@shared/schema";
+
+// ── Active user (set at login, scopes all data keys) ──
+
+let _activeUserId = "";
+
+export function setActiveUser(id: string): void {
+  _activeUserId = id;
+}
+
+export function getActiveUserId(): string {
+  return _activeUserId;
+}
 
 // ── Helpers ──
 
@@ -29,12 +42,45 @@ function setStore<T>(key: string, data: T[]): void {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// User-scoped data keys — computed dynamically from the active user ID
 const KEYS = {
-  programs: "hg_programs",
-  exercises: "hg_exercises",
-  sessions: "hg_sessions",
-  setLogs: "hg_setlogs",
-} as const;
+  get programs() { return `hg_programs_${_activeUserId}`; },
+  get exercises() { return `hg_exercises_${_activeUserId}`; },
+  get sessions() { return `hg_sessions_${_activeUserId}`; },
+  get setLogs() { return `hg_setlogs_${_activeUserId}`; },
+};
+
+// Global (not user-scoped) — stores the user registry
+const USERS_KEY = "hg_users";
+
+// ══════════════════════════════════════════════════
+// Users
+// ══════════════════════════════════════════════════
+
+export function getUsers(): User[] {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function createUser(name: string, passwordHash: string): User {
+  const users = getUsers();
+  const user: User = { id: uuid(), name, passwordHash };
+  users.push(user);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return user;
+}
+
+export function getUserByPasswordHash(hash: string): User | undefined {
+  return getUsers().find((u) => u.passwordHash === hash);
+}
+
+export function getUserById(id: string): User | undefined {
+  return getUsers().find((u) => u.id === id);
+}
 
 // ══════════════════════════════════════════════════
 // Programs

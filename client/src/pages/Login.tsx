@@ -1,11 +1,10 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Dumbbell, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import * as store from "@/lib/storage";
 
-const PASSWORD_HASH_KEY = "hg_auth";
-
-// Simple hash to avoid storing plaintext in localStorage
 async function hashPassword(pw: string): Promise<string> {
   const data = new TextEncoder().encode(pw);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -14,19 +13,15 @@ async function hashPassword(pw: string): Promise<string> {
     .join("");
 }
 
-// The password: "hypergains2025"
-// SHA-256 hex of "hypergains2025"
-const EXPECTED_HASH =
-  ""; // Will be computed on first run
-
 export default function Login({
   onAuthenticated,
 }: {
-  onAuthenticated: () => void;
+  onAuthenticated: (userId: string) => void;
 }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
+  const hasUsers = store.getUsers().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,19 +29,9 @@ export default function Login({
     setError(false);
 
     const hash = await hashPassword(password);
-
-    // First login ever — no stored hash yet? Set it.
-    const stored = localStorage.getItem(PASSWORD_HASH_KEY);
-    if (!stored) {
-      // First time: store the hash of whatever password the user enters
-      localStorage.setItem(PASSWORD_HASH_KEY, hash);
-      onAuthenticated();
-      return;
-    }
-
-    // Subsequent logins — compare
-    if (hash === stored) {
-      onAuthenticated();
+    const user = store.getUserByPasswordHash(hash);
+    if (user) {
+      onAuthenticated(user.id);
     } else {
       setError(true);
       setChecking(false);
@@ -68,7 +53,9 @@ export default function Login({
             HyperGains
           </h1>
           <p className="text-xs text-muted-foreground text-center">
-            Enter your password to continue
+            {hasUsers
+              ? "Enter your password to continue"
+              : "No accounts yet — create one to get started"}
           </p>
         </div>
 
@@ -86,6 +73,7 @@ export default function Login({
               placeholder="Password"
               className="pl-10 rounded-xl bg-card border-0 h-12 text-sm"
               autoFocus
+              disabled={!hasUsers}
               data-testid="input-password"
             />
           </div>
@@ -101,7 +89,7 @@ export default function Login({
 
           <Button
             type="submit"
-            disabled={!password.trim() || checking}
+            disabled={!hasUsers || !password.trim() || checking}
             className="w-full rounded-xl h-12 text-sm font-bold"
             data-testid="button-login"
           >
@@ -109,11 +97,14 @@ export default function Login({
           </Button>
         </form>
 
-        <p className="text-[10px] text-muted-foreground/50 text-center">
-          {localStorage.getItem(PASSWORD_HASH_KEY)
-            ? "Returning user — enter your password"
-            : "First visit — set a password to lock this app"}
-        </p>
+        <div className="text-center">
+          <Link
+            href="/create-user"
+            className="text-xs text-primary hover:underline"
+          >
+            Create a new account
+          </Link>
+        </div>
       </div>
     </div>
   );
