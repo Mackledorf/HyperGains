@@ -9,7 +9,7 @@ import { PlusCircle, Dumbbell, ChevronRight, Zap } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 export default function Programs() {
-  const { data: programs = [], isLoading } = useQuery<Program[]>({
+  const { data: programs = [], isLoading, isError } = useQuery<Program[]>({
     queryKey: ["programs", "all"],
     queryFn: () => store.getPrograms(),
   });
@@ -39,6 +39,11 @@ export default function Programs() {
             <Skeleton className="h-20 w-full rounded-2xl" />
             <Skeleton className="h-20 w-full rounded-2xl" />
             <Skeleton className="h-20 w-full rounded-2xl" />
+          </div>
+        ) : isError ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-sm font-semibold mb-1">Failed to load programs</p>
+            <p className="text-xs">Please reload the page.</p>
           </div>
         ) : programs.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">

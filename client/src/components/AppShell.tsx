@@ -74,7 +74,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="max-w-lg mx-auto px-5 pb-3">
           <div className="flex items-center justify-around rounded-2xl bg-card/95 backdrop-blur-lg py-2 px-2">
             {navItems.map(item => {
-              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              const isActive =
+                item.href === "/"
+                  ? location === "/"
+                  : location === item.href || location.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.href}

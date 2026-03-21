@@ -22,36 +22,53 @@ interface Props {
   muscleData: Record<string, MuscleVolumeInfo>;
 }
 
-// Shared body silhouette background — used for both front and back views.
-// All shapes use muted fill so the colored muscle overlays stand out.
-function BodyBase() {
+const BODY_LEFT = "M 100,15 C 85,15 84,25 88,38 C 89,45 89,48 88,50 C 70,50 62,50 58,54 C 48,70 45,95 42,115 C 40,125 40,135 44,155 C 48,170 54,175 60,170 C 64,165 65,155 58,135 C 55,125 57,110 65,102 C 70,95 72,85 75,78 C 71,110 72,130 74,150 C 76,160 84,165 84,200 C 84,230 80,260 80,285 C 78,310 75,360 78,385 C 80,410 95,410 96,400 C 94,380 92,350 93,310 C 94,290 96,285 96,275 C 98,250 97,220 100,195";
+
+const MUSCLES_FRONT: Record<string, string> = {
+  chest: "M 100,60 C 85,60 78,63 74,68 C 73,75 73,82 76,88 C 85,95 95,92 100,88 Z",
+  abs: "M 100,95 C 92,95 88,100 85,110 C 84,125 84,140 85,150 C 90,155 95,155 100,152 Z",
+  shoulders: "M 74,52 C 60,52 54,60 52,70 C 50,80 50,90 55,100 C 65,95 72,85 75,78 C 76,70 76,60 74,52 Z",
+  biceps: "M 55,100 C 56,110 56,115 58,122 C 65,115 68,105 65,100 C 62,97 58,97 55,100 Z",
+  forearms: "M 56,128 C 50,140 46,150 48,160 C 52,165 58,155 60,145 C 62,135 60,130 56,128 Z",
+  quads: "M 85,185 C 86,220 84,250 82,275 C 88,280 94,280 95,270 C 96,240 98,210 98,198 C 95,195 90,190 85,185 Z",
+  calves: "M 80,300 C 78,330 78,360 80,380 C 85,380 90,380 92,360 C 93,330 92,300 90,290 C 85,295 82,300 80,300 Z",
+};
+
+const MUSCLES_BACK: Record<string, string> = {
+  traps: "M 100,35 C 95,35 90,40 85,45 C 80,50 75,55 70,55 C 80,65 90,75 100,85 Z",
+  back: "M 100,85 C 90,75 80,65 74,58 C 72,70 70,90 74,115 C 80,130 90,140 100,150 Z",
+  shoulders: "M 74,52 C 60,52 54,60 52,70 C 50,80 50,90 55,100 C 65,95 72,85 75,78 C 76,70 76,60 74,52 Z",
+  triceps: "M 55,100 C 56,110 57,125 59,130 C 62,125 66,115 65,105 C 62,95 58,95 55,100 Z",
+  glutes: "M 100,150 C 90,150 84,160 84,180 C 84,195 90,205 100,205 Z",
+  hamstrings: "M 100,205 C 90,205 84,215 82,270 C 88,275 94,275 95,265 C 96,240 98,220 100,215 Z",
+  calves: "M 80,290 C 75,320 75,350 80,380 C 85,380 92,380 94,350 C 96,320 95,290 90,285 C 85,285 82,290 80,290 Z",
+};
+
+interface ViewPathProps extends React.SVGProps<SVGPathElement> {
+  dLeft: string;
+}
+
+function MirroredPath({ dLeft, ...props }: ViewPathProps) {
   return (
-    <g fill="hsl(215 20% 22%)" opacity="0.9">
-      {/* Head */}
-      <circle cx="60" cy="18" r="14" />
-      {/* Neck */}
-      <rect x="52" y="31" width="16" height="12" rx="4" />
-      {/* Torso — trapezoidal, wider at shoulders, slightly narrower at waist */}
-      <path d="M 28,44 L 92,44 L 87,128 L 33,128 Z" />
-      {/* Hips — slightly wider than waist */}
-      <path d="M 31,126 L 89,126 L 92,152 L 28,152 Z" />
-      {/* Left upper arm */}
-      <rect x="10" y="46" width="18" height="56" rx="9" />
-      {/* Right upper arm */}
-      <rect x="92" y="46" width="18" height="56" rx="9" />
-      {/* Left forearm */}
-      <rect x="11" y="104" width="16" height="46" rx="8" />
-      {/* Right forearm */}
-      <rect x="93" y="104" width="16" height="46" rx="8" />
-      {/* Left thigh */}
-      <rect x="28" y="152" width="28" height="60" rx="14" />
-      {/* Right thigh */}
-      <rect x="64" y="152" width="28" height="60" rx="14" />
-      {/* Left shin */}
-      <rect x="30" y="214" width="24" height="56" rx="12" />
-      {/* Right shin */}
-      <rect x="66" y="214" width="24" height="56" rx="12" />
+    <g>
+      <path d={dLeft} {...props} />
+      <path d={dLeft} transform="translate(200, 0) scale(-1, 1)" {...props} />
     </g>
+  );
+}
+
+function BodyBaseLayer() {
+  return (
+    <>
+      <g className="text-muted-foreground opacity-10" fill="currentColor">
+        <path d={`${BODY_LEFT} L 100,195 L 100,15 Z`} />
+        <path d={`${BODY_LEFT} L 100,195 L 100,15 Z`} transform="translate(200, 0) scale(-1, 1)" />
+      </g>
+      <g className="text-foreground" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d={BODY_LEFT} />
+        <path d={BODY_LEFT} transform="translate(200, 0) scale(-1, 1)" />
+      </g>
+    </>
   );
 }
 
@@ -91,7 +108,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* Swipeable container */}
       <div
         className="relative overflow-hidden"
-        style={{ height: 298 }}
+        style={{ height: 320 }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -100,28 +117,21 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
           style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
         >
-          <svg viewBox="0 0 120 275" width="130" height="298" aria-label="Front muscle map">
-            <BodyBase />
-            {/* Chest — two pectorals */}
-            <ellipse cx="38" cy="72" rx="16" ry="13" {...mp("chest")} />
-            <ellipse cx="82" cy="72" rx="16" ry="13" {...mp("chest")} />
-            {/* Front deltoids */}
-            <ellipse cx="17" cy="54" rx="9" ry="9" {...mp("shoulders")} />
-            <ellipse cx="103" cy="54" rx="9" ry="9" {...mp("shoulders")} />
-            {/* Biceps */}
-            <ellipse cx="17" cy="78" rx="7" ry="14" {...mp("biceps")} />
-            <ellipse cx="103" cy="78" rx="7" ry="14" {...mp("biceps")} />
-            {/* Forearms */}
-            <ellipse cx="17" cy="120" rx="7" ry="15" {...mp("forearms")} />
-            <ellipse cx="103" cy="120" rx="7" ry="15" {...mp("forearms")} />
-            {/* Abs */}
-            <ellipse cx="60" cy="100" rx="15" ry="22" {...mp("abs")} />
-            {/* Quads */}
-            <ellipse cx="41" cy="180" rx="13" ry="26" {...mp("quads")} />
-            <ellipse cx="79" cy="180" rx="13" ry="26" {...mp("quads")} />
-            {/* Front calves (tibialis) */}
-            <ellipse cx="40" cy="238" rx="11" ry="22" {...mp("calves")} />
-            <ellipse cx="80" cy="238" rx="11" ry="22" {...mp("calves")} />
+          <svg viewBox="0 0 200 420" className="w-full h-full" aria-label="Front muscle map">
+            <BodyBaseLayer />
+            
+            {/* Front Muscles Fills */}
+            {Object.entries(MUSCLES_FRONT).map(([muscle, dLeft]) => (
+              <MirroredPath key={muscle} dLeft={dLeft} {...mp(muscle)} />
+            ))}
+
+            {/* Front Internal Strokes */}
+            <g fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground/50 opacity-40" strokeLinecap="round">
+              <MirroredPath dLeft="M 76,88 C 85,95 95,92 100,88" />
+              <MirroredPath dLeft="M 85,110 C 90,115 95,115 100,112" />
+              <MirroredPath dLeft="M 84,130 C 90,135 95,135 100,132" />
+              <MirroredPath dLeft="M 55,100 C 60,98 62,98 65,100" />
+            </g>
           </svg>
         </div>
 
@@ -130,28 +140,20 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
           style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
         >
-          <svg viewBox="0 0 120 275" width="130" height="298" aria-label="Back muscle map">
-            <BodyBase />
-            {/* Traps — diamond/pentagon at upper back */}
-            <path d="M 36,46 L 84,46 L 78,65 L 60,72 L 42,65 Z" {...mp("traps")} />
-            {/* Back / Lats */}
-            <ellipse cx="37" cy="96" rx="14" ry="30" {...mp("back")} />
-            <ellipse cx="83" cy="96" rx="14" ry="30" {...mp("back")} />
-            {/* Rear deltoids */}
-            <ellipse cx="17" cy="54" rx="9" ry="9" {...mp("shoulders")} />
-            <ellipse cx="103" cy="54" rx="9" ry="9" {...mp("shoulders")} />
-            {/* Triceps */}
-            <ellipse cx="17" cy="78" rx="7" ry="14" {...mp("triceps")} />
-            <ellipse cx="103" cy="78" rx="7" ry="14" {...mp("triceps")} />
-            {/* Glutes */}
-            <ellipse cx="41" cy="157" rx="16" ry="13" {...mp("glutes")} />
-            <ellipse cx="79" cy="157" rx="16" ry="13" {...mp("glutes")} />
-            {/* Hamstrings */}
-            <ellipse cx="41" cy="186" rx="14" ry="28" {...mp("hamstrings")} />
-            <ellipse cx="79" cy="186" rx="14" ry="28" {...mp("hamstrings")} />
-            {/* Rear calves (gastrocnemius) */}
-            <ellipse cx="40" cy="238" rx="11" ry="22" {...mp("calves")} />
-            <ellipse cx="80" cy="238" rx="11" ry="22" {...mp("calves")} />
+          <svg viewBox="0 0 200 420" className="w-full h-full" aria-label="Back muscle map">
+            <BodyBaseLayer />
+            
+            {/* Back Muscle Fills */}
+            {Object.entries(MUSCLES_BACK).map(([muscle, dLeft]) => (
+              <MirroredPath key={muscle} dLeft={dLeft} {...mp(muscle)} />
+            ))}
+
+            {/* Back Internal Strokes */}
+            <g fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground/50 opacity-40" strokeLinecap="round">
+              <MirroredPath dLeft="M 74,115 C 80,130 90,140 100,150" />
+              <MirroredPath dLeft="M 84,180 C 84,195 90,205 100,205" />
+              <MirroredPath dLeft="M 55,100 C 60,98 62,98 65,100" />
+            </g>
           </svg>
         </div>
       </div>

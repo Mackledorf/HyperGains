@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as store from "@/lib/storage";
 import AppShell from "@/components/AppShell";
 import MuscleVisualizer from "@/components/MuscleVisualizer";
-import CalendarView from "@/components/CalendarView";
+import CalendarView, { type SessionDayInfo } from "@/components/CalendarView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Clock, TrendingUp, Dumbbell, Check } from "lucide-react";
@@ -120,6 +120,48 @@ function SessionCard({ session }: { session: WorkoutSession }) {
   );
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Returns YYYY-MM-DD in the user's local timezone, avoiding UTC-date mismatch. */
+function toLocalDateStr(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function buildCalendarSessionMap(
+  monthSessions: WorkoutSession[],
+  checkIns: PostSessionCheckIn[],
+  feedbacks: ExerciseFeedback[]
+): Map<string, SessionDayInfo> {
+  const checkInMap = new Map<string, PostSessionCheckIn>(
+    checkIns.map((c) => [c.sessionId, c])
+  );
+  const feedbacksBySession = new Map<string, ExerciseFeedback[]>();
+  for (const f of feedbacks) {
+    if (!feedbacksBySession.has(f.sessionId))
+      feedbacksBySession.set(f.sessionId, []);
+    feedbacksBySession.get(f.sessionId)!.push(f);
+  }
+
+  const result = new Map<string, SessionDayInfo>();
+  for (const s of monthSessions) {
+    if (!s.completedAt) continue;
+    const checkIn = checkInMap.get(s.id);
+    const sessionFeedbacks = feedbacksBySession.get(s.id) ?? [];
+    const feeling = deriveSessionFeeling(checkIn, sessionFeedbacks);
+    const duration = Math.round(
+      (new Date(s.completedAt).getTime() - new Date(s.startedAt).getTime()) / 60000
+    );
+    result.set(toLocalDateStr(s.completedAt), {
+      color: FEELING_COLORS[feeling.color],
+      dayLabel: s.dayLabel,
+      duration,
+      feelingLabel: feeling.label,
+    });
+  }
+  return result;
+}
+
 // ── Main History / Progress page ─────────────────────────────────────────────
 
 export default function History() {
@@ -133,7 +175,7 @@ export default function History() {
   });
 
   // Sessions for the Sessions tab (active program only)
-  const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
+  const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useQuery<WorkoutSession[]>({
     queryKey: ["sessions", activeProgram?.id],
     enabled: !!activeProgram,
     queryFn: () => store.getWorkoutSessions(activeProgram!.id),
@@ -178,43 +220,10 @@ export default function History() {
   );
 
   // ── Derived: calendar day map ────────────────────────────────────────────
-  const calendarSessions = useMemo(() => {
-    if (!monthSessions) return new Map<string, { color: string; dayLabel: string; duration: number | null; feelingLabel: string }>();
-
-    const checkInMap = new Map<string, PostSessionCheckIn>(
-      allCheckIns.map((c) => [c.sessionId, c])
-    );
-    const feedbacksBySession = new Map<string, ExerciseFeedback[]>();
-    for (const f of allFeedbacks) {
-      if (!feedbacksBySession.has(f.sessionId))
-        feedbacksBySession.set(f.sessionId, []);
-      feedbacksBySession.get(f.sessionId)!.push(f);
-    }
-
-    const result = new Map<string, { color: string; dayLabel: string; duration: number | null; feelingLabel: string }>();
-
-    for (const s of monthSessions) {
-      if (!s.completedAt) continue;
-      const checkIn = checkInMap.get(s.id);
-      const feedbacks = feedbacksBySession.get(s.id) ?? [];
-      const feeling = deriveSessionFeeling(checkIn, feedbacks);
-
-      const dateStr = s.completedAt.substring(0, 10);
-      const startDate = new Date(s.startedAt);
-      const endDate = new Date(s.completedAt);
-      const duration = Math.round(
-        (endDate.getTime() - startDate.getTime()) / 60000
-      );
-
-      result.set(dateStr, {
-        color: FEELING_COLORS[feeling.color],
-        dayLabel: s.dayLabel,
-        duration,
-        feelingLabel: feeling.label,
-      });
-    }
-    return result;
-  }, [monthSessions, allCheckIns, allFeedbacks]);
+  const calendarSessions = useMemo(
+    () => buildCalendarSessionMap(monthSessions ?? [], allCheckIns, allFeedbacks),
+    [monthSessions, allCheckIns, allFeedbacks]
+  );
 
   const completedSessions = (sessions ?? []).filter(
     (s) => s.status === "completed"
@@ -301,6 +310,11 @@ export default function History() {
               <div className="space-y-3">
                 <Skeleton className="h-20 w-full rounded-2xl" />
                 <Skeleton className="h-20 w-full rounded-2xl" />
+              </div>
+            ) : sessionsError ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <p className="text-sm font-semibold mb-1">Failed to load sessions</p>
+                <p className="text-xs">Please reload the page.</p>
               </div>
             ) : completedSessions.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
