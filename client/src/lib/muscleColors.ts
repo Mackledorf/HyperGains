@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { getVolumeLandmarks } from "./volumeLandmarks";
 
 export type VolumeZone = "none" | "mv" | "mev" | "mav" | "above-mav";
@@ -37,38 +38,45 @@ const ZONE_LABELS: Record<VolumeZone, string> = {
  * Hues match the MUSCLE_COLORS badges below.
  */
 export const MUSCLE_FILL_COLORS: Record<string, string> = {
-  chest:      "#f87171",  // red-400
-  back:       "#60a5fa",  // blue-400
-  shoulders:  "#fb923c",  // orange-400
-  biceps:     "#c084fc",  // purple-400
-  triceps:    "#f472b6",  // pink-400
-  quads:      "#34d399",  // emerald-400
-  hamstrings: "#2dd4bf",  // teal-400
-  glutes:     "#fbbf24",  // amber-400
-  calves:     "#a3e635",  // lime-400
-  abs:        "#22d3ee",  // cyan-400
-  traps:      "#818cf8",  // indigo-400
-  forearms:   "#a78bfa",  // violet-400
+  chest:      "#ff4f3a",
+  back:       "#84d316",
+  shoulders:  "#ffb822",
+  biceps:     "#44d5fa",
+  triceps:    "#ff3a7f",
+  quads:      "#3B90FF",
+  hamstrings: "#783aff",
+  glutes:     "#3366ff",
+  abs:        "#00d4aa",
+  calves:     "#ff8130",
+  traps:      "#e055ff",
+  forearms:   "#ff9850",
 };
 
 /**
- * Tailwind badge classes for each muscle group.
- * Single source of truth — imported by CreateProgram, ProgramSettings, etc.
+ * Hex colors per muscle group — single source of truth for badges and visualizer fills.
+ * Imported by CreateProgram, ProgramSettings, etc. Use getMuscleTagStyle() for badge styling.
  */
 export const MUSCLE_COLORS: Record<string, string> = {
-  Chest:      "bg-red-500/15 text-red-400",
-  Back:       "bg-blue-500/15 text-blue-400",
-  Shoulders:  "bg-orange-500/15 text-orange-400",
-  Biceps:     "bg-purple-500/15 text-purple-400",
-  Triceps:    "bg-pink-500/15 text-pink-400",
-  Quads:      "bg-emerald-500/15 text-emerald-400",
-  Hamstrings: "bg-teal-500/15 text-teal-400",
-  Glutes:     "bg-amber-500/15 text-amber-400",
-  Calves:     "bg-lime-500/15 text-lime-400",
-  Abs:        "bg-cyan-500/15 text-cyan-400",
-  Traps:      "bg-indigo-500/15 text-indigo-400",
-  Forearms:   "bg-violet-500/15 text-violet-400",
+  Chest:      "#ff4f3a",
+  Back:       "#84d316",
+  Shoulders:  "#ffb822",
+  Biceps:     "#44d5fa",
+  Triceps:    "#ff3a7f",
+  Quads:      "#3B90FF",
+  Hamstrings: "#783aff",
+  Glutes:     "#3366ff",
+  Abs:        "#00d4aa",
+  Calves:     "#ff8130",
+  Traps:      "#e055ff",
+  Forearms:   "#ff9850",
 };
+
+/** Returns inline styles for a muscle group badge (background at 15% opacity + text color). */
+export function getMuscleTagStyle(muscleGroup: string): CSSProperties {
+  const hex = MUSCLE_COLORS[muscleGroup];
+  if (!hex) return {};
+  return { backgroundColor: hex + "26", color: hex };
+}
 
 export function getMuscleVolumeInfo(
   muscleGroup: string,

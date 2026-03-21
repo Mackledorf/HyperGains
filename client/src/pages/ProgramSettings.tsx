@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft } from "lucide-react";
 import { getTargetSetsForEmphasis } from "@/lib/volumeLandmarks";
-import { MUSCLE_COLORS } from "@/lib/muscleColors";
+import { getMuscleTagStyle } from "@/lib/muscleColors";
 import type { Program, ProgramExercise, MuscleGroupEmphasis } from "@shared/schema";
 
 export default function ProgramSettings() {
@@ -129,9 +129,8 @@ export default function ProgramSettings() {
                   <div key={mg} className="p-3.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                          MUSCLE_COLORS[mg] || "bg-muted text-muted-foreground"
-                        }`}
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
+                        style={getMuscleTagStyle(mg)}
                       >
                         {mg}
                       </span>

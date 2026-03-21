@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Plus, X, Dumbbell, Search, Pencil } from "lucide-react";
 import type { Program, MuscleGroupEmphasis } from "@shared/schema";
 import { getDifficultyForExercise, getRepRange } from "@/lib/exerciseTiers";
-import { MUSCLE_COLORS } from "@/lib/muscleColors";
+import { getMuscleTagStyle } from "@/lib/muscleColors";
 
 const SPLIT_PRESETS: Record<string, { days: string[]; daysPerWeek: number }> = {
   PPL: { days: ["Push", "Pull", "Legs", "Push", "Pull", "Legs"], daysPerWeek: 6 },
@@ -476,9 +476,10 @@ export default function CreateProgram() {
                         {getRepRange(getDifficultyForExercise(ex.name)).min}–{getRepRange(getDifficultyForExercise(ex.name)).max} reps
                       </p>
                     </div>
-                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                      MUSCLE_COLORS[ex.muscleGroup] || "bg-muted text-muted-foreground"
-                    }`}>
+                    <span
+                      className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
+                      style={getMuscleTagStyle(ex.muscleGroup)}
+                    >
                       {ex.muscleGroup}
                     </span>
                     <button
@@ -526,10 +527,9 @@ export default function CreateProgram() {
                               key={mg}
                               onClick={() => { setPickerMuscle(mg); setSearchQuery(""); }}
                               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                                pickerMuscle === mg
-                                  ? MUSCLE_COLORS[mg] || "bg-primary/10 text-primary"
-                                  : "bg-muted text-muted-foreground active:bg-muted/80"
+                                pickerMuscle !== mg ? "bg-muted text-muted-foreground active:bg-muted/80" : ""
                               }`}
+                              style={pickerMuscle === mg ? getMuscleTagStyle(mg) : undefined}
                               data-testid={`chip-muscle-${mg.toLowerCase()}`}
                             >
                               {mg}
@@ -551,9 +551,10 @@ export default function CreateProgram() {
                             >
                               <span className="text-sm font-medium">{ex.name}</span>
                               {searchQuery && (
-                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                                  MUSCLE_COLORS[ex.muscleGroup] || "bg-muted text-muted-foreground"
-                                }`}>
+                                <span
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
+                                  style={getMuscleTagStyle(ex.muscleGroup)}
+                                >
                                   {ex.muscleGroup}
                                 </span>
                               )}
@@ -590,10 +591,9 @@ export default function CreateProgram() {
                             key={mg}
                             onClick={() => setCustomExMuscle(mg)}
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                              customExMuscle === mg
-                                ? MUSCLE_COLORS[mg] || "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground"
+                              customExMuscle !== mg ? "bg-muted text-muted-foreground" : ""
                             }`}
+                            style={customExMuscle === mg ? getMuscleTagStyle(mg) : undefined}
                             data-testid={`chip-custom-muscle-${mg.toLowerCase()}`}
                           >
                             {mg}
@@ -678,9 +678,10 @@ export default function CreateProgram() {
                 return (
                   <div key={mg} className="p-3.5 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                        MUSCLE_COLORS[mg] || "bg-muted text-muted-foreground"
-                      }`}>
+                      <span
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
+                        style={getMuscleTagStyle(mg)}
+                      >
                         {mg}
                       </span>
                       <button
