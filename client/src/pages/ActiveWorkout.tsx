@@ -137,7 +137,8 @@ export default function ActiveWorkout() {
           previousLogs,
           ex.targetReps,
           session.weekNumber,
-          muscleGroup
+          muscleGroup,
+          ex.difficulty ?? undefined
         );
         results[ex.id] = { suggestions, defaultRir };
       }
@@ -206,7 +207,8 @@ export default function ActiveWorkout() {
               ...set,
               weight: set.weight || suggestion.suggestedWeight.toString(),
               reps: set.reps || suggestion.suggestedReps.toString(),
-              rir: set.rir || suggestion.suggestedRir.toString(),
+              // null suggestedRir = above-range recalibration — leave blank for user
+              rir: set.rir || (suggestion.suggestedRir != null ? suggestion.suggestedRir.toString() : ""),
               suggestion,
             };
           }

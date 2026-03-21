@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Plus, X, Dumbbell, Search, Pencil } from "lucide-react";
 import type { Program, MuscleGroupEmphasis } from "@shared/schema";
+import { getDifficultyForExercise, getRepRange, difficultyToLevel, levelToDifficulty } from "@/lib/exerciseTiers";
+import type { ExerciseDifficulty } from "@/lib/exerciseTiers";
+import { SignalBarsToggle } from "@/components/ui/signal-bars";
 
 const SPLIT_PRESETS: Record<string, { days: string[]; daysPerWeek: number }> = {
   PPL: { days: ["Push", "Pull", "Legs", "Push", "Pull", "Legs"], daysPerWeek: 6 },
@@ -136,6 +139,13 @@ const EXERCISE_DB: Record<string, string[]> = {
 type ExerciseEntry = {
   name: string;
   muscleGroup: string;
+  difficulty: ExerciseDifficulty;
+};
+
+const DIFFICULTY_LABELS: Record<ExerciseDifficulty, string> = {
+  easy: "Easy",
+  medium: "Med",
+  hard: "Hard",
 };
 
 export default function CreateProgram() {
@@ -190,11 +200,12 @@ export default function CreateProgram() {
 
   const addExercise = (exerciseName: string, muscleGroup: string) => {
     const exercises = exercisesByDay[currentDayIndex] || [];
+    const difficulty = getDifficultyForExercise(exerciseName);
     setExercisesByDay({
       ...exercisesByDay,
       [currentDayIndex]: [
         ...exercises,
-        { name: exerciseName, muscleGroup },
+        { name: exerciseName, muscleGroup, difficulty },
       ],
     });
     setPickerOpen(false);
@@ -227,6 +238,7 @@ export default function CreateProgram() {
       for (const [dayIdx, exercises] of Object.entries(exercisesByDay)) {
         for (let i = 0; i < exercises.length; i++) {
           const ex = exercises[i];
+          const repRange = getRepRange(ex.difficulty);
           store.createProgramExercise({
             programId: program.id,
             dayIndex: parseInt(dayIdx),
@@ -234,8 +246,9 @@ export default function CreateProgram() {
             muscleGroup: ex.muscleGroup,
             sortOrder: i,
             targetSets: 3,
-            targetReps: 10,
+            targetReps: repRange.target,
             restSeconds: 120,
+            difficulty: ex.difficulty,
           });
         }
       }
@@ -459,7 +472,18 @@ export default function CreateProgram() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{ex.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {DIFFICULTY_LABELS[ex.difficulty]} · {getRepRange(ex.difficulty).min}–{getRepRange(ex.difficulty).max} reps
+                      </p>
                     </div>
+                    <SignalBarsToggle
+                      level={difficultyToLevel(ex.difficulty)}
+                      onChange={(lvl) => {
+                        const updated = [...(exercisesByDay[currentDayIndex] || [])];
+                        updated[idx] = { ...updated[idx], difficulty: levelToDifficulty(lvl) };
+                        setExercisesByDay({ ...exercisesByDay, [currentDayIndex]: updated });
+                      }}
+                    />
                     <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
                       MUSCLE_COLORS[ex.muscleGroup] || "bg-muted text-muted-foreground"
                     }`}>

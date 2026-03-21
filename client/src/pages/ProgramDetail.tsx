@@ -5,6 +5,8 @@ import AppShell from "@/components/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft } from "lucide-react";
 import type { Program, ProgramExercise } from "@shared/schema";
+import { getDifficultyForExercise, difficultyToLevel, getRepRange } from "@/lib/exerciseTiers";
+import { SignalBars } from "@/components/ui/signal-bars";
 
 export default function ProgramDetail() {
   const { id } = useParams<{ id: string }>();
@@ -75,19 +77,29 @@ export default function ProgramDetail() {
 
               {dayExercises.length > 0 ? (
                 <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
-                  {dayExercises.map(ex => (
-                    <div key={ex.id} className="p-3.5 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">{ex.exerciseName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ex.muscleGroup}
+                  {dayExercises.map(ex => {
+                    const diff = ex.difficulty ?? getDifficultyForExercise(ex.exerciseName);
+                    const range = getRepRange(diff);
+                    return (
+                      <div key={ex.id} className="p-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <SignalBars
+                            level={difficultyToLevel(diff)}
+                            activeColor={diff === "hard" ? "bg-primary" : diff === "medium" ? "bg-blue-400" : "bg-muted-foreground"}
+                          />
+                          <div>
+                            <p className="text-sm font-semibold">{ex.exerciseName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {ex.muscleGroup} · {range.min}–{range.max} reps
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground tabular-nums font-mono font-medium">
+                          {ex.targetSets} × {ex.targetReps}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground tabular-nums font-mono font-medium">
-                        {ex.targetSets} × {ex.targetReps}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground pl-1">No exercises added</p>

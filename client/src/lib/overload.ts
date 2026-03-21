@@ -5,13 +5,22 @@
  * - Week-based RIR target ladder: W1-2→3, W3-4→2, W5-6→1, W7+→0
  * - Heavy compounds (chest/back/quads/hamstrings/glutes) train 1 RIR harder
  * - RIR is capped at 4 (stored as 4 = "4+ RIR" / junk volume)
- * - No fixed rep range — single targetReps, algorithm tracks actual reps
- * - Weight increases only happen via rebound or 4+ RIR recalibration;
- *   otherwise the user drives weight selection intuitively
+ * - Each exercise has a difficulty tier with a fixed rep range:
+ *     Hard  5–10   (target 8)  — barbell compounds
+ *     Medium 8–15  (target 12) — DB/machine compounds
+ *     Easy  12–20  (target 16) — isolations & accessories
+ * - Priority order (highest wins):
+ *     1. Above repRangeMax  → Epley recalibrate to repRangeMin, RIR = null (user fills)
+ *     2. Below repRangeMin  → Epley recalibrate lighter to repRangeMin @ defaultRir
+ *     3. Within range + rebound (prevRir < weekTarget) → weight up
+ *     4. Within range + junk (prevRir ≥ 4) → Epley recalibrate to targetReps @ defaultRir
+ *     5. Within range + productive (prevRir 0–3) → +1 rep
  * - Volume modulation layer adjusts set count suggestions based on
  *   weekly set totals vs. MEV/MRV landmarks (Dr. Mike Israetel)
  */
 import type { OverloadSuggestion } from "@shared/schema";
+import type { ExerciseDifficulty } from "./exerciseTiers";
+import { getDifficultyForExercise, getRepRange } from "./exerciseTiers";
 import { getVolumeLandmarks, getTargetSetsForEmphasis } from "./volumeLandmarks";
 
 export const RIR_JUNK_THRESHOLD = 4; // 4+ = junk volume, recalibrate weight
@@ -90,49 +99,78 @@ export function computeOverloadSuggestions(
   }[],
   targetReps: number,
   weekNumber: number,
-  muscleGroup: string
+  muscleGroup: string,
+  difficulty?: ExerciseDifficulty
 ): OverloadSuggestion[] {
   const weekTargetRir = getWeekTargetRir(weekNumber);
   const defaultRir = getMuscleGroupRir(weekTargetRir, muscleGroup);
 
+  // Resolve tier — use passed difficulty or fall back to exercise name lookup
+  const resolvedDifficulty: ExerciseDifficulty =
+    difficulty ?? getDifficultyForExercise(previousLogs[0]?.exerciseName ?? "");
+  const { min: repRangeMin, max: repRangeMax } = getRepRange(resolvedDifficulty);
+
   return previousLogs.map((log) => {
     let suggestedWeight = log.weight;
     let suggestedReps = log.reps;
-    let suggestedRir = defaultRir;
+    let suggestedRir: number | null = defaultRir;
     let reason = "";
 
     // Treat null RIR as 2 (reasonable working-weight assumption)
     const prevRir = log.rir ?? 2;
 
-    // ── Case 1: Rebound — user went harder than the weekly target ──
-    // Reward with a weight increase; reduce reps to compensate
-    const wentHarderThanTarget = prevRir < weekTargetRir;
+    // ── Priority 1: Above rep range max → recalibrate to bottom of range ──
+    // Rep range exceeded: user is moving too light. Back-calculate weight
+    // for repRangeMin reps. Leave RIR blank — user establishes new effort level.
+    if (log.reps > repRangeMax) {
+      const orm = estimateOneRepMax(log.weight, log.reps);
+      suggestedWeight = weightForRepsAtRir(orm, repRangeMin, defaultRir);
+      suggestedReps = repRangeMin;
+      suggestedRir = null; // user fills RIR manually on the new weight
+      reason = `Above range (${log.reps} > ${repRangeMax}) — recalibrated to ${suggestedWeight}lb × ${repRangeMin} reps`;
 
-    if (wentHarderThanTarget) {
+    // ── Priority 2: Below rep range min → recalibrate lighter ──
+    // Weight is too heavy; user can't hit minimum reps. Epley down to repRangeMin.
+    } else if (log.reps < repRangeMin) {
+      const orm = estimateOneRepMax(log.weight, log.reps);
+      suggestedWeight = weightForRepsAtRir(orm, repRangeMin, defaultRir);
+      suggestedReps = repRangeMin;
+      suggestedRir = defaultRir;
+      reason = `Below range (${log.reps} < ${repRangeMin}) — lightened to ${suggestedWeight}lb × ${repRangeMin} reps @ ${defaultRir} RIR`;
+
+    // ── Priority 3: Rebound — went harder than weekly target ──
+    // Reward with a weight increase; pull reps back to compensate.
+    } else if (prevRir < weekTargetRir) {
       const rirDiff = weekTargetRir - prevRir;
       suggestedWeight = roundUp2_5(log.weight * (1 + 0.025 * rirDiff));
-      suggestedReps = Math.max(targetReps - rirDiff, 1);
+      suggestedReps = Math.max(log.reps - rirDiff, repRangeMin);
       suggestedRir = weekTargetRir;
-      reason = `Rebound: went to ${prevRir} RIR last time (target ${weekTargetRir}) — ↑ weight, ↓ reps, ↑ RIR`;
+      reason = `Rebound: went to ${prevRir} RIR (target ${weekTargetRir}) — ↑ weight, ↓ reps`;
 
-    // ── Case 2 (removed): was "hit top of range → +2.5%" — replaced by user-driven weight selection ──
+    // ── Priority 4: Junk volume (4+ RIR) — recalibrate to working weight ──
+    // Weight is too light. Back-calculate to hit target reps at defaultRir.
+    } else if (prevRir >= 4) {
+      const orm = estimateOneRepMax(log.weight, log.reps);
+      const recalibrated = weightForRepsAtRir(orm, targetReps, defaultRir);
+      suggestedWeight = recalibrated;
+      suggestedReps = targetReps;
+      suggestedRir = defaultRir;
+      reason = `Junk volume (${prevRir} RIR) — recalibrated to ~${recalibrated}lb × ${targetReps} reps @ ${defaultRir} RIR`;
 
-    // ── Case 3a: Within productive RIR range (0–3) — add one rep ──
-    } else if (prevRir <= 3) {
+    // ── Priority 5: Productive set (0–3 RIR, within range) → +1 rep ──
+    // If already at repRangeMax, +1 rep would exceed the range — recalibrate
+    // weight upward to repRangeMin instead (same logic as above-range).
+    } else if (log.reps >= repRangeMax) {
+      const orm = estimateOneRepMax(log.weight, log.reps);
+      suggestedWeight = weightForRepsAtRir(orm, repRangeMin, defaultRir);
+      suggestedReps = repRangeMin;
+      suggestedRir = null;
+      reason = `Hit rep ceiling (${log.reps}/${repRangeMax}) — ↑ weight to ${suggestedWeight}lb × ${repRangeMin} reps`;
+    } else {
       suggestedWeight = log.weight;
       suggestedReps = log.reps + 1;
       suggestedRir = defaultRir;
       reason = `+1 rep (${log.reps} → ${suggestedReps}) — productive set at ${prevRir} RIR`;
-
-    // ── Case 3b: Junk volume (4+ RIR) — recalibrate weight to hit target RIR ──
-    // User's weight is too light. Back-calculate from estimated 1RM.
-    } else {
-      const orm = estimateOneRepMax(log.weight, log.reps);
-      const recalibratedWeight = weightForRepsAtRir(orm, targetReps, defaultRir);
-      suggestedWeight = recalibratedWeight;
-      suggestedReps = targetReps;
-      suggestedRir = defaultRir;
-      reason = `Weight too light (${prevRir} RIR) — recalibrated to ~${recalibratedWeight}lb for ${targetReps} reps @ ${defaultRir} RIR`;
     }
 
     return {

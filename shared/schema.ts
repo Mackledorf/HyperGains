@@ -31,6 +31,8 @@ export type ProgramExercise = {
   // Single target rep count — algorithm tracks and adjusts from here
   targetReps: number;
   restSeconds: number;
+  // Exercise difficulty tier — drives rep range enforcement in overload algorithm
+  difficulty?: "easy" | "medium" | "hard";
 };
 
 export type WorkoutSession = {
@@ -100,7 +102,8 @@ export type OverloadSuggestion = {
   setNumber: number;
   suggestedWeight: number;
   suggestedReps: number;
-  suggestedRir: number;
+  // null = above-range recalibration — user sets RIR manually
+  suggestedRir: number | null;
   previousWeight: number;
   previousReps: number;
   previousRir: number | null;
