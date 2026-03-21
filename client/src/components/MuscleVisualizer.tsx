@@ -45,9 +45,9 @@ export default function MuscleVisualizer({ muscleData }: Props) {
     if (!muscle) return "hsl(var(--background))";
     // Fatigue mode: always show accumulated volume color
     if (showFatigue) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
-    // Default mode: hover reveals zone color, otherwise show muscle's identity color
-    if (hoveredMuscle === muscle) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
-    return MUSCLE_FILL_COLORS[muscle] ?? "hsl(var(--background))";
+    // Default mode: hover reveals muscle's identity color, otherwise background
+    if (hoveredMuscle === muscle) return MUSCLE_FILL_COLORS[muscle] ?? VOLUME_ZONE_COLORS.none;
+    return "hsl(var(--background))";
   };
 
   const selectedInfo = selected ? muscleData[selected] : null;
