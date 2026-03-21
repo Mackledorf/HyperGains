@@ -81,18 +81,17 @@ export type ExerciseFeedback = {
   loggedAt: string;
 };
 
-// Weekly review — filled out when user presses "End Week"
-export type WeeklyReview = {
+// Post-session check-in — global session feedback + per-exercise joint flags
+export type PostSessionCheckIn = {
   id: string;
+  sessionId: string;
   programId: string;
-  weekNumber: number;
-  calendarWeekStart: string; // ISO date of Monday that week started
-  // dayIndex → rating
-  dayRatings: Record<number, "poor" | "okay" | "good" | "great">;
-  strongAreas: Array<"workload" | "mmc" | "pump" | "stamina">;
-  weakAreas: Array<"workload" | "mmc" | "pump" | "stamina">;
-  emphasizeNext: "workload" | "mmc" | "pump" | "stamina" | null;
-  completedAt: string;
+  sessionDifficulty: "too-easy" | "just-right" | "too-hard";
+  motivation: "poor" | "okay" | "good" | "great";
+  fatigue: "poor" | "okay" | "good" | "great";
+  // exerciseId → true if user flagged joint/pain on that exercise
+  jointFlags: Record<string, boolean>;
+  loggedAt: string;
 };
 
 // Progressive overload suggestion type (computed, not stored)
@@ -108,4 +107,6 @@ export type OverloadSuggestion = {
   previousReps: number;
   previousRir: number | null;
   reason: string;
+  // Set by applyFeedbackModifiers when a check-in adjustment was applied
+  feedbackModified?: boolean;
 };

@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import ExerciseFeedbackSheet from "@/components/ExerciseFeedbackSheet";
+import PostSessionCheckInSheet from "@/components/PostSessionCheckInSheet";
+import { applyFeedbackModifiers } from "@/lib/feedbackModifiers";
+import { getRepRange } from "@/lib/exerciseTiers";
 import {
   ChevronLeft,
   Check,
@@ -31,6 +34,7 @@ import type {
   ProgramExercise,
   SetLog,
   OverloadSuggestion,
+  PostSessionCheckIn,
 } from "@shared/schema";
 
 const RIR_OPTIONS = [
@@ -96,6 +100,8 @@ export default function ActiveWorkout() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   // exerciseId that needs post-exercise feedback
   const [feedbackExerciseId, setFeedbackExerciseId] = useState<string | null>(null);
+  // Show post-session check-in sheet after completing workout
+  const [showCheckIn, setShowCheckIn] = useState(false);
 
   // Workout timer
   useEffect(() => {
@@ -120,6 +126,13 @@ export default function ActiveWorkout() {
     queryFn: () => store.getSetLogs(sessionId!),
   });
 
+  // Feedback data for overload modifiers
+  const { data: latestCheckIn } = useQuery<PostSessionCheckIn | undefined>({
+    queryKey: ["checkIns", session?.programId, "latest"],
+    enabled: !!session,
+    queryFn: () => store.getLatestCheckIn(session!.programId),
+  });
+
   // Compute overload data client-side
   const overloadData = useMemo(() => {
     if (!session || !exercises || exercises.length === 0) return undefined;
@@ -133,18 +146,25 @@ export default function ActiveWorkout() {
       if (previousLogs.length === 0) {
         results[ex.id] = { suggestions: [], defaultRir };
       } else {
-        const suggestions = computeOverloadSuggestions(
+        const raw = computeOverloadSuggestions(
           previousLogs,
           ex.targetReps,
           session.weekNumber,
           muscleGroup,
           ex.difficulty ?? undefined
         );
+        // Apply feedback modifiers from the most recent check-in
+        const repRange = getRepRange(ex.difficulty ?? "medium");
+        const suggestions = applyFeedbackModifiers(
+          raw,
+          latestCheckIn,
+          repRange.max
+        );
         results[ex.id] = { suggestions, defaultRir };
       }
     }
     return results;
-  }, [session, exercises]);
+  }, [session, exercises, latestCheckIn]);
 
   const allSuggestions = overloadData
     ? Object.fromEntries(Object.entries(overloadData).map(([id, d]) => [id, d.suggestions]))
@@ -270,7 +290,7 @@ export default function ActiveWorkout() {
       queryClient.invalidateQueries({ queryKey: ["inProgress"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
       toast({ title: "Workout completed" });
-      navigate("/");
+      setShowCheckIn(true);
     },
   });
 
@@ -705,6 +725,19 @@ export default function ActiveWorkout() {
           sessionId={session.id}
           exercise={exercises.find(e => e.id === feedbackExerciseId)!}
           onClose={() => setFeedbackExerciseId(null)}
+        />
+      )}
+
+      {/* Post-session check-in sheet */}
+      {showCheckIn && session && exercises && (
+        <PostSessionCheckInSheet
+          sessionId={session.id}
+          programId={session.programId}
+          exercises={exercises}
+          onClose={() => {
+            setShowCheckIn(false);
+            navigate("/");
+          }}
         />
       )}
     </AppShell>

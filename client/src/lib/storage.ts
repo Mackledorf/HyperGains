@@ -11,7 +11,7 @@ import type {
   SetLog,
   MuscleGroupEmphasis,
   ExerciseFeedback,
-  WeeklyReview,
+  PostSessionCheckIn,
 } from "@shared/schema";
 
 // ── Active user (set at login, scopes all data keys) ──
@@ -53,7 +53,7 @@ const KEYS = {
   get setLogs() { return `hg_setlogs_${_activeUserId}`; },
   get emphasis() { return `hg_emphasis_${_activeUserId}`; },
   get feedback() { return `hg_feedback_${_activeUserId}`; },
-  get weeklyReviews() { return `hg_weeklyreviews_${_activeUserId}`; },
+  get checkIns() { return `hg_checkins_${_activeUserId}`; },
 };
 
 // ══════════════════════════════════════════════════
@@ -317,7 +317,7 @@ export interface UserDataPayload {
   setLogs: SetLog[];
   emphasis?: MuscleGroupEmphasis[];
   feedback?: ExerciseFeedback[];
-  weeklyReviews?: WeeklyReview[];
+  checkIns?: PostSessionCheckIn[];
 }
 
 /** Exports all data for the active user as a plain object (for gist sync). */
@@ -331,7 +331,7 @@ export function exportAll(): UserDataPayload {
     setLogs: getStore<SetLog>(KEYS.setLogs),
     emphasis: getStore<MuscleGroupEmphasis>(KEYS.emphasis),
     feedback: getStore<ExerciseFeedback>(KEYS.feedback),
-    weeklyReviews: getStore<WeeklyReview>(KEYS.weeklyReviews),
+    checkIns: getStore<PostSessionCheckIn>(KEYS.checkIns),
   };
 }
 
@@ -343,7 +343,7 @@ export function importAll(payload: UserDataPayload): void {
   setStore(KEYS.setLogs, payload.setLogs);
   if (payload.emphasis) setStore(KEYS.emphasis, payload.emphasis);
   if (payload.feedback) setStore(KEYS.feedback, payload.feedback);
-  if (payload.weeklyReviews) setStore(KEYS.weeklyReviews, payload.weeklyReviews);
+  if (payload.checkIns) setStore(KEYS.checkIns, payload.checkIns);
   if (payload.name) setUserName(_activeUserId, payload.name);
 }
 
@@ -509,31 +509,35 @@ export function createExerciseFeedback(
 }
 
 // ══════════════════════════════════════════════════
-// Weekly Reviews
+// Post-Session Check-Ins
 // ══════════════════════════════════════════════════
 
-export function getWeeklyReviews(programId: string): WeeklyReview[] {
-  return getStore<WeeklyReview>(KEYS.weeklyReviews)
-    .filter((r) => r.programId === programId)
-    .sort((a, b) => b.weekNumber - a.weekNumber);
+export function getCheckInsForProgram(programId: string): PostSessionCheckIn[] {
+  return getStore<PostSessionCheckIn>(KEYS.checkIns)
+    .filter((c) => c.programId === programId)
+    .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt));
 }
 
-export function getWeeklyReview(
-  programId: string,
-  weekNumber: number
-): WeeklyReview | undefined {
-  return getStore<WeeklyReview>(KEYS.weeklyReviews).find(
-    (r) => r.programId === programId && r.weekNumber === weekNumber
-  );
+/** Returns the most recent check-in for a program, or undefined. */
+export function getLatestCheckIn(
+  programId: string
+): PostSessionCheckIn | undefined {
+  return getCheckInsForProgram(programId)[0];
 }
 
-export function createWeeklyReview(
-  data: Omit<WeeklyReview, "id">
-): WeeklyReview {
-  const all = getStore<WeeklyReview>(KEYS.weeklyReviews);
-  const review: WeeklyReview = { ...data, id: crypto.randomUUID() };
-  all.push(review);
-  setStore(KEYS.weeklyReviews, all);
+export function createCheckIn(
+  data: Omit<PostSessionCheckIn, "id">
+): PostSessionCheckIn {
+  const all = getStore<PostSessionCheckIn>(KEYS.checkIns);
+  // Replace if already exists for this session
+  const existing = all.findIndex((c) => c.sessionId === data.sessionId);
+  const entry: PostSessionCheckIn = { ...data, id: crypto.randomUUID() };
+  if (existing !== -1) {
+    all[existing] = entry;
+  } else {
+    all.push(entry);
+  }
+  setStore(KEYS.checkIns, all);
   notifyDataChanged();
-  return review;
+  return entry;
 }

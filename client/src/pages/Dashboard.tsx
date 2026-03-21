@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import * as store from "@/lib/storage";
@@ -7,7 +6,6 @@ import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import WeeklyReviewModal from "@/components/WeeklyReviewModal";
 import {
   PlusCircle,
   Play,
@@ -22,8 +20,6 @@ import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [showWeeklyReview, setShowWeeklyReview] = useState(false);
-
   const { data: activeProgram, isLoading: loadingProgram } = useQuery<Program | null>({
     queryKey: ["programs", "active"],
     queryFn: () => store.getActiveProgram() ?? null,
@@ -49,7 +45,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
-      setShowWeeklyReview(true);
+      toast({ title: "Week advanced" });
     },
     onError: () => {
       toast({ title: "Failed to end week", variant: "destructive" });
@@ -132,13 +128,6 @@ export default function Dashboard() {
 
   return (
     <AppShell>
-      {activeProgram && showWeeklyReview && (
-        <WeeklyReviewModal
-          program={activeProgram}
-          weekNumber={currentWeek - 1}
-          onClose={() => setShowWeeklyReview(false)}
-        />
-      )}
       <div className="space-y-5">
         {/* Program header */}
         <div className="flex items-start justify-between">
