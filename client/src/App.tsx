@@ -64,7 +64,7 @@ function App() {
             <Router hook={useHashLocation}>
               <Switch>
                 <Route path="/create-user">
-                  <CreateUser onAuthenticated={handleAuthenticated} />
+                  <CreateUser />
                 </Route>
                 <Route>
                   <Login onAuthenticated={handleAuthenticated} />

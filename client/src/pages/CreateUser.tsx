@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Dumbbell, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,8 @@ async function hashPassword(pw: string): Promise<string> {
     .join("");
 }
 
-export default function CreateUser({
-  onAuthenticated,
-}: {
-  onAuthenticated: (userId: string) => void;
-}) {
+export default function CreateUser() {
+  const [, setLocation] = useLocation();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -46,8 +43,8 @@ export default function CreateUser({
       return;
     }
 
-    const user = store.createUser(name.trim(), hash);
-    onAuthenticated(user.id);
+    store.createUser(name.trim(), hash);
+    setLocation("/");
   };
 
   return (
