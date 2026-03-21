@@ -97,14 +97,15 @@ export default function Login({
           </Button>
         </form>
 
-        <div className="text-center">
-          <Link
-            href="/create-user"
-            className="text-xs text-primary hover:underline"
+        <Link href="/create-user" className="block">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-xl h-12 text-sm font-semibold"
           >
             Create a new account
-          </Link>
-        </div>
+          </Button>
+        </Link>
       </div>
     </div>
   );
