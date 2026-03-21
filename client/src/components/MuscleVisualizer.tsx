@@ -182,6 +182,8 @@ const BACK_INDEX_TO_MUSCLE = buildIndexMap(BACK_MUSCLE_PATHS);
 export default function MuscleVisualizer({ muscleData }: Props) {
   const [view, setView] = useState<"front" | "back">("front");
   const [selected, setSelected] = useState<string | null>(null);
+  const [hoveredMuscle, setHoveredMuscle] = useState<string | null>(null);
+  const [showFatigue, setShowFatigue] = useState(false);
   const touchStartX = useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -200,15 +202,38 @@ export default function MuscleVisualizer({ muscleData }: Props) {
   const fillForPath = (pathIndex: number): string => {
     const indexMap = view === "front" ? FRONT_INDEX_TO_MUSCLE : BACK_INDEX_TO_MUSCLE;
     const muscle = indexMap[pathIndex];
+    // Non-muscle body-detail paths always show background
     if (!muscle) return "hsl(var(--background))";
-    return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
+    // Fatigue mode: always show accumulated volume color
+    if (showFatigue) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
+    // Default mode: hover reveals zone color, otherwise background
+    if (hoveredMuscle === muscle) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
+    return "hsl(var(--background))";
   };
 
   const selectedInfo = selected ? muscleData[selected] : null;
 
-  const fills = view === "front" ? FRONT_FILLS : BACK_FILLS;
-  const indexMap = view === "front" ? FRONT_INDEX_TO_MUSCLE : BACK_INDEX_TO_MUSCLE;
-  const outlinePath = view === "front" ? FRONT_OUTLINE : BACK_OUTLINE;
+  const renderFills = (fills: string[], indexMap: Record<number, string>) =>
+    fills.map((d, i) => {
+      const muscle = indexMap[i];
+      const isSelected = selected === muscle;
+      const isHovered = hoveredMuscle === muscle;
+      return (
+        <path
+          key={i}
+          d={d}
+          style={{
+            fill: fillForPath(i),
+            transition: "fill 0.15s ease",
+            opacity: muscle && (isSelected || isHovered) ? 1 : 0.92,
+          }}
+          className={muscle ? "cursor-pointer" : undefined}
+          onClick={muscle ? () => handleClick(muscle) : undefined}
+          onMouseEnter={muscle ? () => setHoveredMuscle(muscle) : undefined}
+          onMouseLeave={muscle ? () => setHoveredMuscle(null) : undefined}
+        />
+      );
+    });
 
   return (
     <div className="space-y-3">
@@ -225,22 +250,9 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
         >
           <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Front muscle map">
-            {/* Outline — filled with foreground color (white on dark / dark on light) */}
-            <path d={FRONT_OUTLINE} style={{ fill: "hsl(var(--foreground))" }} />
-            {/* Muscle fill regions — background by default, zone color when active */}
-            {FRONT_FILLS.map((d, i) => {
-              const muscle = FRONT_INDEX_TO_MUSCLE[i];
-              const isSelected = selected === muscle;
-              return (
-                <path
-                  key={i}
-                  d={d}
-                  style={{ fill: fillForPath(i), opacity: muscle && isSelected ? 1 : 0.9 }}
-                  className={muscle ? "cursor-pointer" : undefined}
-                  onClick={muscle ? () => handleClick(muscle) : undefined}
-                />
-              );
-            })}
+            {/* fillRule="evenodd" ensures compound-path interior subpaths act as holes (arm gaps, etc.) */}
+            <path d={FRONT_OUTLINE} fillRule="evenodd" style={{ fill: "hsl(var(--foreground))" }} />
+            {renderFills(FRONT_FILLS, FRONT_INDEX_TO_MUSCLE)}
           </svg>
         </div>
 
@@ -250,20 +262,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
         >
           <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Back muscle map">
-            <path d={BACK_OUTLINE} style={{ fill: "hsl(var(--foreground))" }} />
-            {BACK_FILLS.map((d, i) => {
-              const muscle = BACK_INDEX_TO_MUSCLE[i];
-              const isSelected = selected === muscle;
-              return (
-                <path
-                  key={i}
-                  d={d}
-                  style={{ fill: fillForPath(i), opacity: muscle && isSelected ? 1 : 0.9 }}
-                  className={muscle ? "cursor-pointer" : undefined}
-                  onClick={muscle ? () => handleClick(muscle) : undefined}
-                />
-              );
-            })}
+            <path d={BACK_OUTLINE} fillRule="evenodd" style={{ fill: "hsl(var(--foreground))" }} />
+            {renderFills(BACK_FILLS, BACK_INDEX_TO_MUSCLE)}
           </svg>
         </div>
       </div>
@@ -311,6 +311,30 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {view === "front" ? "Front" : "Back"} · tap a muscle for details
       </p>
 
+      {/* Accumulate Fatigue toggle */}
+      <button
+        onClick={() => setShowFatigue(!showFatigue)}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors ${
+          showFatigue
+            ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+            : "bg-muted/30 border-border/40 text-muted-foreground"
+        }`}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              showFatigue ? "border-orange-400 bg-orange-400" : "border-muted-foreground/50"
+            }`}
+          >
+            {showFatigue && <div className="w-1.5 h-1.5 rounded-full bg-background" />}
+          </div>
+          <span className="text-xs font-semibold">Accumulate Fatigue</span>
+        </div>
+        <span className="text-[10px] uppercase tracking-wide opacity-70">
+          {showFatigue ? "Volume colors shown" : "Hover to preview"}
+        </span>
+      </button>
+
       {/* Selected muscle info card */}
       {selected && selectedInfo && (
         <div className="rounded-xl bg-muted/40 px-4 py-3 flex items-center justify-between">
@@ -330,31 +354,33 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         </div>
       )}
 
-      {/* Volume zone legend */}
-      <div className="rounded-xl bg-muted/30 p-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-          Volume Legend
-        </p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-          {(
-            [
-              { color: VOLUME_ZONE_COLORS.none, label: "Untrained" },
-              { color: VOLUME_ZONE_COLORS.mv, label: "Maintenance (MV)" },
-              { color: VOLUME_ZONE_COLORS.mev, label: "Building (MEV)" },
-              { color: VOLUME_ZONE_COLORS.mav, label: "Optimal (MAV)" },
-              { color: VOLUME_ZONE_COLORS["above-mav"], label: "High Volume" },
-            ] as const
-          ).map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-2">
-              <div
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: color }}
-              />
-              <span className="text-[11px] text-muted-foreground">{label}</span>
-            </div>
-          ))}
+      {/* Volume zone legend — only shown in fatigue mode */}
+      {showFatigue && (
+        <div className="rounded-xl bg-muted/30 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            Volume Legend
+          </p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {(
+              [
+                { color: VOLUME_ZONE_COLORS.none, label: "Untrained" },
+                { color: VOLUME_ZONE_COLORS.mv, label: "Maintenance (MV)" },
+                { color: VOLUME_ZONE_COLORS.mev, label: "Building (MEV)" },
+                { color: VOLUME_ZONE_COLORS.mav, label: "Optimal (MAV)" },
+                { color: VOLUME_ZONE_COLORS["above-mav"], label: "High Volume" },
+              ] as const
+            ).map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-2">
+                <div
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-[11px] text-muted-foreground">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
