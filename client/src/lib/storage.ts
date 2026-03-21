@@ -145,6 +145,8 @@ export function deleteProgram(id: string): void {
     KEYS.setLogs,
     getStore<SetLog>(KEYS.setLogs).filter((l) => !sessionIds.has(l.sessionId))
   );
+  // Cascade delete emphasis
+  deleteMuscleGroupEmphasisForProgram(id);
   notifyDataChanged();
 }
 
@@ -260,6 +262,9 @@ export function getSetLogs(sessionId: string): SetLog[] {
     .sort((a, b) => a.setNumber - b.setNumber);
 }
 
+// Used by the long-term calendar/block view to plot per-exercise volume
+// and muscle emphasis over time. Returns every log ever recorded for this
+// exercise across all sessions (not just the most recent one).
 export function getSetLogsByExercise(exerciseId: string): SetLog[] {
   return getStore<SetLog>(KEYS.setLogs)
     .filter((l) => l.exerciseId === exerciseId)

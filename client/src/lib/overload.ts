@@ -5,10 +5,12 @@
  * - Week-based RIR target ladder: W1-2→3, W3-4→2, W5-6→1, W7+→0
  * - Heavy compounds (chest/back/quads/hamstrings/glutes) train 1 RIR harder
  * - RIR is capped at 4 (stored as 4 = "4+ RIR" / junk volume)
- * - Each exercise has a difficulty tier with a fixed rep range:
+ * - Each exercise has a difficulty tier with a base rep range:
  *     Hard  5–10   (target 8)  — barbell compounds
  *     Medium 8–15  (target 12) — DB/machine compounds
  *     Easy  12–20  (target 16) — isolations & accessories
+ *   Effective target reps shift with muscle emphasis:
+ *     maintain → range min, grow → target (default), emphasize → range max
  * - Priority order (highest wins):
  *     1. Above repRangeMax  → Epley recalibrate to repRangeMin, RIR = null (user fills)
  *     2. Below repRangeMin  → Epley recalibrate lighter to repRangeMin @ defaultRir
@@ -20,7 +22,7 @@
  */
 import type { OverloadSuggestion } from "@shared/schema";
 import type { ExerciseDifficulty } from "./exerciseTiers";
-import { getDifficultyForExercise, getRepRange } from "./exerciseTiers";
+import { getDifficultyForExercise, getRepRange, getEffectiveTargetReps } from "./exerciseTiers";
 import { getVolumeLandmarks, getTargetSetsForEmphasis } from "./volumeLandmarks";
 
 export const RIR_JUNK_THRESHOLD = 4; // 4+ = junk volume, recalibrate weight
@@ -100,7 +102,8 @@ export function computeOverloadSuggestions(
   targetReps: number,
   weekNumber: number,
   muscleGroup: string,
-  difficulty?: ExerciseDifficulty
+  difficulty?: ExerciseDifficulty,
+  emphasis?: "maintain" | "grow" | "emphasize"
 ): OverloadSuggestion[] {
   const weekTargetRir = getWeekTargetRir(weekNumber);
   const defaultRir = getMuscleGroupRir(weekTargetRir, muscleGroup);
@@ -109,6 +112,10 @@ export function computeOverloadSuggestions(
   const resolvedDifficulty: ExerciseDifficulty =
     difficulty ?? getDifficultyForExercise(previousLogs[0]?.exerciseName ?? "");
   const { min: repRangeMin, max: repRangeMax } = getRepRange(resolvedDifficulty);
+  // Adjust rep target based on emphasis: maintain → min, grow → target, emphasize → max
+  const resolvedTargetReps = emphasis
+    ? getEffectiveTargetReps(getRepRange(resolvedDifficulty), emphasis)
+    : targetReps;
 
   return previousLogs.map((log) => {
     let suggestedWeight = log.weight;
@@ -151,11 +158,11 @@ export function computeOverloadSuggestions(
     // Weight is too light. Back-calculate to hit target reps at defaultRir.
     } else if (prevRir >= 4) {
       const orm = estimateOneRepMax(log.weight, log.reps);
-      const recalibrated = weightForRepsAtRir(orm, targetReps, defaultRir);
+      const recalibrated = weightForRepsAtRir(orm, resolvedTargetReps, defaultRir);
       suggestedWeight = recalibrated;
-      suggestedReps = targetReps;
+      suggestedReps = resolvedTargetReps;
       suggestedRir = defaultRir;
-      reason = `Junk volume (${prevRir} RIR) — recalibrated to ~${recalibrated}lb × ${targetReps} reps @ ${defaultRir} RIR`;
+      reason = `Junk volume (${prevRir} RIR) — recalibrated to ~${recalibrated}lb × ${resolvedTargetReps} reps @ ${defaultRir} RIR`;
 
     // ── Priority 5: Productive set (0–3 RIR, within range) → +1 rep ──
     // If already at repRangeMax, +1 rep would exceed the range — recalibrate

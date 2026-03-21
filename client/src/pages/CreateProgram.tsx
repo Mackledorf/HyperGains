@@ -677,40 +677,46 @@ export default function CreateProgram() {
             <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
               {allMuscleGroups.map((mg) => {
                 const current = emphasisByMuscle[mg] ?? "grow";
+                const barCount = current === "maintain" ? 1 : current === "grow" ? 2 : 3;
+                const activeBarClass = current === "maintain"
+                  ? "bg-green-500"
+                  : current === "grow"
+                  ? "bg-yellow-400"
+                  : "bg-red-500";
                 return (
-                  <div key={mg} className="p-3.5">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={mg} className="p-3.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
                         MUSCLE_COLORS[mg] || "bg-muted text-muted-foreground"
                       }`}>
                         {mg}
                       </span>
+                      <button
+                        onClick={() => {
+                          const cycle: ("maintain" | "grow" | "emphasize")[] = ["maintain", "grow", "emphasize"];
+                          const next = cycle[(cycle.indexOf(current) + 1) % 3];
+                          setEmphasisByMuscle({ ...emphasisByMuscle, [mg]: next });
+                        }}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 bg-muted/50 hover:bg-muted active:scale-95 transition-all"
+                        data-testid={`button-emphasis-${mg.toLowerCase()}`}
+                        data-value={current}
+                      >
+                        <div className="flex gap-0.5 items-center">
+                          {[1, 2, 3].map(i => (
+                            <div
+                              key={i}
+                              className={`w-2 h-4 rounded-sm transition-colors ${i <= barCount ? activeBarClass : "bg-muted-foreground/20"}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs font-semibold capitalize text-foreground w-[62px]">{current}</span>
+                      </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(["maintain", "grow", "emphasize"] as const).map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => setEmphasisByMuscle({ ...emphasisByMuscle, [mg]: level })}
-                          className={`rounded-xl py-2 text-xs font-semibold capitalize transition-all border ${
-                            current === level
-                              ? level === "maintain"
-                                ? "bg-muted text-foreground border-border"
-                                : level === "grow"
-                                ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                                : "bg-primary/20 text-primary border-primary/40"
-                              : "bg-muted/50 text-muted-foreground border-transparent hover:border-border"
-                          }`}
-                          data-testid={`button-emphasis-${mg.toLowerCase()}-${level}`}
-                        >
-                          {level}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-1.5 text-[10px] text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {current === "maintain" && "Minimum volume to avoid muscle loss"}
                       {current === "grow" && "MEV→MAV range — steady growth"}
                       {current === "emphasize" && "Full MAV — maximum growth priority"}
-                    </div>
+                    </p>
                   </div>
                 );
               })}

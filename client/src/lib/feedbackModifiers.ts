@@ -47,42 +47,32 @@ export function applyFeedbackModifiers(
   const globalNegative = isNegativeCheckIn(checkIn);
 
   return suggestions.map((s) => {
-    let modified = false;
-    let weight = s.suggestedWeight;
+    const hasJointFlag = !!checkIn.jointFlags[s.exerciseId];
+    if (!globalNegative && !hasJointFlag) return s;
+
     let reps = s.suggestedReps;
     let rir = s.suggestedRir;
-    let reason = s.reason;
+    const reasonParts: string[] = [s.reason];
 
-    // ── Joint pain flag on this exercise → RIR 3 ──
-    if (checkIn.jointFlags[s.exerciseId]) {
-      rir = Math.max(rir ?? 0, JOINT_PAIN_RIR);
-      reason += ` | ⚠️ Joint flag → RIR ${JOINT_PAIN_RIR}`;
-      modified = true;
-    }
-
-    // ── Global negative feedback → hard-override RIR to 2, +1 rep ──
+    // ── Global negative feedback → +1 rep (fatigue is a global reductive force) ──
     if (globalNegative) {
-      // Hard override: always set to 2, even if week ladder is lower
-      rir = NEGATIVE_RIR_OVERRIDE;
-      // +1 rep capped at repRangeMax
       reps = Math.min(reps + 1, repRangeMax);
-      reason += ` | 🔻 Recovery feedback → RIR ${NEGATIVE_RIR_OVERRIDE}, +1 rep`;
-      modified = true;
+      reasonParts.push(`🔻 Recovery feedback → +1 rep, RIR ${NEGATIVE_RIR_OVERRIDE}`);
     }
 
-    // Joint pain takes precedence over global negative for RIR
-    if (checkIn.jointFlags[s.exerciseId] && globalNegative) {
+    // ── Determine final RIR: joint pain overrides fatigue (more conservative) ──
+    if (hasJointFlag) {
       rir = JOINT_PAIN_RIR;
+      reasonParts.push(`⚠️ Joint flag → RIR ${JOINT_PAIN_RIR}`);
+    } else if (globalNegative) {
+      rir = NEGATIVE_RIR_OVERRIDE;
     }
-
-    if (!modified) return s;
 
     return {
       ...s,
-      suggestedWeight: weight,
       suggestedReps: reps,
       suggestedRir: rir,
-      reason,
+      reason: reasonParts.join(" | "),
       feedbackModified: true,
     };
   });

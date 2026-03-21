@@ -214,6 +214,21 @@ export function getRepRange(difficulty: ExerciseDifficulty): RepRange {
   return REP_RANGES[difficulty];
 }
 
+/**
+ * Returns the effective target reps for an exercise based on muscle emphasis.
+ * maintain → lower end (min); grow → middle (target); emphasize → upper end (max).
+ */
+export function getEffectiveTargetReps(
+  repRange: RepRange,
+  emphasis: "maintain" | "grow" | "emphasize"
+): number {
+  switch (emphasis) {
+    case "maintain":  return repRange.min;
+    case "emphasize": return repRange.max;
+    default:          return repRange.target;
+  }
+}
+
 /** Maps difficulty → signal-bar level (1/2/3) for display. */
 export function difficultyToLevel(difficulty: ExerciseDifficulty): 1 | 2 | 3 {
   return difficulty === "easy" ? 1 : difficulty === "medium" ? 2 : 3;

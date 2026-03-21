@@ -133,8 +133,14 @@ export default function ProgramSettings() {
                   "grow";
                 const target = getTargetSetsForEmphasis(mg, current);
 
+                const barCount = current === "maintain" ? 1 : current === "grow" ? 2 : 3;
+                const activeBarClass = current === "maintain"
+                  ? "bg-green-500"
+                  : current === "grow"
+                  ? "bg-yellow-400"
+                  : "bg-red-500";
                 return (
-                  <div key={mg} className="p-3.5 space-y-2">
+                  <div key={mg} className="p-3.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
@@ -143,45 +149,40 @@ export default function ProgramSettings() {
                       >
                         {mg}
                       </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums font-mono">
-                        {target.min}–{target.max} sets/week
+                      <button
+                        onClick={() => {
+                          const cycle: ("maintain" | "grow" | "emphasize")[] = ["maintain", "grow", "emphasize"];
+                          const next = cycle[(cycle.indexOf(current) + 1) % 3];
+                          updateEmphasisMutation.mutate({ muscleGroup: mg, emphasis: next });
+                        }}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 bg-muted/50 hover:bg-muted active:scale-95 transition-all"
+                        data-testid={`button-emphasis-${mg.toLowerCase()}`}
+                        data-value={current}
+                      >
+                        <div className="flex gap-0.5 items-center">
+                          {[1, 2, 3].map(i => (
+                            <div
+                              key={i}
+                              className={`w-2 h-4 rounded-sm transition-colors ${i <= barCount ? activeBarClass : "bg-muted-foreground/20"}`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs font-semibold capitalize text-foreground w-[62px]">{current}</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground">
+                        {current === "maintain" &&
+                          "Minimum volume — preserve muscle, no growth emphasis"}
+                        {current === "grow" &&
+                          "MEV → MAV — consistent growth with balanced recovery"}
+                        {current === "emphasize" &&
+                          "Full MAV — maximum hypertrophy priority this block"}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground tabular-nums font-mono shrink-0 ml-2">
+                        {target.min}–{target.max} sets/wk
                       </span>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(["maintain", "grow", "emphasize"] as const).map((level) => (
-                        <button
-                          key={level}
-                          onClick={() =>
-                            updateEmphasisMutation.mutate({
-                              muscleGroup: mg,
-                              emphasis: level,
-                            })
-                          }
-                          className={`rounded-xl py-2 text-xs font-semibold capitalize transition-all border ${
-                            current === level
-                              ? level === "maintain"
-                                ? "bg-muted text-foreground border-border"
-                                : level === "grow"
-                                ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                                : "bg-primary/20 text-primary border-primary/40"
-                              : "bg-muted/50 text-muted-foreground border-transparent hover:border-border"
-                          }`}
-                          data-testid={`button-emphasis-${mg.toLowerCase()}-${level}`}
-                        >
-                          {level}
-                        </button>
-                      ))}
-                    </div>
-
-                    <p className="text-[10px] text-muted-foreground">
-                      {current === "maintain" &&
-                        "Minimum volume — preserve muscle, no growth emphasis"}
-                      {current === "grow" &&
-                        "MEV → MAV — consistent growth with balanced recovery"}
-                      {current === "emphasize" &&
-                        "Full MAV — maximum hypertrophy priority this block"}
-                    </p>
                   </div>
                 );
               })}

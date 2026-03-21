@@ -35,6 +35,7 @@ import type {
   SetLog,
   OverloadSuggestion,
   PostSessionCheckIn,
+  MuscleGroupEmphasis,
 } from "@shared/schema";
 
 const RIR_OPTIONS = [
@@ -133,15 +134,26 @@ export default function ActiveWorkout() {
     queryFn: () => store.getLatestCheckIn(session!.programId),
   });
 
+  const { data: emphases } = useQuery<MuscleGroupEmphasis[]>({
+    queryKey: ["emphasis", session?.programId],
+    enabled: !!session,
+    queryFn: () => store.getMuscleGroupEmphases(session!.programId),
+  });
+
   // Compute overload data client-side
   const overloadData = useMemo(() => {
     if (!session || !exercises || exercises.length === 0) return undefined;
+
+    const emphasisMap = Object.fromEntries(
+      (emphases || []).map(e => [e.muscleGroup.toLowerCase(), e.emphasis])
+    );
 
     const results: Record<string, { suggestions: OverloadSuggestion[]; defaultRir: number }> = {};
     for (const ex of exercises) {
       const muscleGroup = ex.muscleGroup;
       const defaultRir = getDefaultRirForExercise(session.weekNumber, muscleGroup);
       const previousLogs = store.getLastSetLogsForExercise(ex.id, session.programId);
+      const emphasis = (emphasisMap[muscleGroup.toLowerCase()] ?? "grow") as "maintain" | "grow" | "emphasize";
 
       if (previousLogs.length === 0) {
         results[ex.id] = { suggestions: [], defaultRir };
@@ -151,7 +163,8 @@ export default function ActiveWorkout() {
           ex.targetReps,
           session.weekNumber,
           muscleGroup,
-          ex.difficulty ?? undefined
+          ex.difficulty ?? undefined,
+          emphasis
         );
         // Apply feedback modifiers from the most recent check-in
         const repRange = getRepRange(ex.difficulty ?? "medium");
@@ -164,7 +177,7 @@ export default function ActiveWorkout() {
       }
     }
     return results;
-  }, [session, exercises, latestCheckIn]);
+  }, [session, exercises, latestCheckIn, emphases]);
 
   const allSuggestions = overloadData
     ? Object.fromEntries(Object.entries(overloadData).map(([id, d]) => [id, d.suggestions]))
