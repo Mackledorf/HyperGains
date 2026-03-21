@@ -546,3 +546,80 @@ export function createCheckIn(
   notifyDataChanged();
   return entry;
 }
+
+// ══════════════════════════════════════════════════
+// Analytics queries (completed sessions only)
+// ══════════════════════════════════════════════════
+
+/**
+ * Returns actual completed sets per muscle group for a specific program week.
+ * Only counts sets from completed sessions — in-progress sessions are excluded.
+ */
+export function getActualWeeklySetsPerMuscle(
+  programId: string,
+  weekNumber: number
+): Record<string, number> {
+  const sessions = getStore<WorkoutSession>(KEYS.sessions).filter(
+    (s) =>
+      s.programId === programId &&
+      s.weekNumber === weekNumber &&
+      s.status === "completed"
+  );
+  const sessionIds = new Set(sessions.map((s) => s.id));
+  if (sessionIds.size === 0) return {};
+
+  // Build exerciseId → normalizedMuscleGroup for this program
+  const exerciseMuscle = new Map(
+    getStore<ProgramExercise>(KEYS.exercises)
+      .filter((e) => e.programId === programId)
+      .map((e) => [e.id, e.muscleGroup.toLowerCase()])
+  );
+
+  const result: Record<string, number> = {};
+  for (const log of getStore<SetLog>(KEYS.setLogs)) {
+    if (!sessionIds.has(log.sessionId)) continue;
+    const muscle = exerciseMuscle.get(log.exerciseId);
+    if (muscle) {
+      result[muscle] = (result[muscle] ?? 0) + 1;
+    }
+  }
+  return result;
+}
+
+/**
+ * Returns all completed sessions whose completedAt timestamp falls within
+ * the given calendar month (year/month are the active user's sessions only).
+ * month is 0-indexed (0 = January).
+ */
+export function getCompletedSessionsForMonth(
+  year: number,
+  month: number
+): WorkoutSession[] {
+  return getStore<WorkoutSession>(KEYS.sessions).filter((s) => {
+    if (s.status !== "completed" || !s.completedAt) return false;
+    const d = new Date(s.completedAt);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
+
+/** Returns all PostSessionCheckIns for the active user, newest first. */
+export function getAllCheckIns(): PostSessionCheckIn[] {
+  return getStore<PostSessionCheckIn>(KEYS.checkIns).sort((a, b) =>
+    b.loggedAt.localeCompare(a.loggedAt)
+  );
+}
+
+/** Returns all ExerciseFeedbacks for the given set of session IDs. */
+export function getExerciseFeedbackForSessions(
+  sessionIds: string[]
+): ExerciseFeedback[] {
+  const idSet = new Set(sessionIds);
+  return getStore<ExerciseFeedback>(KEYS.feedback).filter((f) =>
+    idSet.has(f.sessionId)
+  );
+}
+
+/** Returns all ExerciseFeedbacks for the active user. */
+export function getAllExerciseFeedbacks(): ExerciseFeedback[] {
+  return getStore<ExerciseFeedback>(KEYS.feedback);
+}

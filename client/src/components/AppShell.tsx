@@ -1,18 +1,33 @@
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Home, PlusCircle, Clock } from "lucide-react";
+import { Dumbbell, Home, Layers, BarChart3, LogOut } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/create", icon: PlusCircle, label: "New" },
-    { href: "/history", icon: Clock, label: "History" },
+    { href: "/programs", icon: Layers, label: "Programs" },
+    { href: "/history", icon: BarChart3, label: "Progress" },
   ];
+
+  const handleLogout = () => {
+    window.dispatchEvent(new CustomEvent("hg:logout"));
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Header — ultra minimal, no border */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-background">
         <div className="max-w-lg mx-auto flex items-center justify-between px-5 h-12">
           <Link href="/" className="flex items-center gap-2 text-foreground">
@@ -23,6 +38,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               HyperGains
             </span>
           </Link>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Your workout data is saved. You can log back in anytime with
+                  your password.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleLogout}>Sign out</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
 

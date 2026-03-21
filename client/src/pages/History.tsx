@@ -1,10 +1,28 @@
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as store from "@/lib/storage";
 import AppShell from "@/components/AppShell";
+import MuscleVisualizer from "@/components/MuscleVisualizer";
+import CalendarView from "@/components/CalendarView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Clock, TrendingUp, Dumbbell, Check } from "lucide-react";
-import type { Program, WorkoutSession, SetLog } from "@shared/schema";
-import { useState } from "react";
+import { getMuscleVolumeInfo } from "@/lib/muscleColors";
+import { deriveSessionFeeling, FEELING_COLORS } from "@/lib/sessionFeeling";
+import type {
+  Program,
+  WorkoutSession,
+  SetLog,
+  ExerciseFeedback,
+  PostSessionCheckIn,
+} from "@shared/schema";
+
+const ALL_MUSCLES = [
+  "chest", "back", "shoulders", "biceps", "triceps",
+  "quads", "hamstrings", "glutes", "calves", "abs", "traps", "forearms",
+];
+
+// ── Session card (Sessions tab) ──────────────────────────────────────────────
 
 function SessionCard({ session }: { session: WorkoutSession }) {
   const [expanded, setExpanded] = useState(false);
@@ -69,12 +87,15 @@ function SessionCard({ session }: { session: WorkoutSession }) {
       {expanded && logs && (
         <div className="border-t border-border/50">
           {Object.entries(groupedLogs).map(([name, setLogs]) => (
-            <div key={name} className="px-4 py-3 border-b border-border/30 last:border-0">
+            <div
+              key={name}
+              className="px-4 py-3 border-b border-border/30 last:border-0"
+            >
               <p className="micro-label mb-1.5">{name}</p>
               <div className="flex flex-wrap gap-1.5">
                 {setLogs
                   .sort((a, b) => a.setNumber - b.setNumber)
-                  .map(log => (
+                  .map((log) => (
                     <span
                       key={log.id}
                       className={`inline-flex items-center gap-0.5 text-[10px] tabular-nums font-mono font-medium px-2 py-1 rounded-md ${
@@ -99,69 +120,207 @@ function SessionCard({ session }: { session: WorkoutSession }) {
   );
 }
 
+// ── Main History / Progress page ─────────────────────────────────────────────
+
 export default function History() {
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
+
+  // Active program (for week number + sessions tab)
   const { data: activeProgram } = useQuery<Program | null>({
     queryKey: ["programs", "active"],
     queryFn: () => store.getActiveProgram() ?? null,
   });
 
-  const { data: sessions, isLoading } = useQuery<WorkoutSession[]>({
+  // Sessions for the Sessions tab (active program only)
+  const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
     queryKey: ["sessions", activeProgram?.id],
     enabled: !!activeProgram,
     queryFn: () => store.getWorkoutSessions(activeProgram!.id),
   });
 
-  const completedSessions = (sessions || []).filter(s => s.status === "completed");
-  const totalSessions = completedSessions.length;
+  // Actual weekly sets for the muscle visualizer (current program week)
+  const { data: weeklySets } = useQuery<Record<string, number>>({
+    queryKey: ["weeklySets", activeProgram?.id, activeProgram?.currentWeekNumber],
+    enabled: !!activeProgram,
+    queryFn: () =>
+      store.getActualWeeklySetsPerMuscle(
+        activeProgram!.id,
+        activeProgram!.currentWeekNumber ?? 1
+      ),
+  });
+
+  // Completed sessions in the displayed calendar month (all programs)
+  const { data: monthSessions } = useQuery<WorkoutSession[]>({
+    queryKey: ["sessions", "month", calYear, calMonth],
+    queryFn: () => store.getCompletedSessionsForMonth(calYear, calMonth),
+  });
+
+  // All check-ins (for calendar feeling colors)
+  const { data: allCheckIns = [] } = useQuery<PostSessionCheckIn[]>({
+    queryKey: ["checkIns", "all"],
+    queryFn: () => store.getAllCheckIns(),
+  });
+
+  // All exercise feedbacks (for calendar feeling colors)
+  const { data: allFeedbacks = [] } = useQuery<ExerciseFeedback[]>({
+    queryKey: ["feedbacks", "all"],
+    queryFn: () => store.getAllExerciseFeedbacks(),
+  });
+
+  // ── Derived: muscle volume data ──────────────────────────────────────────
+  const muscleData = useMemo(
+    () =>
+      Object.fromEntries(
+        ALL_MUSCLES.map((m) => [m, getMuscleVolumeInfo(m, weeklySets?.[m] ?? 0)])
+      ),
+    [weeklySets]
+  );
+
+  // ── Derived: calendar day map ────────────────────────────────────────────
+  const calendarSessions = useMemo(() => {
+    if (!monthSessions) return new Map<string, { color: string; dayLabel: string; duration: number | null; feelingLabel: string }>();
+
+    const checkInMap = new Map<string, PostSessionCheckIn>(
+      allCheckIns.map((c) => [c.sessionId, c])
+    );
+    const feedbacksBySession = new Map<string, ExerciseFeedback[]>();
+    for (const f of allFeedbacks) {
+      if (!feedbacksBySession.has(f.sessionId))
+        feedbacksBySession.set(f.sessionId, []);
+      feedbacksBySession.get(f.sessionId)!.push(f);
+    }
+
+    const result = new Map<string, { color: string; dayLabel: string; duration: number | null; feelingLabel: string }>();
+
+    for (const s of monthSessions) {
+      if (!s.completedAt) continue;
+      const checkIn = checkInMap.get(s.id);
+      const feedbacks = feedbacksBySession.get(s.id) ?? [];
+      const feeling = deriveSessionFeeling(checkIn, feedbacks);
+
+      const dateStr = s.completedAt.substring(0, 10);
+      const startDate = new Date(s.startedAt);
+      const endDate = new Date(s.completedAt);
+      const duration = Math.round(
+        (endDate.getTime() - startDate.getTime()) / 60000
+      );
+
+      result.set(dateStr, {
+        color: FEELING_COLORS[feeling.color],
+        dayLabel: s.dayLabel,
+        duration,
+        feelingLabel: feeling.label,
+      });
+    }
+    return result;
+  }, [monthSessions, allCheckIns, allFeedbacks]);
+
+  const completedSessions = (sessions ?? []).filter(
+    (s) => s.status === "completed"
+  );
 
   return (
     <AppShell>
-      <div className="space-y-5">
+      <div className="space-y-4">
+        {/* Page header */}
         <div>
           <h1 className="text-lg font-bold" data-testid="text-history-title">
-            History
+            Progress
           </h1>
           <p className="micro-label mt-0.5">
             {activeProgram ? activeProgram.name : "No active program"}
           </p>
         </div>
 
-        {activeProgram && (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-card p-3 text-center">
-              <p className="stat-value text-2xl">{totalSessions}</p>
-              <p className="micro-label mt-1">Sessions</p>
-            </div>
-            <div className="rounded-2xl bg-card p-3 text-center">
-              <p className="stat-value text-2xl">{activeProgram.durationWeeks}</p>
-              <p className="micro-label mt-1">Weeks</p>
-            </div>
-            <div className="rounded-2xl bg-card p-3 text-center">
-              <p className="stat-value text-2xl">{activeProgram.daysPerWeek}</p>
-              <p className="micro-label mt-1">Days/Wk</p>
-            </div>
-          </div>
-        )}
+        <Tabs defaultValue="overview">
+          <TabsList className="w-full">
+            <TabsTrigger value="overview" className="flex-1">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="flex-1">
+              Sessions
+            </TabsTrigger>
+          </TabsList>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-20 w-full rounded-2xl" />
-            <Skeleton className="h-20 w-full rounded-2xl" />
-          </div>
-        ) : completedSessions.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-semibold mb-1">No workouts yet</p>
-            <p className="text-xs">Complete a workout to see your history here.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {completedSessions.map(session => (
-              <SessionCard key={session.id} session={session} />
-            ))}
-          </div>
-        )}
+          {/* ── OVERVIEW TAB ──────────────────────────────────── */}
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            {/* Muscle volume visualizer */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold">Weekly Volume</h2>
+                {activeProgram && (
+                  <span className="text-xs text-muted-foreground">
+                    Week {activeProgram.currentWeekNumber ?? 1} of{" "}
+                    {activeProgram.durationWeeks}
+                  </span>
+                )}
+              </div>
+              <div className="rounded-2xl bg-card p-4">
+                <MuscleVisualizer muscleData={muscleData} />
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div>
+              <h2 className="text-sm font-bold mb-2">Training Log</h2>
+              <div className="rounded-2xl bg-card p-4">
+                <CalendarView
+                  year={calYear}
+                  month={calMonth}
+                  sessions={calendarSessions}
+                  onMonthChange={(y, m) => {
+                    setCalYear(y);
+                    setCalMonth(m);
+                  }}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── SESSIONS TAB ──────────────────────────────────── */}
+          <TabsContent value="sessions" className="space-y-4 mt-4">
+            {activeProgram && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-card p-3 text-center">
+                  <p className="stat-value text-2xl">{completedSessions.length}</p>
+                  <p className="micro-label mt-1">Sessions</p>
+                </div>
+                <div className="rounded-2xl bg-card p-3 text-center">
+                  <p className="stat-value text-2xl">{activeProgram.durationWeeks}</p>
+                  <p className="micro-label mt-1">Weeks</p>
+                </div>
+                <div className="rounded-2xl bg-card p-3 text-center">
+                  <p className="stat-value text-2xl">{activeProgram.daysPerWeek}</p>
+                  <p className="micro-label mt-1">Days/Wk</p>
+                </div>
+              </div>
+            )}
+
+            {sessionsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+              </div>
+            ) : completedSessions.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm font-semibold mb-1">No workouts yet</p>
+                <p className="text-xs">
+                  Complete a workout to see your history here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {completedSessions.map((session) => (
+                  <SessionCard key={session.id} session={session} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </AppShell>
   );
 }
+

@@ -13,6 +13,7 @@ import Dashboard from "@/pages/Dashboard";
 import CreateProgram from "@/pages/CreateProgram";
 import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
+import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import ProgramSettings from "@/pages/ProgramSettings";
 import * as store from "@/lib/storage";
@@ -24,6 +25,7 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/programs" component={Programs} />
       <Route path="/create" component={CreateProgram} />
       <Route path="/program/:id/settings" component={ProgramSettings} />
       <Route path="/program/:id" component={ProgramDetail} />
@@ -53,6 +55,17 @@ function App() {
     sessionStorage.setItem(AUTH_SESSION_KEY, userId);
     setActiveUserId(userId);
   };
+
+  // Logout handler — fired by AppShell's logout button via custom event
+  useEffect(() => {
+    const onLogout = () => {
+      store.setActiveUser("");
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      setActiveUserId(null);
+    };
+    window.addEventListener("hg:logout", onLogout);
+    return () => window.removeEventListener("hg:logout", onLogout);
+  }, []);
 
   // Push to gist whenever data changes (debounced) and on page unload
   useEffect(() => {
