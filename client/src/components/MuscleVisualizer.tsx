@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { MuscleVolumeInfo } from "@/lib/muscleColors";
-import { VOLUME_ZONE_COLORS } from "@/lib/muscleColors";
+import { VOLUME_ZONE_COLORS, MUSCLE_FILL_COLORS } from "@/lib/muscleColors";
 import {
   MUSCLE_DISPLAY_NAMES,
   FRONT_OUTLINE,
@@ -43,9 +43,9 @@ export default function MuscleVisualizer({ muscleData }: Props) {
     if (!muscle) return "hsl(var(--background))";
     // Fatigue mode: always show accumulated volume color
     if (showFatigue) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
-    // Default mode: hover reveals zone color, otherwise background
+    // Default mode: hover reveals zone color, otherwise show muscle's identity color
     if (hoveredMuscle === muscle) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
-    return "hsl(var(--background))";
+    return MUSCLE_FILL_COLORS[muscle] ?? "hsl(var(--background))";
   };
 
   const selectedInfo = selected ? muscleData[selected] : null;
@@ -87,9 +87,17 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
         >
           <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Front muscle map">
+            <defs>
+              {/* clipRule="evenodd" mirrors the outline's fillRule so fills are clipped inside the body silhouette */}
+              <clipPath id="front-body-clip">
+                <path d={FRONT_OUTLINE} clipRule="evenodd" />
+              </clipPath>
+            </defs>
             {/* fillRule="evenodd" ensures compound-path interior subpaths act as holes (arm gaps, etc.) */}
             <path d={FRONT_OUTLINE} fillRule="evenodd" style={{ fill: "hsl(var(--foreground))" }} />
-            {renderFills(FRONT_FILLS, FRONT_INDEX_TO_MUSCLE)}
+            <g clipPath="url(#front-body-clip)">
+              {renderFills(FRONT_FILLS, FRONT_INDEX_TO_MUSCLE)}
+            </g>
           </svg>
         </div>
 
@@ -99,8 +107,15 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
         >
           <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Back muscle map">
+            <defs>
+              <clipPath id="back-body-clip">
+                <path d={BACK_OUTLINE} clipRule="evenodd" />
+              </clipPath>
+            </defs>
             <path d={BACK_OUTLINE} fillRule="evenodd" style={{ fill: "hsl(var(--foreground))" }} />
-            {renderFills(BACK_FILLS, BACK_INDEX_TO_MUSCLE)}
+            <g clipPath="url(#back-body-clip)">
+              {renderFills(BACK_FILLS, BACK_INDEX_TO_MUSCLE)}
+            </g>
           </svg>
         </div>
       </div>

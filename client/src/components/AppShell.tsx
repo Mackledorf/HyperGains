@@ -70,6 +70,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
+      {/* Dev build footer */}
+      <div className="w-full text-center py-1 pb-[env(safe-area-inset-bottom)] bg-background border-t border-border/30">
+        <p className="text-[10px] font-mono text-muted-foreground/40 tracking-wide">
+          {__GIT_HASH__} &middot; {new Date(__GIT_DATE__).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+        </p>
+      </div>
+
       {/* Bottom nav — floating pill style */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-lg mx-auto px-5 pb-3">

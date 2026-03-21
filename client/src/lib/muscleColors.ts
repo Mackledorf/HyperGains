@@ -32,6 +32,26 @@ const ZONE_LABELS: Record<VolumeZone, string> = {
 };
 
 /**
+ * Raw hex fill colors per muscle for the visualizer's default mode (accumulate fatigue off).
+ * Keyed by lowercase muscle name matching muscle map keys.
+ * Hues match the MUSCLE_COLORS badges below.
+ */
+export const MUSCLE_FILL_COLORS: Record<string, string> = {
+  chest:      "#f87171",  // red-400
+  back:       "#60a5fa",  // blue-400
+  shoulders:  "#fb923c",  // orange-400
+  biceps:     "#c084fc",  // purple-400
+  triceps:    "#f472b6",  // pink-400
+  quads:      "#34d399",  // emerald-400
+  hamstrings: "#2dd4bf",  // teal-400
+  glutes:     "#fbbf24",  // amber-400
+  calves:     "#a3e635",  // lime-400
+  abs:        "#22d3ee",  // cyan-400
+  traps:      "#818cf8",  // indigo-400
+  forearms:   "#a78bfa",  // violet-400
+};
+
+/**
  * Tailwind badge classes for each muscle group.
  * Single source of truth — imported by CreateProgram, ProgramSettings, etc.
  */
