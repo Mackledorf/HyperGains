@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import * as store from "@/lib/storage";
@@ -6,18 +7,22 @@ import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import WeeklyReviewModal from "@/components/WeeklyReviewModal";
 import {
   PlusCircle,
   Play,
   Dumbbell,
   ChevronRight,
   Zap,
+  CalendarCheck,
+  Settings,
 } from "lucide-react";
 import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [showWeeklyReview, setShowWeeklyReview] = useState(false);
 
   const { data: activeProgram, isLoading: loadingProgram } = useQuery<Program | null>({
     queryKey: ["programs", "active"],
@@ -36,10 +41,24 @@ export default function Dashboard() {
     queryFn: () => store.getProgramExercises(activeProgram!.id),
   });
 
+  const advanceWeekMutation = useMutation({
+    mutationFn: () => {
+      const result = store.advanceWeek(activeProgram!.id);
+      if (!result) throw new Error("Failed to advance week");
+      return Promise.resolve(result);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
+      setShowWeeklyReview(true);
+    },
+    onError: () => {
+      toast({ title: "Failed to end week", variant: "destructive" });
+    },
+  });
+
   const startWorkoutMutation = useMutation({
     mutationFn: ({ dayIndex, dayLabel }: { dayIndex: number; dayLabel: string }) => {
-      const completedSessions = (sessions || []).filter(s => s.status === "completed");
-      const weekNumber = Math.floor(completedSessions.length / (activeProgram?.daysPerWeek || 1)) + 1;
+      const weekNumber = activeProgram?.currentWeekNumber ?? 1;
 
       const session = store.createWorkoutSession({
         programId: activeProgram!.id,
@@ -68,8 +87,9 @@ export default function Dashboard() {
   });
 
   const completedCount = sessions?.filter(s => s.status === "completed").length || 0;
-  const currentWeek = activeProgram
-    ? Math.min(Math.floor(completedCount / (activeProgram.daysPerWeek || 1)) + 1, activeProgram.durationWeeks)
+  const currentWeek = activeProgram?.currentWeekNumber ?? 1;
+  const progressPct = activeProgram
+    ? Math.round((currentWeek / activeProgram.durationWeeks) * 100)
     : 0;
 
   if (loadingProgram) {
@@ -110,17 +130,29 @@ export default function Dashboard() {
     );
   }
 
-  const progressPct = Math.round((currentWeek / activeProgram.durationWeeks) * 100);
-
   return (
     <AppShell>
+      {activeProgram && showWeeklyReview && (
+        <WeeklyReviewModal
+          program={activeProgram}
+          weekNumber={currentWeek - 1}
+          onClose={() => setShowWeeklyReview(false)}
+        />
+      )}
       <div className="space-y-5">
         {/* Program header */}
-        <div>
-          <p className="micro-label mb-1">{activeProgram.splitType}</p>
-          <h1 className="text-lg font-bold" data-testid="text-program-name">
-            {activeProgram.name}
-          </h1>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="micro-label mb-1">{activeProgram.splitType}</p>
+            <h1 className="text-lg font-bold" data-testid="text-program-name">
+              {activeProgram.name}
+            </h1>
+          </div>
+          <Link href={`/program/${activeProgram.id}/settings`}>
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+              <Settings className="w-4 h-4" />
+            </button>
+          </Link>
         </div>
 
         {/* Stats row */}
@@ -215,6 +247,27 @@ export default function Dashboard() {
             })}
           </div>
         </div>
+
+        {/* End Week button */}
+        <Button
+          variant="outline"
+          className="w-full rounded-xl h-11 border-dashed"
+          onClick={() => {
+            if (inProgressSession) {
+              toast({
+                title: "Finish your active workout first",
+                description: "Complete or discard the current session before ending the week.",
+              });
+              return;
+            }
+            advanceWeekMutation.mutate();
+          }}
+          disabled={advanceWeekMutation.isPending}
+          data-testid="button-end-week"
+        >
+          <CalendarCheck className="w-4 h-4 mr-2" />
+          End Week {currentWeek}
+        </Button>
 
         {/* View program */}
         <Link href={`/program/${activeProgram.id}`}>

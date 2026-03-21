@@ -5,6 +5,7 @@ import * as store from "@/lib/storage";
 import {
   computeOverloadSuggestions,
   getDefaultRirForExercise,
+  RIR_JUNK_THRESHOLD,
 } from "@/lib/overload";
 import { useLocation, useParams } from "wouter";
 import AppShell from "@/components/AppShell";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import ExerciseFeedbackSheet from "@/components/ExerciseFeedbackSheet";
 import {
   ChevronLeft,
   Check,
@@ -30,6 +32,14 @@ import type {
   SetLog,
   OverloadSuggestion,
 } from "@shared/schema";
+
+const RIR_OPTIONS = [
+  { label: "0", value: "0" },
+  { label: "1", value: "1" },
+  { label: "2", value: "2" },
+  { label: "3", value: "3" },
+  { label: "4+", value: "4" },
+];
 
 type SetEntry = {
   id?: string;
@@ -84,6 +94,8 @@ export default function ActiveWorkout() {
   const [activeRestTimer, setActiveRestTimer] = useState<{ exerciseId: string; seconds: number } | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  // exerciseId that needs post-exercise feedback
+  const [feedbackExerciseId, setFeedbackExerciseId] = useState<string | null>(null);
 
   // Workout timer
   useEffect(() => {
@@ -123,8 +135,7 @@ export default function ActiveWorkout() {
       } else {
         const suggestions = computeOverloadSuggestions(
           previousLogs,
-          ex.targetRepsMin,
-          ex.targetRepsMax,
+          ex.targetReps,
           session.weekNumber,
           muscleGroup
         );
@@ -289,6 +300,12 @@ export default function ActiveWorkout() {
     setExerciseSets({ ...exerciseSets, [exerciseId]: updatedSets });
 
     setActiveRestTimer({ exerciseId, seconds: restSeconds });
+
+    // If all sets for this exercise are now done, prompt for feedback
+    const allDone = updatedSets.every(s => s.completed || s.skipped);
+    if (allDone) {
+      setFeedbackExerciseId(exerciseId);
+    }
   };
 
   const updateSetField = (exerciseId: string, setIdx: number, field: keyof SetEntry, value: string) => {
@@ -448,7 +465,7 @@ export default function ActiveWorkout() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {exercise.muscleGroup} · {exercise.targetRepsMin}-{exercise.targetRepsMax} reps · {exercise.restSeconds}s rest
+                      {exercise.muscleGroup} · target {exercise.targetReps} reps · {exercise.restSeconds}s rest
                       {overloadData?.[exercise.id] && (
                         <span className="text-primary/70"> · {overloadData[exercise.id].defaultRir} RIR target</span>
                       )}
@@ -527,25 +544,27 @@ export default function ActiveWorkout() {
                           data-testid={`input-reps-${exercise.id}-${idx}`}
                         />
                         <div className="relative">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={5}
+                          {/* RIR dropdown — 0, 1, 2, 3, 4+ */}
+                          <select
                             value={set.rir}
                             onChange={e => updateSetField(exercise.id, idx, "rir", e.target.value)}
                             disabled={set.completed}
-                            className={`h-8 text-sm tabular-nums font-mono rounded-lg border-0 ${
+                            className={`h-8 w-full text-sm tabular-nums font-mono rounded-lg border-0 px-2 appearance-none ${
                               set.completed
                                 ? "bg-transparent text-[hsl(var(--set-complete-text))] font-semibold"
-                                : "bg-muted"
+                                : "bg-muted text-foreground"
                             }`}
-                            placeholder="-"
-                            data-testid={`input-rir-${exercise.id}-${idx}`}
-                          />
+                            data-testid={`select-rir-${exercise.id}-${idx}`}
+                          >
+                            <option value="" disabled>-</option>
+                            {RIR_OPTIONS.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
                           {set.suggestion && !set.completed && set.suggestion.previousRir !== null && set.suggestion.suggestedRir !== set.suggestion.previousRir && (
                             <div className="absolute -top-4 left-0 flex items-center gap-0.5 text-[9px] text-primary font-semibold">
                               <ArrowUp className="w-2.5 h-2.5" />
-                              was {set.suggestion.previousRir}
+                              was {set.suggestion.previousRir >= RIR_JUNK_THRESHOLD ? "4+" : set.suggestion.previousRir}
                             </div>
                           )}
                         </div>
@@ -677,6 +696,15 @@ export default function ActiveWorkout() {
           </div>
         )}
       </div>
+
+      {/* Post-exercise feedback sheet */}
+      {feedbackExerciseId && session && exercises && (
+        <ExerciseFeedbackSheet
+          sessionId={session.id}
+          exercise={exercises.find(e => e.id === feedbackExerciseId)!}
+          onClose={() => setFeedbackExerciseId(null)}
+        />
+      )}
     </AppShell>
   );
 }

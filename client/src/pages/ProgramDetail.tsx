@@ -84,7 +84,7 @@ export default function ProgramDetail() {
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground tabular-nums font-mono font-medium">
-                        {ex.targetSets} × {ex.targetRepsMin}-{ex.targetRepsMax}
+                        {ex.targetSets} × {ex.targetReps}
                       </p>
                     </div>
                   ))}

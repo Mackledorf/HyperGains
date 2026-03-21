@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Plus, X, Dumbbell, Search, Pencil } from "lucide-react";
-import type { Program } from "@shared/schema";
+import type { Program, MuscleGroupEmphasis } from "@shared/schema";
 
 const SPLIT_PRESETS: Record<string, { days: string[]; daysPerWeek: number }> = {
   PPL: { days: ["Push", "Pull", "Legs", "Push", "Pull", "Legs"], daysPerWeek: 6 },
@@ -158,6 +158,7 @@ export default function CreateProgram() {
   const [customMode, setCustomMode] = useState(false);
   const [customExName, setCustomExName] = useState("");
   const [customExMuscle, setCustomExMuscle] = useState("");
+  const [emphasisByMuscle, setEmphasisByMuscle] = useState<Record<string, MuscleGroupEmphasis["emphasis"]>>({});
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -220,6 +221,7 @@ export default function CreateProgram() {
         daysPerWeek: dayLabels.length,
         dayLabels,
         createdAt: new Date().toISOString(),
+        currentWeekNumber: 1,
       });
 
       for (const [dayIdx, exercises] of Object.entries(exercisesByDay)) {
@@ -232,11 +234,15 @@ export default function CreateProgram() {
             muscleGroup: ex.muscleGroup,
             sortOrder: i,
             targetSets: 3,
-            targetRepsMin: 8,
-            targetRepsMax: 12,
+            targetReps: 10,
             restSeconds: 120,
           });
         }
+      }
+
+      // Save muscle group emphasis selections
+      for (const [muscleGroup, emphasis] of Object.entries(emphasisByMuscle)) {
+        store.upsertMuscleGroupEmphasis(program.id, muscleGroup, emphasis);
       }
 
       return Promise.resolve(program);
@@ -253,6 +259,15 @@ export default function CreateProgram() {
 
   const canProceedStep0 = name.trim() && splitType && dayLabels.length > 0 && durationWeeks > 0;
   const currentDayExercises = exercisesByDay[currentDayIndex] || [];
+
+  // Unique muscle groups across all days (for emphasis step)
+  const allMuscleGroups = Array.from(
+    new Set(
+      Object.values(exercisesByDay)
+        .flat()
+        .map((e) => e.muscleGroup)
+    )
+  ).sort();
 
   const getFilteredExercises = () => {
     if (searchQuery.trim()) {
@@ -284,7 +299,7 @@ export default function CreateProgram() {
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (step === 0 ? navigate("/") : setStep(0))}
+            onClick={() => (step === 0 ? navigate("/") : setStep(step - 1))}
             className="w-8 h-8 rounded-xl flex items-center justify-center bg-card transition-colors active:bg-muted"
             data-testid="button-back"
           >
@@ -293,7 +308,7 @@ export default function CreateProgram() {
           <div>
             <h1 className="text-lg font-bold">Create Program</h1>
             <p className="micro-label">
-              Step {step + 1} of 2 — {step === 0 ? "Setup" : "Exercises"}
+              Step {step + 1} of 3 — {step === 0 ? "Setup" : step === 1 ? "Exercises" : "Muscle Emphasis"}
             </p>
           </div>
         </div>
@@ -616,8 +631,70 @@ export default function CreateProgram() {
             )}
 
             <Button
+              onClick={() => setStep(2)}
+              disabled={Object.values(exercisesByDay).every(arr => arr.length === 0)}
+              className="w-full rounded-xl h-11"
+              data-testid="button-next-to-emphasis"
+            >
+              Next — Set Muscle Emphasis
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* ── Step 2: Muscle Group Emphasis ── */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              For each muscle group in your program, choose how much you want to
+              prioritize it. This determines your weekly set targets.
+            </p>
+
+            <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
+              {allMuscleGroups.map((mg) => {
+                const current = emphasisByMuscle[mg] ?? "grow";
+                return (
+                  <div key={mg} className="p-3.5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
+                        MUSCLE_COLORS[mg] || "bg-muted text-muted-foreground"
+                      }`}>
+                        {mg}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["maintain", "grow", "emphasize"] as const).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setEmphasisByMuscle({ ...emphasisByMuscle, [mg]: level })}
+                          className={`rounded-xl py-2 text-xs font-semibold capitalize transition-all border ${
+                            current === level
+                              ? level === "maintain"
+                                ? "bg-muted text-foreground border-border"
+                                : level === "grow"
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                                : "bg-primary/20 text-primary border-primary/40"
+                              : "bg-muted/50 text-muted-foreground border-transparent hover:border-border"
+                          }`}
+                          data-testid={`button-emphasis-${mg.toLowerCase()}-${level}`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-muted-foreground">
+                      {current === "maintain" && "Minimum volume to avoid muscle loss"}
+                      {current === "grow" && "MEV→MAV range — steady growth"}
+                      {current === "emphasize" && "Full MAV — maximum growth priority"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button
               onClick={() => createProgramMutation.mutate()}
-              disabled={createProgramMutation.isPending || Object.values(exercisesByDay).every(arr => arr.length === 0)}
+              disabled={createProgramMutation.isPending}
               className="w-full rounded-xl h-11"
               data-testid="button-create-program-final"
             >

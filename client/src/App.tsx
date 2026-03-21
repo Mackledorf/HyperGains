@@ -14,6 +14,7 @@ import CreateProgram from "@/pages/CreateProgram";
 import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
 import ProgramDetail from "@/pages/ProgramDetail";
+import ProgramSettings from "@/pages/ProgramSettings";
 import * as store from "@/lib/storage";
 import * as gist from "@/lib/gist";
 
@@ -24,6 +25,7 @@ function AppRouter() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/create" component={CreateProgram} />
+      <Route path="/program/:id/settings" component={ProgramSettings} />
       <Route path="/program/:id" component={ProgramDetail} />
       <Route path="/workout/:sessionId" component={ActiveWorkout} />
       <Route path="/history" component={History} />
