@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { HG_EVENTS } from "@/lib/storage";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -22,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   ];
 
   const handleLogout = () => {
-    window.dispatchEvent(new CustomEvent("hg:logout"));
+    window.dispatchEvent(new CustomEvent(HG_EVENTS.LOGOUT));
   };
 
   return (

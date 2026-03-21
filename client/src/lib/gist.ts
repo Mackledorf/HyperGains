@@ -9,6 +9,9 @@ const PAT = import.meta.env.VITE_GITHUB_PAT as string;
 const GIST_DESCRIPTION = "hypergains-data";
 const GIST_ID_KEY = "hg_gist_id";
 
+/** Debounce delay for background sync, in ms. */
+const SYNC_DEBOUNCE_MS = 3000;
+
 // ── Gist ID cache ─────────────────────────────────────────────────────────────
 
 function getGistId(): string {
@@ -17,6 +20,18 @@ function getGistId(): string {
 
 function saveGistId(id: string): void {
   localStorage.setItem(GIST_ID_KEY, id);
+}
+
+// ── GitHub API types — minimal shapes matching the GitHub Gist API v3 ──────────
+
+interface GistFile {
+  content: string;
+}
+
+interface GistItem {
+  id: string;
+  description: string;
+  files: Record<string, GistFile>;
 }
 
 // ── GitHub API wrapper ────────────────────────────────────────────────────────
@@ -57,9 +72,9 @@ async function getMasterGistId(): Promise<string> {
 
   let page = 1;
   while (true) {
-    const list = (await ghApi("GET", `/gists?per_page=100&page=${page}`)) as any[];
+    const list = (await ghApi("GET", `/gists?per_page=100&page=${page}`)) as GistItem[];
     if (!Array.isArray(list) || list.length === 0) break;
-    const found = list.find((g: any) => g.description === GIST_DESCRIPTION);
+    const found = list.find((g) => g.description === GIST_DESCRIPTION);
     if (found) {
       saveGistId(found.id);
       return found.id;
@@ -75,7 +90,7 @@ async function getMasterGistId(): Promise<string> {
     files: {
       "README.md": { content: "HyperGains user data store. Do not edit manually." },
     },
-  })) as any;
+  })) as GistItem;
   saveGistId(created.id);
   return created.id;
 }
@@ -90,7 +105,7 @@ function userFilename(userId: string): string {
 export async function getUserData(userId: string): Promise<UserDataPayload | null> {
   try {
     const gistId = await getMasterGistId();
-    const raw = (await ghApi("GET", `/gists/${gistId}`)) as any;
+    const raw = (await ghApi("GET", `/gists/${gistId}`)) as GistItem;
     const file = raw?.files?.[userFilename(userId)];
     if (!file?.content) return null;
     return JSON.parse(file.content) as UserDataPayload;
@@ -134,7 +149,7 @@ export function scheduleSync(payload: UserDataPayload): void {
     } catch (err) {
       console.warn("[HyperGains] background gist sync failed", err);
     }
-  }, 3000);
+  }, SYNC_DEBOUNCE_MS);
 }
 
 export async function flushSync(payload: UserDataPayload): Promise<void> {

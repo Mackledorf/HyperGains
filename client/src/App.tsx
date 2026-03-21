@@ -17,9 +17,8 @@ import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import ProgramSettings from "@/pages/ProgramSettings";
 import * as store from "@/lib/storage";
+import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
 import * as gist from "@/lib/gist";
-
-const AUTH_SESSION_KEY = "hg_session";
 
 function AppRouter() {
   return (
@@ -38,7 +37,7 @@ function AppRouter() {
 
 function App() {
   const [activeUserId, setActiveUserId] = useState<string | null>(() => {
-    const stored = sessionStorage.getItem(AUTH_SESSION_KEY);
+    const stored = sessionStorage.getItem(SESSION_KEY);
     if (!stored) return null;
     // Validate stored ID still corresponds to a real user
     const valid = store.getUserById(stored);
@@ -46,13 +45,13 @@ function App() {
       store.setActiveUser(stored);
       return stored;
     }
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
     return null;
   });
 
   const handleAuthenticated = (userId: string) => {
     store.setActiveUser(userId);
-    sessionStorage.setItem(AUTH_SESSION_KEY, userId);
+    sessionStorage.setItem(SESSION_KEY, userId);
     setActiveUserId(userId);
   };
 
@@ -60,11 +59,11 @@ function App() {
   useEffect(() => {
     const onLogout = () => {
       store.setActiveUser("");
-      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
       setActiveUserId(null);
     };
-    window.addEventListener("hg:logout", onLogout);
-    return () => window.removeEventListener("hg:logout", onLogout);
+    window.addEventListener(HG_EVENTS.LOGOUT, onLogout);
+    return () => window.removeEventListener(HG_EVENTS.LOGOUT, onLogout);
   }, []);
 
   // Push to gist whenever data changes (debounced) and on page unload
@@ -78,10 +77,10 @@ function App() {
       void gist.flushSync(store.exportAll());
     };
 
-    window.addEventListener("hg:data-changed", onDataChanged);
+    window.addEventListener(HG_EVENTS.DATA_CHANGED, onDataChanged);
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
-      window.removeEventListener("hg:data-changed", onDataChanged);
+      window.removeEventListener(HG_EVENTS.DATA_CHANGED, onDataChanged);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, [activeUserId]);

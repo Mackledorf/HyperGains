@@ -20,8 +20,8 @@ export const REP_RANGES: Record<ExerciseDifficulty, RepRange> = {
   hard:   { min: 5,  max: 10, target: 8  },
 };
 
-// Maps exercise name → tier. Last entry wins for duplicates (same tier in all cases).
-const EXERCISE_TIERS: Record<string, ExerciseDifficulty> = {
+// Maps exercise name → tier. Frozen to prevent accidental mutation.
+const EXERCISE_TIERS: Readonly<Record<string, ExerciseDifficulty>> = Object.freeze({
   // ── Chest ──────────────────────────────────────────────────────────────
   "Bench Press":                "hard",
   "Incline Bench Press":        "hard",
@@ -202,11 +202,18 @@ const EXERCISE_TIERS: Record<string, ExerciseDifficulty> = {
   "Cable Wrist Curl":           "easy",
   "Dead Hang":                  "easy",
   "Gripper":                    "easy",
-};
+});
 
-/** Returns the difficulty tier for a known exercise, defaulting to "medium". */
+// Case-insensitive lookup map — built once at module initialisation.
+const EXERCISE_TIERS_CI: Map<string, ExerciseDifficulty> = new Map(
+  Object.entries(EXERCISE_TIERS).map(([k, v]) => [k.toLowerCase().trim(), v])
+);
+
+/** Returns the difficulty tier for a known exercise, defaulting to "medium".
+ *  Lookup is case-insensitive so user-typed exercise names always resolve correctly.
+ */
 export function getDifficultyForExercise(name: string): ExerciseDifficulty {
-  return EXERCISE_TIERS[name] ?? "medium";
+  return EXERCISE_TIERS_CI.get(name.toLowerCase().trim()) ?? "medium";
 }
 
 /** Returns the rep range for a given difficulty tier. */

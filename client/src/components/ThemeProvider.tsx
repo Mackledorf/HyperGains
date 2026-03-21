@@ -14,7 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
-      : "dark"; // Default dark for a gym app
+      : "light";
   });
 
   useEffect(() => {

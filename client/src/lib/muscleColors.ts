@@ -31,6 +31,25 @@ const ZONE_LABELS: Record<VolumeZone, string> = {
   "above-mav": "High Volume",
 };
 
+/**
+ * Tailwind badge classes for each muscle group.
+ * Single source of truth — imported by CreateProgram, ProgramSettings, etc.
+ */
+export const MUSCLE_COLORS: Record<string, string> = {
+  Chest:      "bg-red-500/15 text-red-400",
+  Back:       "bg-blue-500/15 text-blue-400",
+  Shoulders:  "bg-orange-500/15 text-orange-400",
+  Biceps:     "bg-purple-500/15 text-purple-400",
+  Triceps:    "bg-pink-500/15 text-pink-400",
+  Quads:      "bg-emerald-500/15 text-emerald-400",
+  Hamstrings: "bg-teal-500/15 text-teal-400",
+  Glutes:     "bg-amber-500/15 text-amber-400",
+  Calves:     "bg-lime-500/15 text-lime-400",
+  Abs:        "bg-cyan-500/15 text-cyan-400",
+  Traps:      "bg-indigo-500/15 text-indigo-400",
+  Forearms:   "bg-violet-500/15 text-violet-400",
+};
+
 export function getMuscleVolumeInfo(
   muscleGroup: string,
   actualSets: number
@@ -40,7 +59,7 @@ export function getMuscleVolumeInfo(
   let zone: VolumeZone;
   if (actualSets === 0) zone = "none";
   else if (actualSets <= lm.mv) zone = "mv";
-  else if (actualSets <= lm.mavLow) zone = "mev";
+  else if (actualSets <= lm.mev) zone = "mev";
   else if (actualSets <= lm.mavHigh) zone = "mav";
   else zone = "above-mav";
 

@@ -26,6 +26,15 @@ export function getActiveUserId(): string {
   return _activeUserId;
 }
 
+// ── Shared event names & session key ──
+
+export const HG_EVENTS = {
+  LOGOUT: "hg:logout",
+  DATA_CHANGED: "hg:data-changed",
+} as const;
+
+export const SESSION_KEY = "hg_session";
+
 // ── Helpers ──
 
 function uuid(): string {
@@ -75,7 +84,7 @@ export function getUserById(id: string): User {
 }
 
 function notifyDataChanged(): void {
-  window.dispatchEvent(new CustomEvent("hg:data-changed"));
+  window.dispatchEvent(new CustomEvent(HG_EVENTS.DATA_CHANGED));
 }
 
 // ══════════════════════════════════════════════════

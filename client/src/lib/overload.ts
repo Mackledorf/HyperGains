@@ -27,6 +27,12 @@ import { getVolumeLandmarks, getTargetSetsForEmphasis } from "./volumeLandmarks"
 
 export const RIR_JUNK_THRESHOLD = 4; // 4+ = junk volume, recalibrate weight
 
+/** Weight increase per RIR point of rebound (2.5% per RIR difference). */
+const REBOUND_WEIGHT_FACTOR = 0.025;
+
+/** Smallest weight increment, in lbs. */
+const WEIGHT_INCREMENT = 2.5;
+
 const HEAVY_COMPOUND_GROUPS = new Set([
   "chest", "back", "quads", "hamstrings", "glutes",
 ]);
@@ -81,13 +87,12 @@ function weightForRepsAtRir(
 ): number {
   const effectiveReps = targetReps + targetRir;
   const raw = oneRepMax / (1 + effectiveReps / 30);
-  // Round up to nearest 2.5 lb
-  return Math.ceil(raw / 2.5) * 2.5;
+  return Math.ceil(raw / WEIGHT_INCREMENT) * WEIGHT_INCREMENT;
 }
 
 /** Round weight up to nearest 2.5 lb increment. */
 function roundUp2_5(weight: number): number {
-  return Math.ceil((weight + Number.EPSILON) / 2.5) * 2.5;
+  return Math.ceil((weight + Number.EPSILON) / WEIGHT_INCREMENT) * WEIGHT_INCREMENT;
 }
 
 export function computeOverloadSuggestions(
@@ -144,7 +149,7 @@ export function computeOverloadSuggestions(
     // Reward with a weight increase; pull reps back to compensate.
     } else if (prevRir < weekTargetRir) {
       const rirDiff = weekTargetRir - prevRir;
-      suggestedWeight = roundUp2_5(log.weight * (1 + 0.025 * rirDiff));
+      suggestedWeight = roundUp2_5(log.weight * (1 + REBOUND_WEIGHT_FACTOR * rirDiff));
       suggestedReps = Math.max(log.reps - rirDiff, repRangeMin);
       suggestedRir = weekTargetRir;
       reason = `Rebound: went to ${prevRir} RIR (target ${weekTargetRir}) — ↑ weight, ↓ reps`;

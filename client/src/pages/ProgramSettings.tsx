@@ -8,22 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft } from "lucide-react";
 import { getTargetSetsForEmphasis } from "@/lib/volumeLandmarks";
+import { MUSCLE_COLORS } from "@/lib/muscleColors";
 import type { Program, ProgramExercise, MuscleGroupEmphasis } from "@shared/schema";
-
-const MUSCLE_COLORS: Record<string, string> = {
-  Chest: "bg-red-500/15 text-red-400",
-  Back: "bg-blue-500/15 text-blue-400",
-  Shoulders: "bg-orange-500/15 text-orange-400",
-  Biceps: "bg-purple-500/15 text-purple-400",
-  Triceps: "bg-pink-500/15 text-pink-400",
-  Quads: "bg-emerald-500/15 text-emerald-400",
-  Hamstrings: "bg-teal-500/15 text-teal-400",
-  Glutes: "bg-amber-500/15 text-amber-400",
-  Calves: "bg-lime-500/15 text-lime-400",
-  Abs: "bg-cyan-500/15 text-cyan-400",
-  Traps: "bg-indigo-500/15 text-indigo-400",
-  Forearms: "bg-violet-500/15 text-violet-400",
-};
 
 export default function ProgramSettings() {
   const { id } = useParams<{ id: string }>();

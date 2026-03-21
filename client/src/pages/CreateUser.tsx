@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as store from "@/lib/storage";
 import * as gist from "@/lib/gist";
-
-async function hashPassword(pw: string): Promise<string> {
-  const data = new TextEncoder().encode(pw);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+import { hashPassword } from "@/lib/auth";
 
 export default function CreateUser() {
   const [, setLocation] = useLocation();
