@@ -1,5 +1,7 @@
 node_modules
 dist
+assets/index-*.js
+assets/index-*.css
 .DS_Store
 server/public
 vite.config.ts.*
