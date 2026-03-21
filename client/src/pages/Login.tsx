@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Dumbbell, Lock } from "lucide-react";
+import { Dumbbell, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as store from "@/lib/storage";
+import * as gist from "@/lib/gist";
 
 async function hashPassword(pw: string): Promise<string> {
   const data = new TextEncoder().encode(pw);
@@ -19,23 +20,35 @@ export default function Login({
   onAuthenticated: (userId: string) => void;
 }) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const hasUsers = store.getUsers().length > 0;
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setChecking(true);
-    setError(false);
+    if (!password.trim()) return;
+    setSubmitting(true);
+    setError("");
 
-    const hash = await hashPassword(password);
-    const user = store.getUserByPasswordHash(hash);
-    if (user) {
-      onAuthenticated(user.id);
-    } else {
-      setError(true);
-      setChecking(false);
+    const userId = await hashPassword(password);
+
+    try {
+      const exists = await gist.userExists(userId);
+      if (!exists) {
+        setError("No account found for that password. Create one first.");
+        setSubmitting(false);
+        return;
+      }
+      const payload = await gist.getUserData(userId);
+      if (payload) {
+        store.setActiveUser(userId);
+        store.importAll(payload);
+      }
+    } catch {
+      // Network unavailable — fall back to local data
+      store.setActiveUser(userId);
     }
+
+    onAuthenticated(userId);
   };
 
   return (
@@ -53,27 +66,21 @@ export default function Login({
             HyperGains
           </h1>
           <p className="text-xs text-muted-foreground text-center">
-            {hasUsers
-              ? "Enter your password to continue"
-              : "No accounts yet — create one to get started"}
+            Enter your password to continue
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="password"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError(false);
-              }}
+              onChange={(e) => { setPassword(e.target.value); setError(""); }}
               placeholder="Password"
               className="pl-10 rounded-xl bg-card border-0 h-12 text-sm"
               autoFocus
-              disabled={!hasUsers}
               data-testid="input-password"
             />
           </div>
@@ -83,17 +90,24 @@ export default function Login({
               className="text-xs text-destructive text-center font-medium"
               data-testid="text-login-error"
             >
-              Incorrect password
+              {error}
             </p>
           )}
 
           <Button
             type="submit"
-            disabled={!hasUsers || !password.trim() || checking}
+            disabled={!password.trim() || submitting}
             className="w-full rounded-xl h-12 text-sm font-bold"
             data-testid="button-login"
           >
-            {checking ? "Checking..." : "Log In"}
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Logging in...
+              </span>
+            ) : (
+              "Log In"
+            )}
           </Button>
         </form>
 

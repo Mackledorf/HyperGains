@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route, Router } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { queryClient } from "./lib/queryClient";
@@ -15,6 +15,7 @@ import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
 import ProgramDetail from "@/pages/ProgramDetail";
 import * as store from "@/lib/storage";
+import * as gist from "@/lib/gist";
 
 const AUTH_SESSION_KEY = "hg_session";
 
@@ -50,6 +51,25 @@ function App() {
     sessionStorage.setItem(AUTH_SESSION_KEY, userId);
     setActiveUserId(userId);
   };
+
+  // Push to gist whenever data changes (debounced) and on page unload
+  useEffect(() => {
+    if (!activeUserId) return;
+
+    const onDataChanged = () => {
+      gist.scheduleSync(store.exportAll());
+    };
+    const onBeforeUnload = () => {
+      void gist.flushSync(store.exportAll());
+    };
+
+    window.addEventListener("hg:data-changed", onDataChanged);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("hg:data-changed", onDataChanged);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [activeUserId]);
 
   return (
     <QueryClientProvider client={queryClient}>

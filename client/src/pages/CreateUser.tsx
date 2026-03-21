@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Lock, User } from "lucide-react";
+import { Dumbbell, Lock, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as store from "@/lib/storage";
+import * as gist from "@/lib/gist";
 
 async function hashPassword(pw: string): Promise<string> {
   const data = new TextEncoder().encode(pw);
@@ -35,15 +36,24 @@ export default function CreateUser() {
     }
 
     setSubmitting(true);
-    const hash = await hashPassword(password);
+    const userId = await hashPassword(password);
 
-    if (store.getUserByPasswordHash(hash)) {
-      setError("That password is already in use");
+    try {
+      const exists = await gist.userExists(userId);
+      if (exists) {
+        setError("An account with that password already exists. Log in instead.");
+        setSubmitting(false);
+        return;
+      }
+      store.setUserName(userId, name.trim());
+      store.setActiveUser(userId);
+      await gist.setUserData(userId, store.exportAll());
+    } catch (err) {
+      setError(`Could not create account: ${(err as Error).message}`);
       setSubmitting(false);
       return;
     }
 
-    store.createUser(name.trim(), hash);
     setLocation("/");
   };
 
@@ -59,7 +69,7 @@ export default function CreateUser() {
             Create Account
           </h1>
           <p className="text-xs text-muted-foreground text-center">
-            Your name and password are stored locally on this device.
+            Pick a name and a password you'll remember.
           </p>
         </div>
 
@@ -110,7 +120,14 @@ export default function CreateUser() {
             disabled={!name.trim() || !password || !confirm || submitting}
             className="w-full rounded-xl h-12 text-sm font-bold"
           >
-            {submitting ? "Creating..." : "Create Account"}
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating...
+              </span>
+            ) : (
+              "Create Account"
+            )}
           </Button>
         </form>
 

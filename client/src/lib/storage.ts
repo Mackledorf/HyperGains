@@ -50,36 +50,26 @@ const KEYS = {
   get setLogs() { return `hg_setlogs_${_activeUserId}`; },
 };
 
-// Global (not user-scoped) — stores the user registry
-const USERS_KEY = "hg_users";
-
 // ══════════════════════════════════════════════════
-// Users
+// Users — userId = SHA-256(password), no device registry
+// Each account is identified solely by its password hash.
 // ══════════════════════════════════════════════════
 
-export function getUsers(): User[] {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+export function getUserName(userId: string): string {
+  return localStorage.getItem(`hg_name_${userId}`) ?? "User";
 }
 
-export function createUser(name: string, passwordHash: string): User {
-  const users = getUsers();
-  const user: User = { id: uuid(), name, passwordHash };
-  users.push(user);
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  return user;
+export function setUserName(userId: string, name: string): void {
+  localStorage.setItem(`hg_name_${userId}`, name);
 }
 
-export function getUserByPasswordHash(hash: string): User | undefined {
-  return getUsers().find((u) => u.passwordHash === hash);
+/** Returns a synthetic User — always succeeds, no registry needed. */
+export function getUserById(id: string): User {
+  return { id, name: getUserName(id), passwordHash: id };
 }
 
-export function getUserById(id: string): User | undefined {
-  return getUsers().find((u) => u.id === id);
+function notifyDataChanged(): void {
+  window.dispatchEvent(new CustomEvent("hg:data-changed"));
 }
 
 // ══════════════════════════════════════════════════
@@ -109,6 +99,7 @@ export function createProgram(
   const program: Program = { ...data, id: uuid(), isActive: true };
   programs.push(program);
   setStore(KEYS.programs, programs);
+  notifyDataChanged();
   return program;
 }
 
@@ -121,6 +112,7 @@ export function updateProgram(
   if (idx === -1) return undefined;
   programs[idx] = { ...programs[idx], ...updates };
   setStore(KEYS.programs, programs);
+  notifyDataChanged();
   return programs[idx];
 }
 
@@ -147,6 +139,7 @@ export function deleteProgram(id: string): void {
     KEYS.setLogs,
     getStore<SetLog>(KEYS.setLogs).filter((l) => !sessionIds.has(l.sessionId))
   );
+  notifyDataChanged();
 }
 
 // ══════════════════════════════════════════════════
@@ -175,6 +168,7 @@ export function createProgramExercise(
   const exercise: ProgramExercise = { ...data, id: uuid() };
   exercises.push(exercise);
   setStore(KEYS.exercises, exercises);
+  notifyDataChanged();
   return exercise;
 }
 
@@ -187,6 +181,7 @@ export function updateProgramExercise(
   if (idx === -1) return undefined;
   exercises[idx] = { ...exercises[idx], ...updates };
   setStore(KEYS.exercises, exercises);
+  notifyDataChanged();
   return exercises[idx];
 }
 
@@ -195,6 +190,7 @@ export function deleteProgramExercise(id: string): void {
     KEYS.exercises,
     getStore<ProgramExercise>(KEYS.exercises).filter((e) => e.id !== id)
   );
+  notifyDataChanged();
 }
 
 // ══════════════════════════════════════════════════
@@ -231,6 +227,7 @@ export function createWorkoutSession(
   };
   sessions.push(session);
   setStore(KEYS.sessions, sessions);
+  notifyDataChanged();
   return session;
 }
 
@@ -243,6 +240,7 @@ export function updateWorkoutSession(
   if (idx === -1) return undefined;
   sessions[idx] = { ...sessions[idx], ...updates };
   setStore(KEYS.sessions, sessions);
+  notifyDataChanged();
   return sessions[idx];
 }
 
@@ -296,7 +294,42 @@ export function createSetLog(data: Omit<SetLog, "id">): SetLog {
   };
   logs.push(log);
   setStore(KEYS.setLogs, logs);
+  notifyDataChanged();
   return log;
+}
+
+// ══════════════════════════════════════════════════
+// Cross-device sync payload
+// ══════════════════════════════════════════════════
+
+export interface UserDataPayload {
+  userId: string;
+  name: string;
+  programs: Program[];
+  exercises: ProgramExercise[];
+  sessions: WorkoutSession[];
+  setLogs: SetLog[];
+}
+
+/** Exports all data for the active user as a plain object (for gist sync). */
+export function exportAll(): UserDataPayload {
+  return {
+    userId: _activeUserId,
+    name: getUserName(_activeUserId),
+    programs: getStore<Program>(KEYS.programs),
+    exercises: getStore<ProgramExercise>(KEYS.exercises),
+    sessions: getStore<WorkoutSession>(KEYS.sessions),
+    setLogs: getStore<SetLog>(KEYS.setLogs),
+  };
+}
+
+/** Imports all data from a gist payload into localStorage for the active user. */
+export function importAll(payload: UserDataPayload): void {
+  setStore(KEYS.programs, payload.programs);
+  setStore(KEYS.exercises, payload.exercises);
+  setStore(KEYS.sessions, payload.sessions);
+  setStore(KEYS.setLogs, payload.setLogs);
+  if (payload.name) setUserName(_activeUserId, payload.name);
 }
 
 export function updateSetLog(
