@@ -11,8 +11,8 @@ type Rating = "poor" | "okay" | "good" | "great";
 const RATING_COLORS: Record<Rating, string> = {
   poor: "bg-red-500/20 text-red-400 border-red-500/40",
   okay: "bg-yellow-500/20 text-yellow-400 border-yellow-500/40",
-  good: "bg-blue-500/20 text-blue-400 border-blue-500/40",
-  great: "bg-green-500/20 text-green-400 border-green-500/40",
+  good: "bg-green-500/20 text-green-400 border-green-500/40",
+  great: "bg-blue-500/20 text-blue-400 border-blue-500/40",
 };
 
 const RATING_LABELS: Rating[] = ["poor", "okay", "good", "great"];
@@ -84,8 +84,8 @@ export default function ExerciseFeedbackSheet({ sessionId, exercise, onClose }: 
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-background rounded-t-3xl p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-background rounded-t-3xl p-6 space-y-5 max-h-[85vh] overflow-y-auto pb-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

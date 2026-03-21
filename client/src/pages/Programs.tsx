@@ -1,17 +1,31 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import * as store from "@/lib/storage";
+import { queryClient } from "@/lib/queryClient";
 import AppShell from "@/components/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Dumbbell, ChevronRight, Zap } from "lucide-react";
 import type { Program } from "@shared/schema";
 
 export default function Programs() {
+  const { toast } = useToast();
   const { data: programs = [], isLoading, isError } = useQuery<Program[]>({
     queryKey: ["programs", "all"],
     queryFn: () => store.getPrograms(),
+  });
+
+  const setActiveMutation = useMutation({
+    mutationFn: (programId: string) => {
+      store.setActiveProgram(programId);
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
+      toast({ title: "Active program updated" });
+    },
   });
 
   return (
@@ -52,48 +66,63 @@ export default function Programs() {
             <p className="text-xs">Create your first program to get started.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {programs.map((program) => (
-              <Link key={program.id} href={`/program/${program.id}`}>
-                <div className="rounded-2xl bg-card p-4 flex items-center gap-3 hover-elevate transition-all active:scale-[0.99] cursor-pointer">
-                  {/* Icon */}
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      program.isActive
-                        ? "bg-primary/15"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {program.isActive ? (
-                      <Zap className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Dumbbell className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="text-sm font-bold truncate">{program.name}</h3>
-                      {program.isActive && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-0 flex-shrink-0"
-                        >
-                          Active
-                        </Badge>
+              <div key={program.id} className="rounded-2xl bg-card overflow-hidden">
+                <Link href={`/program/${program.id}`}>
+                  <div className="p-4 flex items-center gap-3 hover-elevate transition-all active:scale-[0.99] cursor-pointer">
+                    {/* Icon */}
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        program.isActive
+                          ? "bg-primary/15"
+                          : "bg-muted"
+                      }`}
+                    >
+                      {program.isActive ? (
+                        <Zap className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Dumbbell className="w-5 h-5 text-muted-foreground" />
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{program.splitType}</p>
-                    <p className="text-xs text-muted-foreground/70 mt-0.5">
-                      {program.daysPerWeek} days/wk · {program.durationWeeks} weeks
-                      {program.currentWeekNumber > 1 && ` · Week ${program.currentWeekNumber}`}
-                    </p>
-                  </div>
 
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
-                </div>
-              </Link>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="text-sm font-bold truncate">{program.name}</h3>
+                        {program.isActive && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-0 flex-shrink-0"
+                          >
+                            Active
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{program.splitType}</p>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5">
+                        {program.daysPerWeek} days/wk · {program.durationWeeks} weeks
+                        {program.currentWeekNumber > 1 && ` · Week ${program.currentWeekNumber}`}
+                      </p>
+                    </div>
+
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
+                  </div>
+                </Link>
+                {!program.isActive && (
+                  <div className="px-4 pb-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full rounded-xl h-8 text-xs"
+                      onClick={() => setActiveMutation.mutate(program.id)}
+                      disabled={setActiveMutation.isPending}
+                    >
+                      Set as Active
+                    </Button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}

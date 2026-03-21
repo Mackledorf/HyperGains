@@ -18,6 +18,10 @@ export type Program = {
   createdAt: string;
   // Week number is manually advanced by the user via "End Week" button
   currentWeekNumber: number;
+  // If true: training week doesn't auto-advance — user advances it manually (or on Monday)
+  isDecentralized?: boolean;
+  // ISO date string tracking when the current training week started
+  weekStartedAt?: string;
 };
 
 export type ProgramExercise = {

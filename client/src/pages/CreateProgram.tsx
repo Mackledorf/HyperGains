@@ -10,9 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Plus, X, Dumbbell, Search, Pencil } from "lucide-react";
 import type { Program, MuscleGroupEmphasis } from "@shared/schema";
-import { getDifficultyForExercise, getRepRange, difficultyToLevel, levelToDifficulty } from "@/lib/exerciseTiers";
-import type { ExerciseDifficulty } from "@/lib/exerciseTiers";
-import { SignalBarsToggle } from "@/components/ui/signal-bars";
+import { getDifficultyForExercise, getRepRange } from "@/lib/exerciseTiers";
 
 const SPLIT_PRESETS: Record<string, { days: string[]; daysPerWeek: number }> = {
   PPL: { days: ["Push", "Pull", "Legs", "Push", "Pull", "Legs"], daysPerWeek: 6 },
@@ -139,13 +137,6 @@ const EXERCISE_DB: Record<string, string[]> = {
 type ExerciseEntry = {
   name: string;
   muscleGroup: string;
-  difficulty: ExerciseDifficulty;
-};
-
-const DIFFICULTY_LABELS: Record<ExerciseDifficulty, string> = {
-  easy: "Easy",
-  medium: "Med",
-  hard: "Hard",
 };
 
 export default function CreateProgram() {
@@ -169,6 +160,7 @@ export default function CreateProgram() {
   const [customExName, setCustomExName] = useState("");
   const [customExMuscle, setCustomExMuscle] = useState("");
   const [emphasisByMuscle, setEmphasisByMuscle] = useState<Record<string, MuscleGroupEmphasis["emphasis"]>>({});
+  const [isDecentralized, setIsDecentralized] = useState(false);;
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -200,12 +192,11 @@ export default function CreateProgram() {
 
   const addExercise = (exerciseName: string, muscleGroup: string) => {
     const exercises = exercisesByDay[currentDayIndex] || [];
-    const difficulty = getDifficultyForExercise(exerciseName);
     setExercisesByDay({
       ...exercisesByDay,
       [currentDayIndex]: [
         ...exercises,
-        { name: exerciseName, muscleGroup, difficulty },
+        { name: exerciseName, muscleGroup },
       ],
     });
     setPickerOpen(false);
@@ -233,12 +224,14 @@ export default function CreateProgram() {
         dayLabels,
         createdAt: new Date().toISOString(),
         currentWeekNumber: 1,
+        isDecentralized,
+        weekStartedAt: new Date().toISOString(),
       });
 
       for (const [dayIdx, exercises] of Object.entries(exercisesByDay)) {
         for (let i = 0; i < exercises.length; i++) {
           const ex = exercises[i];
-          const repRange = getRepRange(ex.difficulty);
+          const repRange = getRepRange(getDifficultyForExercise(ex.name));
           store.createProgramExercise({
             programId: program.id,
             dayIndex: parseInt(dayIdx),
@@ -248,7 +241,6 @@ export default function CreateProgram() {
             targetSets: 3,
             targetReps: repRange.target,
             restSeconds: 120,
-            difficulty: ex.difficulty,
           });
         }
       }
@@ -420,6 +412,25 @@ export default function CreateProgram() {
               </div>
             )}
 
+            <button
+              onClick={() => setIsDecentralized(!isDecentralized)}
+              className={`w-full p-4 rounded-xl text-left flex items-center justify-between transition-all ${
+                isDecentralized ? "bg-primary/10 border border-primary/30" : "bg-card"
+              }`}
+            >
+              <div>
+                <p className="text-sm font-semibold">Decentralized program</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isDecentralized
+                    ? "Train at your own pace — advance weeks manually or on Mondays."
+                    : "Training fills a standard 7-day calendar week."}
+                </p>
+              </div>
+              <div className={`w-10 h-6 rounded-full flex items-center transition-colors flex-shrink-0 ml-3 ${isDecentralized ? "bg-primary" : "bg-muted"}`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${isDecentralized ? "translate-x-4" : "translate-x-0"}`} />
+              </div>
+            </button>
+
             <Button
               onClick={() => setStep(1)}
               disabled={!canProceedStep0}
@@ -473,17 +484,9 @@ export default function CreateProgram() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{ex.name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {DIFFICULTY_LABELS[ex.difficulty]} · {getRepRange(ex.difficulty).min}–{getRepRange(ex.difficulty).max} reps
+                        {getRepRange(getDifficultyForExercise(ex.name)).min}–{getRepRange(getDifficultyForExercise(ex.name)).max} reps
                       </p>
                     </div>
-                    <SignalBarsToggle
-                      level={difficultyToLevel(ex.difficulty)}
-                      onChange={(lvl) => {
-                        const updated = [...(exercisesByDay[currentDayIndex] || [])];
-                        updated[idx] = { ...updated[idx], difficulty: levelToDifficulty(lvl) };
-                        setExercisesByDay({ ...exercisesByDay, [currentDayIndex]: updated });
-                      }}
-                    />
                     <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
                       MUSCLE_COLORS[ex.muscleGroup] || "bg-muted text-muted-foreground"
                     }`}>

@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import ExerciseFeedbackSheet from "@/components/ExerciseFeedbackSheet";
 import PostSessionCheckInSheet from "@/components/PostSessionCheckInSheet";
 import { applyFeedbackModifiers } from "@/lib/feedbackModifiers";
-import { getRepRange } from "@/lib/exerciseTiers";
+import { getRepRange, getDifficultyForExercise } from "@/lib/exerciseTiers";
 import {
   ChevronLeft,
   Check,
@@ -163,11 +163,11 @@ export default function ActiveWorkout() {
           ex.targetReps,
           session.weekNumber,
           muscleGroup,
-          ex.difficulty ?? undefined,
+          getDifficultyForExercise(ex.exerciseName),
           emphasis
         );
         // Apply feedback modifiers from the most recent check-in
-        const repRange = getRepRange(ex.difficulty ?? "medium");
+        const repRange = getRepRange(getDifficultyForExercise(ex.exerciseName));
         const suggestions = applyFeedbackModifiers(
           raw,
           latestCheckIn,

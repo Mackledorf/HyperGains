@@ -96,6 +96,17 @@ export function getActiveProgram(): Program | undefined {
   return getStore<Program>(KEYS.programs).find((p) => p.isActive);
 }
 
+export function setActiveProgram(programId: string): Program | undefined {
+  const programs = getStore<Program>(KEYS.programs);
+  const idx = programs.findIndex((p) => p.id === programId);
+  if (idx === -1) return undefined;
+  for (const p of programs) p.isActive = false;
+  programs[idx].isActive = true;
+  setStore(KEYS.programs, programs);
+  notifyDataChanged();
+  return programs[idx];
+}
+
 export function createProgram(
   data: Omit<Program, "id" | "isActive">
 ): Program {
@@ -383,6 +394,7 @@ export function advanceWeek(programId: string): Program | undefined {
   programs[idx] = {
     ...programs[idx],
     currentWeekNumber: (programs[idx].currentWeekNumber ?? 1) + 1,
+    weekStartedAt: new Date().toISOString(),
   };
   setStore(KEYS.programs, programs);
   notifyDataChanged();

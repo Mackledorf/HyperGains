@@ -7,12 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   PlusCircle,
   Play,
   Dumbbell,
   ChevronRight,
   Zap,
   CalendarCheck,
+  CalendarClock,
   Settings,
 } from "lucide-react";
 import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
@@ -87,6 +99,19 @@ export default function Dashboard() {
   const progressPct = activeProgram
     ? Math.round((currentWeek / activeProgram.durationWeeks) * 100)
     : 0;
+
+  // For decentralized programs: check if we've crossed into a new calendar week (Monday)
+  const isNewTrainingWeek = (() => {
+    if (!activeProgram?.isDecentralized || !activeProgram.weekStartedAt) return false;
+    const now = new Date();
+    // Start of this calendar week (Monday)
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
+    const daysFromMonday = (dayOfWeek + 6) % 7;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() - daysFromMonday);
+    thisMonday.setHours(0, 0, 0, 0);
+    return new Date(activeProgram.weekStartedAt) < thisMonday;
+  })();
 
   if (loadingProgram) {
     return (
@@ -171,6 +196,28 @@ export default function Dashboard() {
         </div>
 
         {/* Resume in-progress session */}
+        {isNewTrainingWeek && (
+          <div className="rounded-2xl bg-yellow-500/10 border border-yellow-500/20 p-4">
+            <div className="flex items-start gap-3">
+              <CalendarClock className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-yellow-300">New week started</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  It looks like your training week has ended. Ready to start Week {currentWeek + 1}?
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="rounded-xl h-8 text-xs flex-shrink-0"
+                onClick={() => advanceWeekMutation.mutate()}
+                disabled={advanceWeekMutation.isPending}
+              >
+                Start Week {currentWeek + 1}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {inProgressSession && (
           <button
             className="w-full rounded-2xl bg-primary/10 p-4 text-left transition-all active:scale-[0.98]"
@@ -238,25 +285,43 @@ export default function Dashboard() {
         </div>
 
         {/* End Week button */}
-        <Button
-          variant="outline"
-          className="w-full rounded-xl h-11 border-dashed"
-          onClick={() => {
-            if (inProgressSession) {
-              toast({
-                title: "Finish your active workout first",
-                description: "Complete or discard the current session before ending the week.",
-              });
-              return;
-            }
-            advanceWeekMutation.mutate();
-          }}
-          disabled={advanceWeekMutation.isPending}
-          data-testid="button-end-week"
-        >
-          <CalendarCheck className="w-4 h-4 mr-2" />
-          End Week {currentWeek}
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl h-11 border-dashed"
+              onClick={() => {
+                if (inProgressSession) {
+                  toast({
+                    title: "Finish your active workout first",
+                    description: "Complete or discard the current session before ending the week.",
+                  });
+                }
+              }}
+              disabled={advanceWeekMutation.isPending}
+              data-testid="button-end-week"
+            >
+              <CalendarCheck className="w-4 h-4 mr-2" />
+              End Week {currentWeek}
+            </Button>
+          </AlertDialogTrigger>
+          {!inProgressSession && (
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>End Week {currentWeek}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will advance your program to Week {currentWeek + 1}. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => advanceWeekMutation.mutate()}>
+                  End Week
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          )}
+        </AlertDialog>
 
         {/* View program */}
         <Link href={`/program/${activeProgram.id}`}>

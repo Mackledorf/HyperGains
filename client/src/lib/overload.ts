@@ -22,7 +22,7 @@
  */
 import type { OverloadSuggestion } from "@shared/schema";
 import type { ExerciseDifficulty } from "./exerciseTiers";
-import { getDifficultyForExercise, getRepRange, getEffectiveTargetReps } from "./exerciseTiers";
+import { getDifficultyForExercise, getRepRange } from "./exerciseTiers";
 import { getVolumeLandmarks, getTargetSetsForEmphasis } from "./volumeLandmarks";
 
 export const RIR_JUNK_THRESHOLD = 4; // 4+ = junk volume, recalibrate weight
@@ -108,14 +108,9 @@ export function computeOverloadSuggestions(
   const weekTargetRir = getWeekTargetRir(weekNumber);
   const defaultRir = getMuscleGroupRir(weekTargetRir, muscleGroup);
 
-  // Resolve tier — use passed difficulty or fall back to exercise name lookup
   const resolvedDifficulty: ExerciseDifficulty =
     difficulty ?? getDifficultyForExercise(previousLogs[0]?.exerciseName ?? "");
-  const { min: repRangeMin, max: repRangeMax } = getRepRange(resolvedDifficulty);
-  // Adjust rep target based on emphasis: maintain → min, grow → target, emphasize → max
-  const resolvedTargetReps = emphasis
-    ? getEffectiveTargetReps(getRepRange(resolvedDifficulty), emphasis)
-    : targetReps;
+  const { min: repRangeMin, max: repRangeMax, target: resolvedTargetReps } = getRepRange(resolvedDifficulty);
 
   return previousLogs.map((log) => {
     let suggestedWeight = log.weight;
