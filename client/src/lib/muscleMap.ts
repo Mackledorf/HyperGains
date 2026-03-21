@@ -152,11 +152,12 @@ export const BACK_MUSCLE_PATHS: Record<string, number[]> = {
   traps:      [1],
   back:       [0],
   shoulders:  [12, 13],
+  triceps:    [10, 11],
   forearms:   [14, 15],
   glutes:     [6, 7],
   hamstrings: [2, 3],
   calves:     [4, 5],
-  // body-detail (unmapped → background fill): [8, 9, 10, 11, 16, 17, 18, 19, 20]
+  // body-detail (unmapped → background fill): [8, 9, 16, 17, 18, 19, 20]
 };
 
 // Build reverse lookup: path index → muscle key
