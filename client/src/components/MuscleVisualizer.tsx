@@ -10,6 +10,8 @@ import {
   BACK_FILLS,
   FRONT_INDEX_TO_MUSCLE,
   BACK_INDEX_TO_MUSCLE,
+  FRONT_GAPS,
+  REAR_GAPS,
 } from "@/lib/muscleMap";
 
 interface Props {
@@ -98,6 +100,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             <g clipPath="url(#front-body-clip)">
               {renderFills(FRONT_FILLS, FRONT_INDEX_TO_MUSCLE)}
             </g>
+            {/* Gap overlay: paints the arm-body gap shapes with background to cover any fill bleed */}
+            <path d={FRONT_GAPS} style={{ fill: "hsl(var(--background))", pointerEvents: "none" }} />
           </svg>
         </div>
 
@@ -116,6 +120,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             <g clipPath="url(#back-body-clip)">
               {renderFills(BACK_FILLS, BACK_INDEX_TO_MUSCLE)}
             </g>
+            {/* Gap overlay: paints the arm-body gap shapes with background to cover any fill bleed */}
+            <path d={REAR_GAPS} style={{ fill: "hsl(var(--background))", pointerEvents: "none" }} />
           </svg>
         </div>
       </div>

@@ -37,19 +37,22 @@ const ZONE_LABELS: Record<VolumeZone, string> = {
  * Keyed by lowercase muscle name matching muscle map keys.
  * Hues match the MUSCLE_COLORS badges below.
  */
+// Push muscles → red spectrum: shoulders (red) → chest (orange-red) → triceps (pink-red)
+// Pull muscles → green spectrum: back (green) → biceps (green-teal) → abs (blue-teal)
+// Legs         → blue/purple:   quads (bright blue) → hamstrings (dark blue-purple) → glutes (purple) → calves (pink)
 export const MUSCLE_FILL_COLORS: Record<string, string> = {
-  chest:      "#ff4f3a",
-  back:       "#84d316",
-  shoulders:  "#ffb822",
-  biceps:     "#44d5fa",
-  triceps:    "#ff3a7f",
-  quads:      "#3B90FF",
-  hamstrings: "#783aff",
-  glutes:     "#3366ff",
-  abs:        "#00d4aa",
-  calves:     "#ff8130",
-  traps:      "#e055ff",
-  forearms:   "#ff9850",
+  shoulders:  "#ff4f3a",  // red
+  chest:      "#ff8130",  // orange-red
+  triceps:    "#ff3a7f",  // pink-red
+  back:       "#84d316",  // green
+  biceps:     "#00d4aa",  // green-aqua teal
+  abs:        "#44d5fa",  // blue-teal
+  quads:      "#3B90FF",  // bright blue
+  hamstrings: "#3366ff",  // dark blue-purple
+  glutes:     "#783aff",  // purple
+  calves:     "#e055ff",  // pink-purple
+  traps:      "#ffb822",  // yellow (upper back)
+  forearms:   "#ff9850",  // peach-orange
 };
 
 /**
@@ -57,18 +60,18 @@ export const MUSCLE_FILL_COLORS: Record<string, string> = {
  * Imported by CreateProgram, ProgramSettings, etc. Use getMuscleTagStyle() for badge styling.
  */
 export const MUSCLE_COLORS: Record<string, string> = {
-  Chest:      "#ff4f3a",
-  Back:       "#84d316",
-  Shoulders:  "#ffb822",
-  Biceps:     "#44d5fa",
-  Triceps:    "#ff3a7f",
-  Quads:      "#3B90FF",
-  Hamstrings: "#783aff",
-  Glutes:     "#3366ff",
-  Abs:        "#00d4aa",
-  Calves:     "#ff8130",
-  Traps:      "#e055ff",
-  Forearms:   "#ff9850",
+  Shoulders:  "#ff4f3a",  // red
+  Chest:      "#ff8130",  // orange-red
+  Triceps:    "#ff3a7f",  // pink-red
+  Back:       "#84d316",  // green
+  Biceps:     "#00d4aa",  // green-aqua teal
+  Abs:        "#44d5fa",  // blue-teal
+  Quads:      "#3B90FF",  // bright blue
+  Hamstrings: "#3366ff",  // dark blue-purple
+  Glutes:     "#783aff",  // purple
+  Calves:     "#e055ff",  // pink-purple
+  Traps:      "#ffb822",  // yellow (upper back)
+  Forearms:   "#ff9850",  // peach-orange
 };
 
 /** Returns inline styles for a muscle group badge (background at 15% opacity + text color). */

@@ -170,3 +170,13 @@ export function buildIndexMap(map: Record<string, number[]>): Record<number, str
 
 export const FRONT_INDEX_TO_MUSCLE = buildIndexMap(FRONT_MUSCLE_PATHS);
 export const BACK_INDEX_TO_MUSCLE = buildIndexMap(BACK_MUSCLE_PATHS);
+
+// Gap shapes extracted from Front Gaps.svg / Rear Gaps.svg — painted on top of fills
+// with background color to ensure the arm-body gap is never covered by muscle colors.
+export const FRONT_GAPS =
+  "M56.29,55.02c1.33-1.14,2.76-.48,4.06.65l-.39-4.42c-1.5-1.99-2.93-3.87-3.65-6.41-1.56,1.69-3.16,3.12-5.17,4.24,1.1,1.15,1.42,2.62,2.18,3.98.01.02,1.88,2.49,2.28,2.39.16-.04.45-.23.68-.43Z " +
+  "M88.97,55.16l1.82-2.2c.51-1.38,1.13-2.73,2.03-3.9-1.9-1.1-3.5-2.46-5.1-4.16-.85,2.44-2.17,4.47-3.7,6.33l-.39,4.41c3.84-3.1,4.21.88,5.34-.48Z";
+
+export const REAR_GAPS =
+  "M89.06,55.33c.45-.7,1.43-1.63,1.79-2.29.79-1.45,1.05-2.71,2.25-4.04l-1.88-1.03c-1.35-.74-2.43-1.72-3.38-3.07-1.01,2.31-2.4,4.33-4.03,6.27.06,2.64-.83,2.79-.37,5l1.25-1.17c2.09-1.96,3.69,1.39,4.37.34Z " +
+  "M59.1,54.85l1.28,1.05c.39-1.78-.44-2.29-.41-4.74-1.55-1.87-2.87-3.82-3.95-6.06-.73.93-1.55,1.9-2.54,2.45l-2.6,1.45c1.29,1.23,1.3,2.77,2.25,3.98l1.78,2.28c.86,1.1,2.17-2.1,4.2-.42Z";
