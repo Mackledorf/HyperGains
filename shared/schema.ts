@@ -98,6 +98,40 @@ export type PostSessionCheckIn = {
   loggedAt: string;
 };
 
+// ── User Profile & History ────────────────────────
+
+// User profile — personal details, stored metric internally, displayed per unitSystem
+export type UserProfile = {
+  id: string;
+  userId: string;
+  gender: "male" | "female" | "other" | "prefer_not_to_say";
+  /** Height always stored in cm regardless of unitSystem */
+  heightCm: number | null;
+  /** Weight always stored in kg regardless of unitSystem */
+  weightKg: number | null;
+  unitSystem: "imperial" | "metric";
+  /** Predefined goal keys, e.g. ["build_muscle", "lose_fat"] */
+  goals: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Timestamped weight snapshot — appended whenever weight changes
+export type WeightEntry = {
+  id: string;
+  userId: string;
+  weightKg: number;
+  recordedAt: string;
+};
+
+// Timestamped goal snapshot — appended whenever goals change
+export type GoalEntry = {
+  id: string;
+  userId: string;
+  goals: string[];
+  recordedAt: string;
+};
+
 // Progressive overload suggestion type (computed, not stored)
 export type OverloadSuggestion = {
   exerciseId: string;

@@ -12,6 +12,9 @@ import type {
   MuscleGroupEmphasis,
   ExerciseFeedback,
   PostSessionCheckIn,
+  UserProfile,
+  WeightEntry,
+  GoalEntry,
 } from "@shared/schema";
 
 // ── Active user (set at login, scopes all data keys) ──
@@ -63,6 +66,9 @@ const KEYS = {
   get emphasis() { return `hg_emphasis_${_activeUserId}`; },
   get feedback() { return `hg_feedback_${_activeUserId}`; },
   get checkIns() { return `hg_checkins_${_activeUserId}`; },
+  get profile() { return `hg_profile_${_activeUserId}`; },
+  get weightHistory() { return `hg_weighthistory_${_activeUserId}`; },
+  get goalHistory() { return `hg_goalhistory_${_activeUserId}`; },
 };
 
 // ══════════════════════════════════════════════════
@@ -330,6 +336,94 @@ export function createSetLog(data: Omit<SetLog, "id">): SetLog {
 }
 
 // ══════════════════════════════════════════════════
+// User Profile
+// ══════════════════════════════════════════════════
+
+export function getProfile(): UserProfile | null {
+  try {
+    const raw = localStorage.getItem(KEYS.profile);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveProfile(data: Omit<UserProfile, "id" | "userId" | "createdAt" | "updatedAt"> & { id?: string; createdAt?: string }): UserProfile {
+  const existing = getProfile();
+  const now = new Date().toISOString();
+  const profile: UserProfile = {
+    id: existing?.id ?? crypto.randomUUID(),
+    userId: _activeUserId,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    ...data,
+  };
+  localStorage.setItem(KEYS.profile, JSON.stringify(profile));
+
+  // Append to weight history when weight changes
+  if (data.weightKg !== null && data.weightKg !== existing?.weightKg) {
+    addWeightEntry(data.weightKg);
+  }
+
+  // Append to goal history when goals change
+  const goalsChanged =
+    !existing ||
+    JSON.stringify([...data.goals].sort()) !== JSON.stringify([...existing.goals].sort());
+  if (goalsChanged && data.goals.length > 0) {
+    addGoalEntry(data.goals);
+  }
+
+  notifyDataChanged();
+  return profile;
+}
+
+// ══════════════════════════════════════════════════
+// Weight History
+// ══════════════════════════════════════════════════
+
+export function getWeightHistory(): WeightEntry[] {
+  return getStore<WeightEntry>(KEYS.weightHistory).sort(
+    (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+  );
+}
+
+export function addWeightEntry(weightKg: number): WeightEntry {
+  const entries = getStore<WeightEntry>(KEYS.weightHistory);
+  const entry: WeightEntry = {
+    id: crypto.randomUUID(),
+    userId: _activeUserId,
+    weightKg,
+    recordedAt: new Date().toISOString(),
+  };
+  entries.push(entry);
+  setStore(KEYS.weightHistory, entries);
+  return entry;
+}
+
+// ══════════════════════════════════════════════════
+// Goal History
+// ══════════════════════════════════════════════════
+
+export function getGoalHistory(): GoalEntry[] {
+  return getStore<GoalEntry>(KEYS.goalHistory).sort(
+    (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+  );
+}
+
+export function addGoalEntry(goals: string[]): GoalEntry {
+  const entries = getStore<GoalEntry>(KEYS.goalHistory);
+  const entry: GoalEntry = {
+    id: crypto.randomUUID(),
+    userId: _activeUserId,
+    goals: [...goals],
+    recordedAt: new Date().toISOString(),
+  };
+  entries.push(entry);
+  setStore(KEYS.goalHistory, entries);
+  return entry;
+}
+
+// ══════════════════════════════════════════════════
 // Cross-device sync payload
 // ══════════════════════════════════════════════════
 
@@ -343,10 +437,14 @@ export interface UserDataPayload {
   emphasis?: MuscleGroupEmphasis[];
   feedback?: ExerciseFeedback[];
   checkIns?: PostSessionCheckIn[];
+  profile?: UserProfile;
+  weightHistory?: WeightEntry[];
+  goalHistory?: GoalEntry[];
 }
 
 /** Exports all data for the active user as a plain object (for gist sync). */
 export function exportAll(): UserDataPayload {
+  const rawProfile = localStorage.getItem(KEYS.profile);
   return {
     userId: _activeUserId,
     name: getUserName(_activeUserId),
@@ -357,6 +455,9 @@ export function exportAll(): UserDataPayload {
     emphasis: getStore<MuscleGroupEmphasis>(KEYS.emphasis),
     feedback: getStore<ExerciseFeedback>(KEYS.feedback),
     checkIns: getStore<PostSessionCheckIn>(KEYS.checkIns),
+    profile: rawProfile ? JSON.parse(rawProfile) : undefined,
+    weightHistory: getStore<WeightEntry>(KEYS.weightHistory),
+    goalHistory: getStore<GoalEntry>(KEYS.goalHistory),
   };
 }
 
@@ -369,6 +470,9 @@ export function importAll(payload: UserDataPayload): void {
   if (payload.emphasis) setStore(KEYS.emphasis, payload.emphasis);
   if (payload.feedback) setStore(KEYS.feedback, payload.feedback);
   if (payload.checkIns) setStore(KEYS.checkIns, payload.checkIns);
+  if (payload.profile) localStorage.setItem(KEYS.profile, JSON.stringify(payload.profile));
+  if (payload.weightHistory) setStore(KEYS.weightHistory, payload.weightHistory);
+  if (payload.goalHistory) setStore(KEYS.goalHistory, payload.goalHistory);
   if (payload.name) setUserName(_activeUserId, payload.name);
 }
 

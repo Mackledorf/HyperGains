@@ -47,7 +47,7 @@ export default function CreateUser() {
       return;
     }
 
-    setLocation("/");
+    setLocation("/profile-setup");
   };
 
   return (

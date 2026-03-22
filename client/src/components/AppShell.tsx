@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Home, Layers, BarChart3, LogOut } from "lucide-react";
+import { Dumbbell, Home, Layers, BarChart3, LogOut, Target } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               HyperGains
             </span>
           </Link>
-          <AlertDialog>
+          <div className="flex items-center gap-1">
+            <Link href="/profile">
+              <button
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Profile & Goals"
+              >
+                <Target className="w-4 h-4" />
+              </button>
+            </Link>
+            <AlertDialog>
             <AlertDialogTrigger asChild>
               <button
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -62,6 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </div>
         </div>
       </header>
 

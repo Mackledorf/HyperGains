@@ -16,6 +16,8 @@ import History from "@/pages/History";
 import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import ProgramSettings from "@/pages/ProgramSettings";
+import Profile from "@/pages/Profile";
+import ProfileSetup from "@/pages/ProfileSetup";
 import * as store from "@/lib/storage";
 import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
 import * as gist from "@/lib/gist";
@@ -30,6 +32,8 @@ function AppRouter() {
       <Route path="/program/:id" component={ProgramDetail} />
       <Route path="/workout/:sessionId" component={ActiveWorkout} />
       <Route path="/history" component={History} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/profile-setup" component={ProfileSetup} />
       <Route component={NotFound} />
     </Switch>
   );
