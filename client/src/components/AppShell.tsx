@@ -18,9 +18,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/workouts", icon: Dumbbell, label: "Workouts" },
+    { href: "/workouts", icon: Dumbbell, label: "Lifts" },
     { href: "/food", icon: UtensilsCrossed, label: "Food" },
-    { href: "/supplements", icon: Pill, label: "Supplements" },
+    { href: "/supplements", icon: Pill, label: "Supps" },
   ];
 
   function isActive(href: string): boolean {
