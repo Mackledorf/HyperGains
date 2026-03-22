@@ -41,25 +41,21 @@ export default function SwipeableRow({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (startXRef.current === null) return;
     const delta = e.touches[0].clientX - startXRef.current;
-    // Only allow left-swipe
     if (delta > 0) {
       setTranslateX(0);
       return;
     }
     isDraggingRef.current = true;
-    // Apply resistance beyond threshold
-    const clamped = Math.max(delta, -SWIPE_THRESHOLD - 16);
-    setTranslateX(clamped);
+    setTranslateX(Math.max(delta, -SWIPE_THRESHOLD - 16));
   };
 
   const handleTouchEnd = () => {
     if (-translateX >= SWIPE_THRESHOLD) {
-      // Snap to reveal delete button
       setTranslateX(-SWIPE_THRESHOLD);
     } else {
-      // Snap back
       setTranslateX(0);
     }
+    isDraggingRef.current = false;
     startXRef.current = null;
   };
 
@@ -75,8 +71,9 @@ export default function SwipeableRow({
 
   return (
     <>
-      <div className="relative overflow-hidden">
-        {/* Delete button revealed behind */}
+      {/* group enables hover-based delete affordance for pointer devices */}
+      <div className="group relative overflow-hidden">
+        {/* Delete zone — sits behind content, revealed by left-swipe on touch */}
         <div
           className="absolute inset-y-0 right-0 flex items-center justify-center bg-destructive"
           style={{ width: SWIPE_THRESHOLD }}
@@ -91,14 +88,34 @@ export default function SwipeableRow({
           </button>
         </div>
 
-        {/* Swipeable content */}
+        {/* Swipeable content — bg-card keeps the delete zone hidden at rest */}
         <div
-          style={{ transform: `translateX(${translateX}px)`, transition: isDraggingRef.current ? "none" : "transform 0.2s ease" }}
+          className="relative bg-card"
+          style={{
+            transform: `translateX(${translateX}px)`,
+            transition: isDraggingRef.current ? "none" : "transform 0.2s ease",
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           {children}
+
+          {/* Desktop delete button — fades in on pointer hover, invisible & inert on touch */}
+          <button
+            className="absolute right-0 inset-y-0 flex items-center justify-center w-10
+                       opacity-0 pointer-events-none
+                       group-hover:opacity-100 group-hover:pointer-events-auto
+                       transition-opacity text-muted-foreground hover:text-destructive z-10"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsOpen(true);
+            }}
+            aria-label={deleteLabel}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

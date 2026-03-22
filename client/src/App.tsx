@@ -10,6 +10,9 @@ import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import CreateUser from "@/pages/CreateUser";
 import Dashboard from "@/pages/Dashboard";
+import Workouts from "@/pages/Workouts";
+import Food from "@/pages/Food";
+import Supplements from "@/pages/Supplements";
 import CreateProgram from "@/pages/CreateProgram";
 import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
@@ -26,6 +29,9 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/workouts" component={Workouts} />
+      <Route path="/food" component={Food} />
+      <Route path="/supplements" component={Supplements} />
       <Route path="/programs" component={Programs} />
       <Route path="/create" component={CreateProgram} />
       <Route path="/program/:id/settings" component={ProgramSettings} />

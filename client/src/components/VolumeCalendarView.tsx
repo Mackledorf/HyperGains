@@ -8,25 +8,64 @@ const MONTHS = [
 
 const DAY_HEADERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-export interface SessionDayInfo {
-  color: string;       // hex color based on feeling score
-  dayLabel: string;    // e.g. "Push Day"
-  duration: number | null; // workout duration in minutes
-  feelingLabel: string; // e.g. "Good", "Amazing"
+/**
+ * Volume-landmark-based training status for a single training day.
+ *
+ * The classification maps weekly accumulated sets (for the dominant muscle group
+ * trained that day) against Dr. Mike Israetel's volume landmarks:
+ *
+ *   undertrained  → below MV   (not enough stimulus to maintain)
+ *   maintaining   → at MV      (maintenance volume zone)
+ *   growing       → MEV → MAV  (minimum effective through start of MAV)
+ *   emphasizing   → within MAV (max-adaptive range, optimal hypertrophy)
+ *   overreaching  → above MRV  (volume exceeds recovery capacity)
+ *
+ * TODO: Populate this map once per-day / per-week historical volume
+ *       aggregation is implemented (see storage.getActualWeeklySetsPerMuscle).
+ */
+export type VolumeStatus =
+  | "undertrained"
+  | "maintaining"
+  | "growing"
+  | "emphasizing"
+  | "overreaching";
+
+export interface VolumeDayInfo {
+  status: VolumeStatus;
+  /** Primary muscle group that drives this day's classification */
+  primaryMuscle?: string;
+  /** Human-readable workout label (e.g. "Push Day") */
+  dayLabel: string;
 }
+
+export const VOLUME_STATUS_COLORS: Record<VolumeStatus, string> = {
+  undertrained: "#64748b",  // slate  — below MV
+  maintaining:  "#ca8a04",  // amber  — at MV
+  growing:      "#16a34a",  // green  — MEV → start of MAV
+  emphasizing:  "#2563eb",  // blue   — within MAV (optimal)
+  overreaching: "#dc2626",  // red    — above MRV
+};
+
+export const VOLUME_STATUS_LABELS: Record<VolumeStatus, string> = {
+  undertrained: "Under MV",
+  maintaining:  "Maintaining",
+  growing:      "Growing",
+  emphasizing:  "Emphasizing",
+  overreaching: "Overreaching",
+};
 
 interface Props {
   year: number;
   month: number; // 0-indexed
-  sessions: Map<string, SessionDayInfo>; // "YYYY-MM-DD" → info
+  days: Map<string, VolumeDayInfo>; // "YYYY-MM-DD" → info
   onMonthChange: (year: number, month: number) => void;
 }
 
-export default function CalendarView({ year, month, sessions, onMonthChange }: Props) {
+export default function VolumeCalendarView({ year, month, days, onMonthChange }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
 
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -43,9 +82,9 @@ export default function CalendarView({ year, month, sessions, onMonthChange }: P
     setSelectedDate(null);
   };
 
-  const selectedInfo = selectedDate ? sessions.get(selectedDate) : null;
-
-  const workoutCount = sessions.size;
+  const workoutCount = days.size;
+  const selectedInfo = selectedDate ? days.get(selectedDate) : null;
+  const isEmpty = workoutCount === 0;
 
   return (
     <div className="space-y-3">
@@ -89,18 +128,17 @@ export default function CalendarView({ year, month, sessions, onMonthChange }: P
 
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1">
-        {/* Leading empty cells */}
         {Array.from({ length: firstDayOfWeek }).map((_, i) => (
           <div key={`empty-${i}`} />
         ))}
 
-        {/* Day cells */}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const info = sessions.get(dateStr);
+          const info = days.get(dateStr);
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate;
+          const color = info ? VOLUME_STATUS_COLORS[info.status] : undefined;
 
           return (
             <button
@@ -115,20 +153,13 @@ export default function CalendarView({ year, month, sessions, onMonthChange }: P
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={
-                info
-                  ? {
-                      backgroundColor: info.color + "28",
-                    }
-                  : {}
-              }
+              style={info ? { backgroundColor: color + "28" } : {}}
               aria-label={info ? `${dateStr}: ${info.dayLabel}` : undefined}
             >
-              {/* Colored dot indicator for workout days */}
               {info && (
                 <div
                   className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: info.color }}
+                  style={{ backgroundColor: color }}
                 />
               )}
               <span
@@ -151,7 +182,7 @@ export default function CalendarView({ year, month, sessions, onMonthChange }: P
       {selectedInfo && selectedDate && (
         <div
           className="rounded-xl px-4 py-3 flex items-center justify-between"
-          style={{ backgroundColor: selectedInfo.color + "18" }}
+          style={{ backgroundColor: VOLUME_STATUS_COLORS[selectedInfo.status] + "18" }}
         >
           <div>
             <p className="text-sm font-bold">{selectedInfo.dayLabel}</p>
@@ -166,33 +197,37 @@ export default function CalendarView({ year, month, sessions, onMonthChange }: P
           <div className="text-right">
             <p
               className="text-sm font-bold"
-              style={{ color: selectedInfo.color }}
+              style={{ color: VOLUME_STATUS_COLORS[selectedInfo.status] }}
             >
-              {selectedInfo.feelingLabel}
+              {VOLUME_STATUS_LABELS[selectedInfo.status]}
             </p>
-            {selectedInfo.duration !== null && (
-              <p className="text-xs text-muted-foreground">
-                {selectedInfo.duration} min
+            {selectedInfo.primaryMuscle && (
+              <p className="text-xs text-muted-foreground capitalize">
+                {selectedInfo.primaryMuscle}
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Feeling color legend */}
-      <div className="flex items-center justify-center gap-4 flex-wrap">
-        {[
-          { color: "#ef4444", label: "Poor" },
-          { color: "#eab308", label: "Okay" },
-          { color: "#22c55e", label: "Good" },
-          { color: "#3b82f6", label: "Great" },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1.5">
+      {/* Empty state */}
+      {isEmpty && (
+        <p className="text-center text-[11px] text-muted-foreground/60 px-2">
+          Per-week volume analysis coming soon.
+        </p>
+      )}
+
+      {/* Volume zone legend */}
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        {(Object.keys(VOLUME_STATUS_LABELS) as VolumeStatus[]).map((status) => (
+          <div key={status} className="flex items-center gap-1.5">
             <div
               className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: color }}
+              style={{ backgroundColor: VOLUME_STATUS_COLORS[status] }}
             />
-            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {VOLUME_STATUS_LABELS[status]}
+            </span>
           </div>
         ))}
       </div>

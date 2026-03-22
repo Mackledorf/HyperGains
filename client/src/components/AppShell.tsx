@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Home, Layers, BarChart3, LogOut, Target } from "lucide-react";
+import { Dumbbell, Home, UtensilsCrossed, Pill, LogOut, CircleUser } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,9 +18,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/programs", icon: Layers, label: "Programs" },
-    { href: "/history", icon: BarChart3, label: "Progress" },
+    { href: "/workouts", icon: Dumbbell, label: "Workouts" },
+    { href: "/food", icon: UtensilsCrossed, label: "Food" },
+    { href: "/supplements", icon: Pill, label: "Supplements" },
   ];
+
+  function isActive(href: string): boolean {
+    if (href === "/") return location === "/";
+    if (href === "/workouts")
+      return (
+        location === "/workouts" ||
+        location.startsWith("/workout/") ||
+        location.startsWith("/program/") ||
+        location === "/programs" ||
+        location === "/create"
+      );
+    return location === href || location.startsWith(href + "/");
+  }
 
   const handleLogout = () => {
     window.dispatchEvent(new CustomEvent(HG_EVENTS.LOGOUT));
@@ -45,7 +59,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 aria-label="Profile & Goals"
               >
-                <Target className="w-4 h-4" />
+                <CircleUser className="w-4 h-4" />
               </button>
             </Link>
             <AlertDialog>
@@ -91,17 +105,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-lg mx-auto px-5 pb-3">
           <div className="flex items-center justify-around rounded-2xl bg-card/95 backdrop-blur-lg py-2 px-2">
-            {navItems.map(item => {
-              const isActive =
-                item.href === "/"
-                  ? location === "/"
-                  : location === item.href || location.startsWith(item.href + "/");
+            {navItems.map((item) => {
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-all ${
-                    isActive
+                    active
                       ? "text-primary bg-primary/10"
                       : "text-muted-foreground"
                   }`}

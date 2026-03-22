@@ -4,6 +4,7 @@ import * as store from "@/lib/storage";
 import AppShell from "@/components/AppShell";
 import MuscleVisualizer from "@/components/MuscleVisualizer";
 import CalendarView, { type SessionDayInfo } from "@/components/CalendarView";
+import VolumeCalendarView, { type VolumeDayInfo } from "@/components/VolumeCalendarView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Clock, TrendingUp, Dumbbell, Check } from "lucide-react";
@@ -167,6 +168,7 @@ function buildCalendarSessionMap(
 export default function History() {
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
+  const [calendarMode, setCalendarMode] = useState<"feeling" | "volume">("feeling");
 
   // Active program (for week number + sessions tab)
   const { data: activeProgram } = useQuery<Program | null>({
@@ -272,17 +274,54 @@ export default function History() {
 
             {/* Calendar */}
             <div>
-              <h2 className="text-sm font-bold mb-2">Training Log</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold">Training Log</h2>
+                {/* Mode toggle */}
+                <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                  <button
+                    onClick={() => setCalendarMode("feeling")}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                      calendarMode === "feeling"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Feeling
+                  </button>
+                  <button
+                    onClick={() => setCalendarMode("volume")}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                      calendarMode === "volume"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Volume
+                  </button>
+                </div>
+              </div>
               <div className="rounded-2xl bg-card p-4">
-                <CalendarView
-                  year={calYear}
-                  month={calMonth}
-                  sessions={calendarSessions}
-                  onMonthChange={(y, m) => {
-                    setCalYear(y);
-                    setCalMonth(m);
-                  }}
-                />
+                {calendarMode === "feeling" ? (
+                  <CalendarView
+                    year={calYear}
+                    month={calMonth}
+                    sessions={calendarSessions}
+                    onMonthChange={(y, m) => {
+                      setCalYear(y);
+                      setCalMonth(m);
+                    }}
+                  />
+                ) : (
+                  <VolumeCalendarView
+                    year={calYear}
+                    month={calMonth}
+                    days={new Map<string, VolumeDayInfo>()}
+                    onMonthChange={(y, m) => {
+                      setCalYear(y);
+                      setCalMonth(m);
+                    }}
+                  />
+                )}
               </div>
             </div>
           </TabsContent>

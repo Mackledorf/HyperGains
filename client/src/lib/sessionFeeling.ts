@@ -47,10 +47,10 @@ function scoreFromFeedbacks(feedbacks: ExerciseFeedback[]): number {
 }
 
 function scoreToFeeling(score: number): SessionFeeling {
-  if (score < 1.75) return { score, color: "red", label: "Tough Day" };
+  if (score < 1.75) return { score, color: "red", label: "Poor" };
   if (score < 2.5) return { score, color: "yellow", label: "Okay" };
   if (score < 3.25) return { score, color: "green", label: "Good" };
-  return { score, color: "blue", label: "Amazing" };
+  return { score, color: "blue", label: "Great" };
 }
 
 export function deriveSessionFeeling(

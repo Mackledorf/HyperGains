@@ -132,6 +132,136 @@ export type GoalEntry = {
   recordedAt: string;
 };
 
+// ── Food Tracker ────────────────────────────────────
+
+// User's personal food library — foods they've searched/scanned/manually entered
+export type CustomFood = {
+  id: string;
+  userId: string;
+  name: string;
+  brand?: string;
+  barcode?: string;
+  /** Canonical serving size in grams */
+  servingSizeG: number;
+  /** Human-readable serving label, e.g. "1 bar (50g)", "1 cup" */
+  servingSizeLabel: string;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  carbsPer100g: number;
+  fatPer100g: number;
+  source: "openfoodfacts" | "usda" | "custom";
+  createdAt: string;
+};
+
+// Meal container — groups multiple FoodEntries under one card
+export type Meal = {
+  id: string;
+  userId: string;
+  /** "Meal 1", "Meal 2", or user-customized */
+  name: string;
+  /** Single timestamp for the meal; auto-captured, user-editable (ISO string) */
+  loggedAt: string;
+  /** YYYY-MM-DD for day bucketing (3AM daily reset) */
+  date: string;
+};
+
+// A single food logged in the daily diary
+export type FoodEntry = {
+  id: string;
+  userId: string;
+  /** null = standalone food card; set = belongs to a Meal */
+  mealId: string | null;
+  /** Link to CustomFood in saved library */
+  customFoodId?: string | null;
+  name: string;
+  brand?: string;
+  /** Grams consumed — all macros are computed from this */
+  servingG: number;
+  /** Human-readable label, e.g. "1 bar (50g)" */
+  servingSizeLabel: string;
+  /** Computed: (servingG / 100) × caloriesPer100g */
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  /** Auto-captured, user-editable ISO string */
+  loggedAt: string;
+  /** YYYY-MM-DD for day bucketing */
+  date: string;
+};
+
+// Daily nutrition targets — user-set, TDEE estimate is offered as default
+// Future: implement adaptive TDEE by tracking weight trend over 2-4 weeks and
+// adjusting the estimate toward the calorie level where weight stays stable.
+export type NutritionGoals = {
+  id: string;
+  userId: string;
+  calorieTarget: number;
+  proteinTargetG: number;
+  carbsTargetG: number;
+  fatTargetG: number;
+  /** Base daily water goal in oz — scales dynamically with carb intake in UI */
+  waterTargetOz: number;
+  updatedAt: string;
+};
+
+// Water log entry
+export type WaterEntry = {
+  id: string;
+  userId: string;
+  amountOz: number;
+  loggedAt: string;
+  /** YYYY-MM-DD for day bucketing */
+  date: string;
+};
+
+// ── Supplement Tracker (schema only — not yet built) ────────
+// See /memories/session/plan.md for full design documentation.
+
+// User's supplement / vitamin / PED regimen entry
+export type Supplement = {
+  id: string;
+  userId: string;
+  name: string;
+  doseMg: number;
+  /** Default number of pills/doses per day */
+  defaultCount: number;
+  frequency: "daily" | "weekly" | "biweekly" | "custom";
+  category: "vitamin" | "supplement" | "ped";
+  isInjectable: boolean;
+  notes?: string;
+  createdAt: string;
+};
+
+// Daily supplement check-off log
+export type SupplementLog = {
+  id: string;
+  userId: string;
+  supplementId: string;
+  date: string;
+  countTaken: number;
+  skipped: boolean;
+  loggedAt: string;
+};
+
+// Injection log entry (for injectable PEDs)
+// Sites (IM): lower_quad_l/r, upper_quad_l/r, glute_l/r, deltoid_l/r
+// Sites (SubQ): love_handle_l/r, abdomen_l/r, glute_subq_l/r
+// Future: add injectable inventory tracking (vial volume, reorder alerts)
+export type InjectionLog = {
+  id: string;
+  userId: string;
+  supplementId: string;
+  volumeMl: number;
+  site: string;
+  injectionType: "im" | "subq";
+  date: string;
+  notes?: string;
+  loggedAt: string;
+};
+
+// ── Progressive Overload ─────────────────────────────────────
+
 // Progressive overload suggestion type (computed, not stored)
 export type OverloadSuggestion = {
   exerciseId: string;

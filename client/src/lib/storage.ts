@@ -15,6 +15,11 @@ import type {
   UserProfile,
   WeightEntry,
   GoalEntry,
+  CustomFood,
+  Meal,
+  FoodEntry,
+  NutritionGoals,
+  WaterEntry,
 } from "@shared/schema";
 
 // ── Active user (set at login, scopes all data keys) ──
@@ -59,16 +64,22 @@ function setStore<T>(key: string, data: T[]): void {
 
 // User-scoped data keys — computed dynamically from the active user ID
 const KEYS = {
-  get programs() { return `hg_programs_${_activeUserId}`; },
-  get exercises() { return `hg_exercises_${_activeUserId}`; },
-  get sessions() { return `hg_sessions_${_activeUserId}`; },
-  get setLogs() { return `hg_setlogs_${_activeUserId}`; },
-  get emphasis() { return `hg_emphasis_${_activeUserId}`; },
-  get feedback() { return `hg_feedback_${_activeUserId}`; },
-  get checkIns() { return `hg_checkins_${_activeUserId}`; },
-  get profile() { return `hg_profile_${_activeUserId}`; },
-  get weightHistory() { return `hg_weighthistory_${_activeUserId}`; },
-  get goalHistory() { return `hg_goalhistory_${_activeUserId}`; },
+  get programs()       { return `hg_programs_${_activeUserId}`; },
+  get exercises()      { return `hg_exercises_${_activeUserId}`; },
+  get sessions()       { return `hg_sessions_${_activeUserId}`; },
+  get setLogs()        { return `hg_setlogs_${_activeUserId}`; },
+  get emphasis()       { return `hg_emphasis_${_activeUserId}`; },
+  get feedback()       { return `hg_feedback_${_activeUserId}`; },
+  get checkIns()       { return `hg_checkins_${_activeUserId}`; },
+  get profile()        { return `hg_profile_${_activeUserId}`; },
+  get weightHistory()  { return `hg_weighthistory_${_activeUserId}`; },
+  get goalHistory()    { return `hg_goalhistory_${_activeUserId}`; },
+  // Food tracker
+  get customFoods()    { return `hg_customfoods_${_activeUserId}`; },
+  get meals()          { return `hg_meals_${_activeUserId}`; },
+  get foodEntries()    { return `hg_foodentries_${_activeUserId}`; },
+  get nutritionGoals() { return `hg_nutrigoals_${_activeUserId}`; },
+  get waterEntries()   { return `hg_water_${_activeUserId}`; },
 };
 
 // ══════════════════════════════════════════════════
@@ -440,11 +451,18 @@ export interface UserDataPayload {
   profile?: UserProfile;
   weightHistory?: WeightEntry[];
   goalHistory?: GoalEntry[];
+  // Food tracker
+  customFoods?: CustomFood[];
+  meals?: Meal[];
+  foodEntries?: FoodEntry[];
+  nutritionGoals?: NutritionGoals;
+  waterEntries?: WaterEntry[];
 }
 
 /** Exports all data for the active user as a plain object (for gist sync). */
 export function exportAll(): UserDataPayload {
   const rawProfile = localStorage.getItem(KEYS.profile);
+  const rawNutritionGoals = localStorage.getItem(KEYS.nutritionGoals);
   return {
     userId: _activeUserId,
     name: getUserName(_activeUserId),
@@ -458,6 +476,11 @@ export function exportAll(): UserDataPayload {
     profile: rawProfile ? JSON.parse(rawProfile) : undefined,
     weightHistory: getStore<WeightEntry>(KEYS.weightHistory),
     goalHistory: getStore<GoalEntry>(KEYS.goalHistory),
+    customFoods: getStore<CustomFood>(KEYS.customFoods),
+    meals: getStore<Meal>(KEYS.meals),
+    foodEntries: getStore<FoodEntry>(KEYS.foodEntries),
+    nutritionGoals: rawNutritionGoals ? JSON.parse(rawNutritionGoals) : undefined,
+    waterEntries: getStore<WaterEntry>(KEYS.waterEntries),
   };
 }
 
@@ -473,6 +496,11 @@ export function importAll(payload: UserDataPayload): void {
   if (payload.profile) localStorage.setItem(KEYS.profile, JSON.stringify(payload.profile));
   if (payload.weightHistory) setStore(KEYS.weightHistory, payload.weightHistory);
   if (payload.goalHistory) setStore(KEYS.goalHistory, payload.goalHistory);
+  if (payload.customFoods) setStore(KEYS.customFoods, payload.customFoods);
+  if (payload.meals) setStore(KEYS.meals, payload.meals);
+  if (payload.foodEntries) setStore(KEYS.foodEntries, payload.foodEntries);
+  if (payload.nutritionGoals) localStorage.setItem(KEYS.nutritionGoals, JSON.stringify(payload.nutritionGoals));
+  if (payload.waterEntries) setStore(KEYS.waterEntries, payload.waterEntries);
   if (payload.name) setUserName(_activeUserId, payload.name);
 }
 
@@ -747,4 +775,218 @@ export function getExerciseFeedbackForSessions(
 /** Returns all ExerciseFeedbacks for the active user. */
 export function getAllExerciseFeedbacks(): ExerciseFeedback[] {
   return getStore<ExerciseFeedback>(KEYS.feedback);
+}
+
+// ══════════════════════════════════════════════════
+// Food Tracker — Date Bucketing
+// Daily boundary is 3AM (night-owl friendly reset).
+// ══════════════════════════════════════════════════
+
+/** Returns "YYYY-MM-DD" for the food-day that contains the given time.
+ *  Hours 0:00–2:59 belong to the previous calendar day. */
+export function getFoodDate(now: Date = new Date()): string {
+  const adjusted = new Date(now);
+  if (adjusted.getHours() < 3) {
+    adjusted.setDate(adjusted.getDate() - 1);
+  }
+  return adjusted.toISOString().split("T")[0];
+}
+
+// ══════════════════════════════════════════════════
+// Custom Food Library
+// ══════════════════════════════════════════════════
+
+export function getCustomFoods(): CustomFood[] {
+  return getStore<CustomFood>(KEYS.customFoods).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+export function saveCustomFood(
+  data: Omit<CustomFood, "id" | "userId" | "createdAt">
+): CustomFood {
+  const foods = getStore<CustomFood>(KEYS.customFoods);
+  // Avoid duplicates by barcode
+  if (data.barcode) {
+    const existing = foods.find((f) => f.barcode === data.barcode);
+    if (existing) return existing;
+  }
+  const food: CustomFood = {
+    ...data,
+    id: uuid(),
+    userId: _activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  foods.push(food);
+  setStore(KEYS.customFoods, foods);
+  notifyDataChanged();
+  return food;
+}
+
+export function deleteCustomFood(id: string): void {
+  setStore(
+    KEYS.customFoods,
+    getStore<CustomFood>(KEYS.customFoods).filter((f) => f.id !== id)
+  );
+  notifyDataChanged();
+}
+
+// ══════════════════════════════════════════════════
+// Meals
+// ══════════════════════════════════════════════════
+
+export function getMealsForDate(date: string): Meal[] {
+  return getStore<Meal>(KEYS.meals)
+    .filter((m) => m.date === date)
+    .sort(
+      (a, b) =>
+        new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime()
+    );
+}
+
+export function createMeal(data: Omit<Meal, "id" | "userId">): Meal {
+  const meals = getStore<Meal>(KEYS.meals);
+  // Auto-number the meal based on how many meals exist today
+  const todayMeals = meals.filter((m) => m.date === data.date);
+  const name = data.name || `Meal ${todayMeals.length + 1}`;
+  const meal: Meal = { ...data, name, id: uuid(), userId: _activeUserId };
+  meals.push(meal);
+  setStore(KEYS.meals, meals);
+  notifyDataChanged();
+  return meal;
+}
+
+export function updateMeal(
+  id: string,
+  updates: Partial<Meal>
+): Meal | undefined {
+  const meals = getStore<Meal>(KEYS.meals);
+  const idx = meals.findIndex((m) => m.id === id);
+  if (idx === -1) return undefined;
+  meals[idx] = { ...meals[idx], ...updates };
+  setStore(KEYS.meals, meals);
+  notifyDataChanged();
+  return meals[idx];
+}
+
+export function deleteMeal(id: string): void {
+  setStore(
+    KEYS.meals,
+    getStore<Meal>(KEYS.meals).filter((m) => m.id !== id)
+  );
+  // Cascade: delete all food entries belonging to this meal
+  setStore(
+    KEYS.foodEntries,
+    getStore<FoodEntry>(KEYS.foodEntries).filter((e) => e.mealId !== id)
+  );
+  notifyDataChanged();
+}
+
+// ══════════════════════════════════════════════════
+// Food Entries
+// ══════════════════════════════════════════════════
+
+export function getFoodEntriesForDate(date: string): FoodEntry[] {
+  return getStore<FoodEntry>(KEYS.foodEntries).filter((e) => e.date === date);
+}
+
+export function createFoodEntry(
+  data: Omit<FoodEntry, "id" | "userId">
+): FoodEntry {
+  const entries = getStore<FoodEntry>(KEYS.foodEntries);
+  const entry: FoodEntry = { ...data, id: uuid(), userId: _activeUserId };
+  entries.push(entry);
+  setStore(KEYS.foodEntries, entries);
+  notifyDataChanged();
+  return entry;
+}
+
+export function updateFoodEntry(
+  id: string,
+  updates: Partial<FoodEntry>
+): FoodEntry | undefined {
+  const entries = getStore<FoodEntry>(KEYS.foodEntries);
+  const idx = entries.findIndex((e) => e.id === id);
+  if (idx === -1) return undefined;
+  entries[idx] = { ...entries[idx], ...updates };
+  setStore(KEYS.foodEntries, entries);
+  notifyDataChanged();
+  return entries[idx];
+}
+
+export function deleteFoodEntry(id: string): void {
+  setStore(
+    KEYS.foodEntries,
+    getStore<FoodEntry>(KEYS.foodEntries).filter((e) => e.id !== id)
+  );
+  notifyDataChanged();
+}
+
+// ══════════════════════════════════════════════════
+// Nutrition Goals
+// ══════════════════════════════════════════════════
+
+const DEFAULT_NUTRITION_GOALS: Omit<NutritionGoals, "id" | "userId" | "updatedAt"> = {
+  calorieTarget: 2000,
+  proteinTargetG: 150,
+  carbsTargetG: 200,
+  fatTargetG: 70,
+  waterTargetOz: 64,
+};
+
+export function getNutritionGoals(): NutritionGoals {
+  try {
+    const raw = localStorage.getItem(KEYS.nutritionGoals);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  // Return defaults (not yet persisted)
+  return {
+    ...DEFAULT_NUTRITION_GOALS,
+    id: "",
+    userId: _activeUserId,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function saveNutritionGoals(
+  data: Omit<NutritionGoals, "id" | "userId" | "updatedAt"> & { id?: string }
+): NutritionGoals {
+  const existing = getNutritionGoals();
+  const goals: NutritionGoals = {
+    id: data.id ?? existing.id ?? uuid(),
+    userId: _activeUserId,
+    updatedAt: new Date().toISOString(),
+    calorieTarget: data.calorieTarget,
+    proteinTargetG: data.proteinTargetG,
+    carbsTargetG: data.carbsTargetG,
+    fatTargetG: data.fatTargetG,
+    waterTargetOz: data.waterTargetOz,
+  };
+  localStorage.setItem(KEYS.nutritionGoals, JSON.stringify(goals));
+  notifyDataChanged();
+  return goals;
+}
+
+// ══════════════════════════════════════════════════
+// Water Entries
+// ══════════════════════════════════════════════════
+
+export function getWaterEntriesForDate(date: string): WaterEntry[] {
+  return getStore<WaterEntry>(KEYS.waterEntries).filter((e) => e.date === date);
+}
+
+export function addWaterEntry(amountOz: number): WaterEntry {
+  const entries = getStore<WaterEntry>(KEYS.waterEntries);
+  const now = new Date().toISOString();
+  const entry: WaterEntry = {
+    id: uuid(),
+    userId: _activeUserId,
+    amountOz,
+    loggedAt: now,
+    date: getFoodDate(),
+  };
+  entries.push(entry);
+  setStore(KEYS.waterEntries, entries);
+  notifyDataChanged();
+  return entry;
 }

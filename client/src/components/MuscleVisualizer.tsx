@@ -41,13 +41,13 @@ export default function MuscleVisualizer({ muscleData }: Props) {
   const fillForPath = (pathIndex: number): string => {
     const indexMap = view === "front" ? FRONT_INDEX_TO_MUSCLE : BACK_INDEX_TO_MUSCLE;
     const muscle = indexMap[pathIndex];
-    // Non-muscle body-detail paths always show background
-    if (!muscle) return "hsl(var(--background))";
+    // Non-muscle body-detail paths always show the card background
+    if (!muscle) return "hsl(var(--card))";
     // Fatigue mode: always show accumulated volume color
     if (showFatigue) return muscleData[muscle]?.color ?? VOLUME_ZONE_COLORS.none;
-    // Default mode: hover reveals muscle's identity color, otherwise background
-    if (hoveredMuscle === muscle) return MUSCLE_FILL_COLORS[muscle] ?? VOLUME_ZONE_COLORS.none;
-    return "hsl(var(--background))";
+    // Default mode: hover or selected reveals muscle's identity color, otherwise card background
+    if (hoveredMuscle === muscle || selected === muscle) return MUSCLE_FILL_COLORS[muscle] ?? VOLUME_ZONE_COLORS.none;
+    return "hsl(var(--card))";
   };
 
   const selectedInfo = selected ? muscleData[selected] : null;
@@ -100,8 +100,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             <g clipPath="url(#front-body-clip)">
               {renderFills(FRONT_FILLS, FRONT_INDEX_TO_MUSCLE)}
             </g>
-            {/* Gap overlay: paints the arm-body gap shapes with background to cover any fill bleed */}
-            <path d={FRONT_GAPS} style={{ fill: "hsl(var(--background))", pointerEvents: "none" }} />
+            {/* Gap overlay: paints the arm-body gap shapes with card color to cover any fill bleed */}
+            <path d={FRONT_GAPS} style={{ fill: "hsl(var(--card))", pointerEvents: "none" }} />
           </svg>
         </div>
 
@@ -120,8 +120,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             <g clipPath="url(#back-body-clip)">
               {renderFills(BACK_FILLS, BACK_INDEX_TO_MUSCLE)}
             </g>
-            {/* Gap overlay: paints the arm-body gap shapes with background to cover any fill bleed */}
-            <path d={REAR_GAPS} style={{ fill: "hsl(var(--background))", pointerEvents: "none" }} />
+            {/* Gap overlay: paints the arm-body gap shapes with card color to cover any fill bleed */}
+            <path d={REAR_GAPS} style={{ fill: "hsl(var(--card))", pointerEvents: "none" }} />
           </svg>
         </div>
       </div>
