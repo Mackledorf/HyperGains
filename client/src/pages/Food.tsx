@@ -39,9 +39,6 @@ import {
   LoaderCircle,
   ChevronLeft,
   GlassWater,
-  CupSoda,
-  FlaskRound,
-  FlaskConical,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -127,10 +124,10 @@ function CalorieSummary({
 // ── WaterBar ──────────────────────────────────────────────────────────────────
 
 const WATER_AMOUNTS = [
-  { oz: 8,  label: "+8 oz",  Icon: GlassWater   },
-  { oz: 16, label: "+16 oz", Icon: CupSoda      },
-  { oz: 32, label: "+32 oz", Icon: FlaskRound   },
-  { oz: 64, label: "+64 oz", Icon: FlaskConical },
+  { oz: 8,  label: "+8 oz",  Icon: GlassWater },
+  { oz: 16, label: "+16 oz", Icon: GlassWater },
+  { oz: 32, label: "+32 oz", Icon: GlassWater },
+  { oz: 64, label: "+64 oz", Icon: GlassWater },
 ];
 
 function WaterBar({
@@ -214,7 +211,6 @@ function WaterBar({
               ? <Icon className="w-5 h-5 text-sky-300" />
               : <span className="text-xs font-medium">{label}</span>
             }
-            {useEmoji && <span className="text-[10px] text-muted-foreground leading-none">{oz}oz</span>}
           </Button>
         ))}
       </div>
