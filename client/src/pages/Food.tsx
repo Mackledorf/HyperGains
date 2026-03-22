@@ -38,6 +38,10 @@ import {
   Search,
   LoaderCircle,
   ChevronLeft,
+  GlassWater,
+  CupSoda,
+  FlaskRound,
+  FlaskConical,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -69,9 +73,7 @@ function CalorieSummary({
   onEditGoals: () => void;
 }) {
   const isOver = totals.calories > goals.calorieTarget;
-  const calDisplay = Math.round(
-    isOver ? totals.calories - goals.calorieTarget : goals.calorieTarget - totals.calories
-  );
+  const remaining = Math.round(goals.calorieTarget - totals.calories);
 
   return (
     <div className="rounded-2xl bg-card p-4 space-y-4">
@@ -91,23 +93,31 @@ function CalorieSummary({
         </button>
       </div>
 
-      <div className="flex items-end gap-1">
-        <span className={`text-4xl font-bold tabular-nums leading-none ${isOver ? "text-red-400" : ""}`}>
-          {calDisplay}
-        </span>
-        <span className="text-muted-foreground text-sm mb-1">
-          {isOver ? "kcal over" : "kcal remaining"}
-        </span>
-      </div>
-
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{Math.round(totals.calories)} eaten</span>
-        <span>{goals.calorieTarget} goal</span>
+      {/* Goal − Food = Remaining equation */}
+      <div className="grid grid-cols-5 items-center text-center">
+        <div className="col-span-1">
+          <p className="text-2xl font-bold tabular-nums leading-none">{goals.calorieTarget}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">kcal goal</p>
+        </div>
+        <div className="col-span-1 text-lg text-muted-foreground font-light">−</div>
+        <div className="col-span-1">
+          <p className="text-2xl font-bold tabular-nums leading-none">{Math.round(totals.calories)}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">kcal eaten</p>
+        </div>
+        <div className="col-span-1 text-lg text-muted-foreground font-light">=</div>
+        <div className="col-span-1">
+          <p className={`text-2xl font-bold tabular-nums leading-none ${isOver ? "text-red-400" : "text-green-400"}`}>
+            {Math.abs(remaining)}
+          </p>
+          <p className={`text-[10px] mt-1 ${isOver ? "text-red-400/70" : "text-muted-foreground"}`}>
+            {isOver ? "kcal over" : "kcal left"}
+          </p>
+        </div>
       </div>
 
       <div className="space-y-2.5">
-        <MacroBar label="Protein" consumed={totals.proteinG} target={goals.proteinTargetG} color="#f97316" />
         <MacroBar label="Carbs"   consumed={totals.carbsG}   target={goals.carbsTargetG}   color="#eab308" />
+        <MacroBar label="Protein" consumed={totals.proteinG} target={goals.proteinTargetG} color="#f97316" />
         <MacroBar label="Fat"     consumed={totals.fatG}     target={goals.fatTargetG}     color="#3b82f6" />
       </div>
     </div>
@@ -116,51 +126,11 @@ function CalorieSummary({
 
 // ── WaterBar ──────────────────────────────────────────────────────────────────
 
-// SVG icons for water amounts
-function IconGlass({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 3h14l-2 16H7L5 3z" />
-      <path d="M8 13h8" strokeWidth="1.4" className="text-sky-400" stroke="#38bdf8" />
-    </svg>
-  );
-}
-function IconBottle({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 3h6v2.5c0 .5.5 1 1 1.5l1 1V20a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8l1-1c.5-.5 1-1 1-1.5V3z" />
-      <path d="M7 13h10" strokeWidth="1.4" stroke="#38bdf8" />
-    </svg>
-  );
-}
-function IconNalgene({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="8" y="4" width="8" height="1.5" rx="0.5" />
-      <path d="M7 5.5v13A1.5 1.5 0 0 0 8.5 20h7a1.5 1.5 0 0 0 1.5-1.5v-13" />
-      <path d="M9 7h6" strokeWidth="1" />
-      <path d="M7 13.5h10" strokeWidth="1.4" stroke="#38bdf8" />
-      <path d="M8 3.5h8" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconGallon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 4h10v1H7z" strokeWidth="0" fill="currentColor" opacity="0.3" />
-      <rect x="6" y="4" width="12" height="16" rx="2" />
-      <path d="M9 3h6v1.5H9z" />
-      <path d="M6 13.5h12" strokeWidth="1.4" stroke="#38bdf8" />
-      <path d="M10 8h4" strokeWidth="1" />
-    </svg>
-  );
-}
-
 const WATER_AMOUNTS = [
-  { oz: 8,  label: "+8 oz",  Icon: IconGlass   },
-  { oz: 16, label: "+16 oz", Icon: IconBottle  },
-  { oz: 32, label: "+32 oz", Icon: IconNalgene },
-  { oz: 64, label: "+64 oz", Icon: IconGallon  },
+  { oz: 8,  label: "+8 oz",  Icon: GlassWater   },
+  { oz: 16, label: "+16 oz", Icon: CupSoda      },
+  { oz: 32, label: "+32 oz", Icon: FlaskRound   },
+  { oz: 64, label: "+64 oz", Icon: FlaskConical },
 ];
 
 function WaterBar({
@@ -199,17 +169,21 @@ function WaterBar({
         <div className="flex items-center gap-2">
           {/* Unit toggle */}
           <button
-            className="flex items-center gap-0.5 h-6 rounded-full bg-muted px-0.5 relative"
-            style={{ width: "52px" }}
+            className="relative flex h-6 rounded-full bg-muted overflow-hidden"
+            style={{ width: "56px" }}
             onClick={() => setUseEmoji(v => !v)}
             aria-label="Toggle display units"
           >
             <div
-              className="absolute top-0.5 h-5 w-5 rounded-full bg-sky-400 shadow transition-all duration-200"
-              style={{ left: useEmoji ? "2px" : "calc(100% - 22px)" }}
+              className="absolute top-[2px] h-5 w-[24px] rounded-full bg-sky-400 shadow transition-all duration-200"
+              style={{ left: useEmoji ? "2px" : "30px" }}
             />
-            <IconGlass className="w-3.5 h-3.5 text-foreground z-10 ml-0.5 flex-shrink-0" />
-            <span className="text-[10px] font-semibold text-foreground z-10 ml-auto mr-0.5 leading-none">oz</span>
+            <div className="relative w-1/2 h-full flex items-center justify-center z-10">
+              <GlassWater className="w-3 h-3 text-foreground" />
+            </div>
+            <div className="relative w-1/2 h-full flex items-center justify-center z-10">
+              <span className="text-[10px] font-bold text-foreground leading-none">oz</span>
+            </div>
           </button>
           <span className="text-xs text-muted-foreground tabular-nums">
             {Math.round(consumedOz)} / {targetOz} oz
@@ -494,7 +468,7 @@ function GoalsSheet({
   const [mode, setMode] = useState<"percent" | "grams">("percent");
   const [calorieInput, setCalorieInput] = useState("2000");
   const [waterOz, setWaterOz] = useState(64);
-  const [splits, setSplits] = useState({ carbs: 50, protein: 20, fat: 30 });
+  const [splits, setSplits] = useState({ carbs: "50", protein: "20", fat: "30" });
   const [lastChanged, setLastChanged] = useState<"carbs" | "protein" | "fat" | null>(null);
   const [gramGoals, setGramGoals] = useState({ carbs: 250, protein: 100, fat: 67 });
 
@@ -509,37 +483,38 @@ function GoalsSheet({
       const fPct = Math.round((g.fatTargetG * 9 / g.calorieTarget) * 100);
       const sum = cPct + pPct + fPct;
       setSplits(sum >= 95 && sum <= 105
-        ? { carbs: cPct, protein: pPct, fat: fPct }
-        : { carbs: 50, protein: 20, fat: 30 });
+        ? { carbs: String(cPct), protein: String(pPct), fat: String(fPct) }
+        : { carbs: "50", protein: "20", fat: "30" });
     } else {
-      setSplits({ carbs: 50, protein: 20, fat: 30 });
+      setSplits({ carbs: "50", protein: "20", fat: "30" });
     }
     setLastChanged(null);
     setMode("percent");
   }, [open]);
 
   const calories = parseFloat(calorieInput) || 0;
-  const splitTotal = splits.carbs + splits.protein + splits.fat;
+  function parseSplit(v: string) { const n = parseInt(v, 10); return isNaN(n) ? 0 : Math.max(0, Math.min(100, n)); }
+  const splitTotal = parseSplit(splits.carbs) + parseSplit(splits.protein) + parseSplit(splits.fat);
 
   function calcGrams(macro: "carbs" | "protein" | "fat") {
-    return Math.round((calories * splits[macro] / 100) / (macro === "fat" ? 9 : 4));
+    return Math.round((calories * parseSplit(splits[macro]) / 100) / (macro === "fat" ? 9 : 4));
   }
 
   function adjustSplit(macro: "carbs" | "protein" | "fat", delta: number) {
-    setSplits(s => ({ ...s, [macro]: Math.max(0, Math.min(100, s[macro] + delta)) }));
+    setSplits(s => ({ ...s, [macro]: String(Math.max(0, Math.min(100, parseSplit(s[macro]) + delta))) }));
     setLastChanged(macro);
   }
 
   function typeSplit(macro: "carbs" | "protein" | "fat", val: string) {
-    const n = parseInt(val, 10);
-    setSplits(s => ({ ...s, [macro]: isNaN(n) ? 0 : Math.max(0, Math.min(100, n)) }));
+    // Allow empty string so user can fully clear the field
+    setSplits(s => ({ ...s, [macro]: val }));
     setLastChanged(macro);
   }
 
   function autoFill(macro: "carbs" | "protein" | "fat") {
     const others = (["carbs", "protein", "fat"] as const).filter(m => m !== macro);
-    const otherSum = others.reduce((sum, m) => sum + splits[m], 0);
-    setSplits(s => ({ ...s, [macro]: Math.max(0, 100 - otherSum) }));
+    const otherSum = others.reduce((sum, m) => sum + parseSplit(splits[m]), 0);
+    setSplits(s => ({ ...s, [macro]: String(Math.max(0, 100 - otherSum)) }));
     setLastChanged(macro);
   }
 
@@ -619,6 +594,7 @@ function GoalsSheet({
 
               {macroConfig.map(({ macro, label, color }) => {
                 const pct = splits[macro];
+                const pctNum = parseSplit(pct);
                 const grams = calcGrams(macro);
                 const showAuto = splitTotal !== 100 && macro !== lastChanged;
                 return (
@@ -631,7 +607,7 @@ function GoalsSheet({
                       <button
                         className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
                         onClick={() => adjustSplit(macro, -5)}
-                        disabled={pct <= 0}
+                        disabled={pctNum <= 0}
                       >−</button>
                       <input
                         type="number"
@@ -646,7 +622,7 @@ function GoalsSheet({
                       <button
                         className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
                         onClick={() => adjustSplit(macro, 5)}
-                        disabled={pct >= 100}
+                        disabled={pctNum >= 100}
                       >+</button>
                       <div className="w-14 flex-shrink-0">
                         {showAuto && (

@@ -6,7 +6,7 @@
  *   visualizer (readiness view), supplement checklist, weight sparkline,
  *   Easy View / Full View toggle, and a food quick-add FAB.
  */
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import AppShell from "@/components/AppShell";
 import MacroBar from "@/components/MacroBar";
@@ -34,27 +34,34 @@ export default function Dashboard() {
 
   const calRemaining = Math.max(0, goals.calorieTarget - totals.calories);
 
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+  useEffect(() => {
+    const id = setInterval(() =>
+      setTime(new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }))
+    , 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <AppShell>
       <div className="space-y-5">
-        {/* Greeting */}
-        <div>
-          <p className="text-muted-foreground text-sm">{dateLabel}</p>
-          <h1 className="text-xl font-bold mt-0.5">{greeting} 👋</h1>
+        {/* Date + Clock */}
+        <div className="flex items-center gap-3 font-mono text-sm text-muted-foreground">
+          <span className="tabular-nums">{time}</span>
+          <span className="text-border">·</span>
+          <span>{dateLabel}</span>
         </div>
 
         {/* Nutrition card */}
-        <Link href="/food">
+        <Link href="/food" className="block">
           <div className="rounded-2xl bg-card p-4 space-y-4 active:scale-[0.99] transition-transform cursor-pointer">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -97,7 +104,7 @@ export default function Dashboard() {
         </Link>
 
         {/* Workout card */}
-        <Link href="/workouts">
+        <Link href="/workouts" className="block">
           <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -131,7 +138,7 @@ export default function Dashboard() {
         </Link>
 
         {/* Supplements card */}
-        <Link href="/supplements">
+        <Link href="/supplements" className="block">
           <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
