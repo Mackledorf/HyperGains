@@ -22,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import MacroBar from "@/components/MacroBar";
 import * as store from "@/lib/storage";
 import { searchFoods, lookupBarcode, type FoodSearchResult } from "@/lib/foodApi";
 import type { FoodEntry, Meal, NutritionGoals } from "@shared/schema";
@@ -56,29 +57,6 @@ function computeMacros(food: FoodSearchResult, servingG: number) {
   };
 }
 
-// ── MacroBar ─────────────────────────────────────────────────────────────────
-
-function MacroBar({
-  label, consumed, target, color,
-}: { label: string; consumed: number; target: number; color: string }) {
-  const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0;
-  const remaining = Math.max(0, target - consumed);
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium tabular-nums">{Math.round(remaining)}g left</span>
-      </div>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
-}
-
 // ── CalorieSummary ────────────────────────────────────────────────────────────
 
 function CalorieSummary({
@@ -90,10 +68,10 @@ function CalorieSummary({
   totals: { calories: number; proteinG: number; carbsG: number; fatG: number };
   onEditGoals: () => void;
 }) {
-  const calRemaining = Math.max(0, goals.calorieTarget - totals.calories);
-  const calOver = totals.calories > goals.calorieTarget
-    ? Math.round(totals.calories - goals.calorieTarget)
-    : 0;
+  const isOver = totals.calories > goals.calorieTarget;
+  const calDisplay = Math.round(
+    isOver ? totals.calories - goals.calorieTarget : goals.calorieTarget - totals.calories
+  );
 
   return (
     <div className="rounded-2xl bg-card p-4 space-y-4">
@@ -114,11 +92,11 @@ function CalorieSummary({
       </div>
 
       <div className="flex items-end gap-1">
-        <span className="text-4xl font-bold tabular-nums leading-none">
-          {Math.round(calRemaining)}
+        <span className={`text-4xl font-bold tabular-nums leading-none ${isOver ? "text-red-400" : ""}`}>
+          {calDisplay}
         </span>
         <span className="text-muted-foreground text-sm mb-1">
-          {calOver > 0 ? `kcal over (${calOver} surplus)` : "kcal remaining"}
+          {isOver ? "kcal over" : "kcal remaining"}
         </span>
       </div>
 
