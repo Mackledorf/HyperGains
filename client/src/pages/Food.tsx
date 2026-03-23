@@ -25,6 +25,7 @@ import {
 import MacroBar from "@/components/MacroBar";
 import * as store from "@/lib/storage";
 import { searchFoods, lookupBarcode, type FoodSearchResult } from "@/lib/foodApi";
+import { MACRO_COLORS } from "@/lib/macroColors";
 import type { FoodEntry, Meal, NutritionGoals } from "@shared/schema";
 import {
   UtensilsCrossed,
@@ -113,9 +114,9 @@ function CalorieSummary({
       </div>
 
       <div className="space-y-2.5">
-        <MacroBar label="Carbs"   consumed={totals.carbsG}   target={goals.carbsTargetG}   color="#eab308" />
-        <MacroBar label="Protein" consumed={totals.proteinG} target={goals.proteinTargetG} color="#f97316" />
-        <MacroBar label="Fat"     consumed={totals.fatG}     target={goals.fatTargetG}     color="#3b82f6" />
+        <MacroBar label="Carbs"   consumed={totals.carbsG}   target={goals.carbsTargetG}   color={MACRO_COLORS.carbs} />
+        <MacroBar label="Protein" consumed={totals.proteinG} target={goals.proteinTargetG} color={MACRO_COLORS.protein} />
+        <MacroBar label="Fat"     consumed={totals.fatG}     target={goals.fatTargetG}     color={MACRO_COLORS.fat} />
       </div>
     </div>
   );
@@ -535,9 +536,9 @@ function GoalsSheet({
   }
 
   const macroConfig: Array<{ macro: "carbs" | "protein" | "fat"; label: string; color: string }> = [
-    { macro: "carbs",   label: "Carbs",   color: "#eab308" },
-    { macro: "protein", label: "Protein", color: "#f97316" },
-    { macro: "fat",     label: "Fat",     color: "#3b82f6" },
+    { macro: "carbs",   label: "Carbs",   color: MACRO_COLORS.carbs },
+    { macro: "protein", label: "Protein", color: MACRO_COLORS.protein },
+    { macro: "fat",     label: "Fat",     color: MACRO_COLORS.fat },
   ];
 
   return (
@@ -861,10 +862,17 @@ function AddFoodSheet({
                     onClick={() => { setSelectedFood(r); setScreen("serving"); }}
                   >
                     <p className="text-sm font-medium leading-snug">{r.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {r.brand && `${r.brand} · `}
-                      {Math.round(r.caloriesPer100g)} kcal/100g
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      {r.brand && `${r.brand} · `}{r.servingSizeLabel}
                     </p>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xs font-semibold text-foreground">
+                        {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
+                      </span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>P {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>C {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>F {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
+                    </div>
                   </button>
                 ))}
                 {!showAll && results.length > 8 && (

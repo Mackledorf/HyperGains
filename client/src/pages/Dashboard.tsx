@@ -10,6 +10,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import AppShell from "@/components/AppShell";
 import MacroBar from "@/components/MacroBar";
+import { MACRO_COLORS } from "@/lib/macroColors";
 import * as store from "@/lib/storage";
 import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp } from "lucide-react";
 
@@ -92,19 +93,19 @@ export default function Dashboard() {
                 label="Protein"
                 consumed={totals.proteinG}
                 target={goals.proteinTargetG}
-                color="#f97316"
+                color={MACRO_COLORS.protein}
               />
               <MacroBar
                 label="Carbs"
                 consumed={totals.carbsG}
                 target={goals.carbsTargetG}
-                color="#eab308"
+                color={MACRO_COLORS.carbs}
               />
               <MacroBar
                 label="Fat"
                 consumed={totals.fatG}
                 target={goals.fatTargetG}
-                color="#3b82f6"
+                color={MACRO_COLORS.fat}
               />
             </div>
           </div>

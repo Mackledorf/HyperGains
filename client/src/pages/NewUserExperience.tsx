@@ -14,6 +14,7 @@ import { ChevronLeft, Check } from "lucide-react";
 import * as store from "@/lib/storage";
 import type { UserProfile } from "@shared/schema";
 import MacroBar from "@/components/MacroBar";
+import { MACRO_COLORS } from "@/lib/macroColors";
 
 // ─────────────────────────────────────────────────
 // Constants
@@ -631,8 +632,8 @@ function Step4Macros({
   };
 
   const macroAdjustRows = [
-    { key: "carbs" as const, label: "Carbs",   color: "#eab308", grams: carbsG,    pct: carbsPct },
-    { key: "fat"   as const, label: "Fat",     color: "#3b82f6", grams: fatG,      pct: fatPct   },
+    { key: "carbs" as const, label: "Carbs",   color: MACRO_COLORS.carbs,   grams: carbsG,    pct: carbsPct },
+    { key: "fat"   as const, label: "Fat",     color: MACRO_COLORS.fat,     grams: fatG,      pct: fatPct   },
   ];
 
   return (
@@ -699,7 +700,7 @@ function Step4Macros({
         {/* Protein row — g/lb stepper */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold" style={{ color: "#f97316" }}>
+            <span className="text-xs font-semibold" style={{ color: MACRO_COLORS.protein }}>
               Protein{proteinPerLb === 0.9 && <span className="ml-1.5 text-muted-foreground/60 font-normal">(recommended)</span>}
             </span>
             <span className="text-xs text-muted-foreground tabular-nums">{proteinBase}g · {proteinPct}%</span>
@@ -760,9 +761,9 @@ function Step4Macros({
 
         {/* Proportional split bar */}
         <div className="flex h-2 rounded-full overflow-hidden gap-px pt-1">
-          <div style={{ width: `${carbsPct}%`, backgroundColor: "#eab308" }} className="transition-all" />
-          <div style={{ width: `${proteinPct}%`, backgroundColor: "#f97316" }} className="transition-all" />
-          <div style={{ width: `${fatPct}%`, backgroundColor: "#3b82f6" }} className="transition-all" />
+          <div style={{ width: `${carbsPct}%`, backgroundColor: MACRO_COLORS.carbs }} className="transition-all" />
+          <div style={{ width: `${proteinPct}%`, backgroundColor: MACRO_COLORS.protein }} className="transition-all" />
+          <div style={{ width: `${fatPct}%`, backgroundColor: MACRO_COLORS.fat }} className="transition-all" />
         </div>
 
         {!weightLbs && (
