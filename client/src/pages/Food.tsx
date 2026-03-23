@@ -710,6 +710,7 @@ function AddFoodSheet({
   const [isSearching, setIsSearching] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Reset on open/close
   useEffect(() => {
@@ -722,27 +723,30 @@ function AddFoodSheet({
     }
   }, [open]);
 
-  // Debounced search
+  // Debounced search with AbortController — stale results stay visible while refreshing
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setIsSearching(false);
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      // Cancel any previous in-flight request
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
       setIsSearching(true);
       try {
-        const r = await searchFoods(query.trim());
+        const r = await searchFoods(query.trim(), abortRef.current.signal);
         setResults(r);
-      } catch {
-        setResults([]);
+      } catch (e) {
+        // AbortError = superseded by a newer query, keep showing stale results
+        if ((e as Error)?.name !== "AbortError") setResults([]);
       } finally {
         setIsSearching(false);
       }
-    }, 500);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    }, 700);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
   async function handleBarcode(barcode: string) {
@@ -841,16 +845,13 @@ function AddFoodSheet({
               </Button>
             </div>
 
-            {/* Results */}
-            {isSearching && (
-              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
-                <LoaderCircle className="w-4 h-4 animate-spin" />
-                Searching…
-              </div>
-            )}
-
-            {!isSearching && results.length > 0 && (
-              <div className="divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden">
+            {/* Results — kept visible and dimmed while a refresh is in-flight */}
+            {results.length > 0 && (
+              <div
+                className={`divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden transition-opacity duration-200 ${
+                  isSearching ? "opacity-40 pointer-events-none" : "opacity-100"
+                }`}
+              >
                 {results.map(r => (
                   <button
                     key={r.id}
@@ -864,6 +865,22 @@ function AddFoodSheet({
                     </p>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* First-load spinner: only shown when there are no stale results yet */}
+            {isSearching && results.length === 0 && (
+              <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
+                <LoaderCircle className="w-4 h-4 animate-spin" />
+                Searching…
+              </div>
+            )}
+
+            {/* Small indicator when stale results are showing and a refresh is running */}
+            {isSearching && results.length > 0 && (
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 -mt-2">
+                <LoaderCircle className="w-3 h-3 animate-spin" />
+                Updating…
               </div>
             )}
 

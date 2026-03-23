@@ -106,6 +106,82 @@ export async function lookupBarcode(
   }
 }
 
+// ── Locale helpers ───────────────────────────────────────────────────────────
+
+function getUserLocale(): { lang: string; country: string } {
+  const nav = (typeof navigator !== "undefined" ? navigator.language : "en-US") || "en-US";
+  const parts = nav.split("-");
+  return {
+    lang: parts[0].toLowerCase(),
+    country: (parts[1] || "").toLowerCase(),
+  };
+}
+
+// ── In-memory search cache (5-minute TTL) ─────────────────────────────────────
+
+const _cache = new Map<string, { results: FoodSearchResult[]; at: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getCached(key: string): FoodSearchResult[] | null {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.at > CACHE_TTL_MS) { _cache.delete(key); return null; }
+  return entry.results;
+}
+
+function setCached(key: string, results: FoodSearchResult[]) {
+  _cache.set(key, { results, at: Date.now() });
+  if (_cache.size > 50) {
+    const firstKey = _cache.keys().next().value;
+    if (firstKey !== undefined) _cache.delete(firstKey);
+  }
+}
+
+// ── OFF extended type for re-ranking ─────────────────────────────────────────
+
+interface OffResultWithMeta extends FoodSearchResult {
+  _lang?: string;
+  _countries?: string[];
+}
+
+function parseOFFProductWithMeta(product: Record<string, unknown>): OffResultWithMeta | null {
+  const base = parseOFFProduct(product);
+  if (!base) return null;
+  return {
+    ...base,
+    _lang: (product.lang as string | undefined)?.toLowerCase(),
+    _countries: (product.countries_tags as string[] | undefined) ?? [],
+  };
+}
+
+function scoreOFFResult(
+  item: OffResultWithMeta,
+  query: string,
+  preferredLang: string,
+  preferredCountry: string,
+  index: number
+): number {
+  // Base score preserves popularity_key ordering from OFF
+  let score = Math.max(0, 40 - index);
+
+  const nameLower = item.name.toLowerCase();
+  const q = query.toLowerCase().trim();
+
+  if (nameLower === q)                    score += 60;
+  else if (nameLower.startsWith(q + " ")) score += 40;
+  else if (nameLower.startsWith(q))       score += 35;
+  else if (nameLower.includes(" " + q))   score += 15;
+
+  // Boost products whose language matches the browser language
+  if (item._lang && item._lang === preferredLang) score += 25;
+
+  // Boost products sold in user's country (tags look like "en:united-states")
+  if (preferredCountry && item._countries?.some(c => c.toLowerCase().includes(preferredCountry)))
+    score += 20;
+
+  return score;
+}
+
 // ── USDA FoodData Central ─────────────────────────────────────────────────────
 
 function getUsdaKey(): string {
@@ -141,13 +217,13 @@ function usdaMacro(nutrients: UsdaNutrient[], id: number, fallbackName: string):
   );
 }
 
-async function searchUSDA(query: string): Promise<FoodSearchResult[]> {
+async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSearchResult[]> {
   try {
     const key = getUsdaKey();
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
       query
     )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)&pageSize=10`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if (!res.ok) return [];
     const data = await res.json();
     const results: FoodSearchResult[] = [];
@@ -172,7 +248,8 @@ async function searchUSDA(query: string): Promise<FoodSearchResult[]> {
       });
     }
     return results;
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") throw e;
     return [];
   }
 }
@@ -180,37 +257,62 @@ async function searchUSDA(query: string): Promise<FoodSearchResult[]> {
 // ── Combined Search ───────────────────────────────────────────────────────────
 
 /** Search for foods matching the query string.
- *  Queries Open Food Facts first, then USDA in parallel.
- *  Deduplicates by name+brand. */
-export async function searchFoods(query: string): Promise<FoodSearchResult[]> {
-  if (!query.trim()) return [];
+ *  Queries Open Food Facts + USDA in parallel. Re-ranks OFF results by locale
+ *  relevance and name similarity. Results are cached in-memory for 5 minutes. */
+export async function searchFoods(query: string, signal?: AbortSignal): Promise<FoodSearchResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const cached = getCached(q);
+  if (cached) return cached;
+
+  const { lang, country } = getUserLocale();
 
   const [offResults, usdaResults] = await Promise.all([
-    // Open Food Facts text search
+    // Open Food Facts — also request lang + countries_tags for re-ranking
     fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?action=process&search_terms=${encodeURIComponent(
-        query
-      )}&json=1&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code&page_size=15&sort_by=popularity_key`
+      `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
+      `&search_terms=${encodeURIComponent(q)}&json=1` +
+      `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
+      `&page_size=20&sort_by=popularity_key`,
+      { signal }
     )
       .then((r) => (r.ok ? r.json() : { products: [] }))
       .then((d) =>
         (d.products ?? [])
-          .map((p: Record<string, unknown>) => parseOFFProduct(p))
-          .filter((r: FoodSearchResult | null): r is FoodSearchResult => r !== null && r.caloriesPer100g > 0)
+          .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
+          .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0)
       )
-      .catch((): FoodSearchResult[] => []),
-    searchUSDA(query),
+      .catch((e): OffResultWithMeta[] => {
+        if ((e as Error)?.name === "AbortError") throw e;
+        return [];
+      }),
+    searchUSDA(q, signal),
   ]);
 
-  // Merge: OFF first (branded), USDA second (raw ingredients)
+  // Re-rank OFF results by locale/name relevance
+  const reranked: FoodSearchResult[] = (offResults as OffResultWithMeta[])
+    .map((item: OffResultWithMeta, i: number) => ({ item, score: scoreOFFResult(item, q, lang, country, i) }))
+    .sort((a: { item: OffResultWithMeta; score: number }, b: { item: OffResultWithMeta; score: number }) => b.score - a.score)
+    .map(({ item }: { item: OffResultWithMeta }) => {
+      // Strip internal meta fields before returning
+      const { _lang, _countries, ...rest } = item;
+      void _lang; void _countries;
+      return rest as FoodSearchResult;
+    });
+
+  // Merge: re-ranked OFF first (branded), USDA second (raw ingredients)
   const seen = new Set<string>();
   const merged: FoodSearchResult[] = [];
-  for (const item of [...offResults, ...usdaResults]) {
+  for (const item of [...reranked, ...usdaResults]) {
     const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
     if (!seen.has(key)) {
       seen.add(key);
       merged.push(item);
     }
   }
-  return merged.slice(0, 20);
+
+  const results = merged.slice(0, 20);
+  setCached(q, results);
+  return results;
 }

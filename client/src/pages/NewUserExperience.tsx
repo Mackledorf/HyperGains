@@ -35,9 +35,9 @@ const ACTIVITY_LEVELS = [
 ] as const;
 
 const WEIGHT_GOAL_OPTIONS = [
-  { key: "gain",     label: "Gain weight" },
-  { key: "lose",     label: "Lose weight" },
   { key: "maintain", label: "Stay where I'm at" },
+  { key: "lose",     label: "Lose weight" },
+  { key: "gain",     label: "Gain weight" },
 ] as const;
 
 const RATE_OPTIONS_LOSE = [-0.25, -0.5, -1];
@@ -516,22 +516,7 @@ function Step4Macros({
   onBack: () => void;
   userId: string;
 }) {
-  const initialMode: CalorieMode =
-    step3.bodyWeightGoal === "gain"
-      ? "surplus"
-      : step3.bodyWeightGoal === "lose"
-      ? "deficit"
-      : "maintenance";
-
-  const [mode, setMode] = useState<CalorieMode>(initialMode);
-  // g of protein per lb of bodyweight; 0.9 is the recommended default
-  const [proteinPerLb, setProteinPerLb] = useState(0.9);
-  const PROTEIN_MIN = 0.7;
-  const PROTEIN_MAX = 1.5;
-  const [editingCalories, setEditingCalories] = useState(false);
-  const [customCalories, setCustomCalories] = useState<number | null>(null);
-  const [calorieInput, setCalorieInput] = useState("");
-
+  // ── Derived from props ──────────────────────────────────────────────────
   const activityMultiplier = ACTIVITY_LEVELS.find((a) => a.key === step3.activityLevel)!.multiplier;
   const age = parseInt(step2.ageYears) || null;
 
@@ -552,58 +537,79 @@ function Step4Macros({
       return isNaN(cm) || cm <= 0 ? null : cm;
     }
   })();
-
   const baseTDEE = (() => {
     if (!weightKg || !heightCm || !age) return 2000;
     return computeTDEE(step2.gender, weightKg, heightCm, age, activityMultiplier);
   })();
 
-  // Surplus/deficit capped at 350 cal/day — assumes the user will use cardio to cover
-  // the remainder. A full 500 cal/day deficit without cardio is too aggressive.
+  const initialMode: CalorieMode =
+    step3.bodyWeightGoal === "gain" ? "surplus"
+    : step3.bodyWeightGoal === "lose" ? "deficit"
+    : "maintenance";
+
+  // ── State ───────────────────────────────────────────────────────────────
+  const [mode, setMode] = useState<CalorieMode>(initialMode);
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
+  const [editingCalories, setEditingCalories] = useState(false);
+  const [calorieInput, setCalorieInput] = useState("");
+
+  // Protein driven by g/lb bodyweight (0.7–1.5, default 0.9 recommended)
+  const PROTEIN_MIN = 0.7;
+  const PROTEIN_MAX = 1.5;
+  const [proteinPerLb, setProteinPerLb] = useState(0.9);
+
+  // Carbs & fat as % of total calories; protein% is derived from g/lb
+  const [carbsPct, setCarbsPct] = useState(45);
+  const [fatPct, setFatPct] = useState(25);
+  const [lastAdjusted, setLastAdjusted] = useState<"carbs" | "fat" | null>(null);
+
+  // ── Reactive calorie computation ────────────────────────────────────────
+  // Surplus/deficit capped at 350 cal/day — cardio covers the rest.
   // TODO: revisit once "Cardio Mode" is added.
-  const rateKcal = (() => {
-    if (mode === "maintenance") return 0;
+  const suggestedCalories = (() => {
+    if (mode === "maintenance") return roundTo50(baseTDEE);
     const absRate = Math.abs(step3.weeklyRateLbs ?? 0.5);
     const raw = Math.round((absRate * 3500) / 7);
     const capped = Math.min(raw, 350);
-    return mode === "surplus" ? capped : -capped;
+    return roundTo50(baseTDEE + (mode === "surplus" ? capped : -capped));
   })();
-
-  // Round suggestion to nearest 50, e.g. 2850
-  const suggestedCalories = roundTo50(baseTDEE + rateKcal);
-
-  // Active calories: use custom override if set, else suggestion
   const activeCalories = customCalories ?? suggestedCalories;
 
-  const openEditor = () => {
-    setCalorieInput(String(activeCalories));
-    setEditingCalories(true);
-  };
-  const commitEdit = () => {
-    const val = parseInt(calorieInput);
-    if (!isNaN(val) && val > 500 && val < 10000) {
-      setCustomCalories(roundTo50(val));
-    }
-    setEditingCalories(false);
-  };
-
-  // Macros derived from activeCalories
+  // ── Macro calculations ──────────────────────────────────────────────────
   const proteinBase = weightLbs
     ? Math.round(weightLbs * proteinPerLb)
-    : 150;
-  const proteinKcal = proteinBase * 4;
-  const fatG = Math.round((activeCalories * 0.25) / 9);
-  const fatKcal = fatG * 9;
-  const carbsKcal = Math.max(0, activeCalories - proteinKcal - fatKcal);
-  const carbsG = Math.round(carbsKcal / 4);
+    : Math.round(activeCalories * 0.25 / 4);
+  const proteinPct = Math.round((proteinBase * 4 / activeCalories) * 100);
+  const fatG = Math.round((activeCalories * fatPct) / 100 / 9);
+  const carbsG = Math.round((activeCalories * carbsPct) / 100 / 4);
+  const splitTotal = proteinPct + carbsPct + fatPct;
+
+  // ── Handlers ───────────────────────────────────────────────────────────
+  const openEditor = () => { setCalorieInput(String(activeCalories)); setEditingCalories(true); };
+  const commitEdit = () => {
+    const val = parseInt(calorieInput);
+    if (!isNaN(val) && val > 500 && val < 10000) setCustomCalories(roundTo50(val));
+    setEditingCalories(false);
+  };
+  function adjustPct(macro: "carbs" | "fat", delta: number) {
+    if (macro === "carbs") setCarbsPct((p) => Math.max(5, Math.min(90, p + delta)));
+    else setFatPct((p) => Math.max(5, Math.min(90, p + delta)));
+    setLastAdjusted(macro);
+  }
+  function autoFillPct(macro: "carbs" | "fat") {
+    const other = macro === "carbs" ? fatPct : carbsPct;
+    const filled = Math.max(5, 100 - proteinPct - other);
+    if (macro === "carbs") setCarbsPct(filled);
+    else setFatPct(filled);
+    setLastAdjusted(macro);
+  }
 
   const handleFinish = () => {
     const profile = store.getProfile();
-
     store.saveProfile({
       gender: step2.gender,
-      heightCm: heightCm,
-      weightKg: weightKg,
+      heightCm,
+      weightKg,
       unitSystem: step2.unitSystem,
       goals: [],
       ageYears: age,
@@ -613,7 +619,6 @@ function Step4Macros({
       id: profile?.id,
       createdAt: profile?.createdAt,
     });
-
     store.saveNutritionGoals({
       calorieTarget: activeCalories,
       proteinTargetG: proteinBase,
@@ -621,33 +626,38 @@ function Step4Macros({
       fatTargetG: fatG,
       waterTargetOz: 64,
     });
-
     store.setNuxComplete(userId);
     onFinish();
   };
+
+  const macroAdjustRows = [
+    { key: "carbs" as const, label: "Carbs",   color: "#eab308", grams: carbsG,    pct: carbsPct },
+    { key: "fat"   as const, label: "Fat",     color: "#3b82f6", grams: fatG,      pct: fatPct   },
+  ];
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Nutritional goals</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          These are estimates — you'll be able to fine-tune them later.
+          Estimates — fine-tune anytime in your nutrition settings.
         </p>
       </div>
 
+      {/* Deficit / Maintenance / Surplus */}
       <SegmentedControl
         options={[
-          { label: "Deficit", value: "deficit" },
+          { label: "Deficit",     value: "deficit" },
           { label: "Maintenance", value: "maintenance" },
-          { label: "Surplus", value: "surplus" },
+          { label: "Surplus",     value: "surplus" },
         ]}
         value={mode}
         onChange={(v) => { setMode(v); setCustomCalories(null); }}
       />
 
-      {/* Calorie target */}
       <div className="rounded-2xl bg-card p-4 space-y-5">
-        <div className="flex flex-col items-center text-center pb-2">
+        {/* Calorie target — tappable big number */}
+        <div className="flex flex-col items-center text-center">
           {editingCalories ? (
             <input
               type="number"
@@ -668,62 +678,96 @@ function Step4Macros({
               {activeCalories}
             </button>
           )}
-          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest font-semibold text-primary/80">
-            kcal / day
-          </p>
-          {customCalories !== null && (
-            <button
-              type="button"
-              onClick={() => setCustomCalories(null)}
-              className="text-xs text-muted-foreground/60 underline mt-1"
-            >
+          <p className="text-xs text-muted-foreground mt-1.5 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
+          {customCalories !== null ? (
+            <button type="button" onClick={() => setCustomCalories(null)} className="text-xs text-muted-foreground/60 underline mt-1">
               Reset to suggestion ({suggestedCalories})
             </button>
+          ) : (
+            <p className="text-xs text-muted-foreground/50 mt-1">Tap to edit</p>
           )}
-          <p className="text-xs text-muted-foreground/50 mt-1">Tap to edit</p>
         </div>
 
-        {/* Protein ratio stepper */}
-        <div className="flex items-center justify-between border-t border-border/50 pt-4">
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold">Protein target</span>
-            {proteinPerLb === 0.9 && (
-              <span className="text-xs text-muted-foreground/60">Recommended</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={proteinPerLb <= PROTEIN_MIN}
-              onClick={() => setProteinPerLb((p) => Math.round((p - 0.1) * 10) / 10)}
-              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-base font-bold text-foreground disabled:opacity-30 active:scale-95 transition-all"
-            >
-              −
-            </button>
-            <span className="text-sm font-bold tabular-nums w-16 text-center">
-              {proteinPerLb.toFixed(1)}g / lb
+        {/* Split total indicator */}
+        <div className="flex justify-between text-xs border-t border-border/50 pt-4">
+          <span className="text-muted-foreground font-medium">Total split</span>
+          <span className={splitTotal === 100 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+            {splitTotal}%{splitTotal !== 100 && ` (${splitTotal > 100 ? "+" : ""}${splitTotal - 100}%)`}
+          </span>
+        </div>
+
+        {/* Protein row — g/lb stepper */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold" style={{ color: "#f97316" }}>
+              Protein{proteinPerLb === 0.9 && <span className="ml-1.5 text-muted-foreground/60 font-normal">(recommended)</span>}
             </span>
+            <span className="text-xs text-muted-foreground tabular-nums">{proteinBase}g · {proteinPct}%</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
-              type="button"
-              disabled={proteinPerLb >= PROTEIN_MAX}
+              className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+              onClick={() => setProteinPerLb((p) => Math.round((p - 0.1) * 10) / 10)}
+              disabled={proteinPerLb <= PROTEIN_MIN}
+            >−</button>
+            <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
+              {proteinPerLb.toFixed(1)}g / lb
+            </div>
+            <button
+              className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setProteinPerLb((p) => Math.round((p + 0.1) * 10) / 10)}
-              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-base font-bold text-foreground disabled:opacity-30 active:scale-95 transition-all"
-            >
-              +
-            </button>
+              disabled={proteinPerLb >= PROTEIN_MAX}
+            >+</button>
+            <div className="w-14 flex-shrink-0" />
           </div>
         </div>
 
-        {/* Macro rows */}
-        <div className="space-y-4 pt-2">
-          <MacroBar label="Carbs"   consumed={0} target={carbsG}   color="#eab308" />
-          <MacroBar label="Protein" consumed={0} target={proteinBase} color="#f97316" />
-          <MacroBar label="Fat"     consumed={0} target={fatG}     color="#3b82f6" />
+        {/* Carbs & Fat rows — % steppers matching GoalsSheet */}
+        {macroAdjustRows.map(({ key, label, color, grams, pct }) => {
+          const showAuto = splitTotal !== 100 && key !== lastAdjusted;
+          return (
+            <div key={key} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold" style={{ color }}>{label}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{grams}g</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct(key, -5)}
+                  disabled={pct <= 5}
+                >−</button>
+                <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
+                  {pct}%
+                </div>
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct(key, 5)}
+                  disabled={pct >= 90}
+                >+</button>
+                <div className="w-14 flex-shrink-0">
+                  {showAuto && (
+                    <button
+                      className="w-full h-8 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all"
+                      onClick={() => autoFillPct(key)}
+                    >Auto</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Proportional split bar */}
+        <div className="flex h-2 rounded-full overflow-hidden gap-px pt-1">
+          <div style={{ width: `${carbsPct}%`, backgroundColor: "#eab308" }} className="transition-all" />
+          <div style={{ width: `${proteinPct}%`, backgroundColor: "#f97316" }} className="transition-all" />
+          <div style={{ width: `${fatPct}%`, backgroundColor: "#3b82f6" }} className="transition-all" />
         </div>
 
         {!weightLbs && (
-          <p className="text-xs text-muted-foreground/70 text-center pt-2">
-            Add your weight for a personalised protein suggestion.
+          <p className="text-xs text-muted-foreground/70 text-center">
+            Enter your weight for a bodyweight-based protein suggestion.
           </p>
         )}
       </div>

@@ -40,9 +40,9 @@ const ACTIVITY_LEVELS = [
 ] as const;
 
 const WEIGHT_GOAL_OPTIONS = [
-  { key: "gain",     label: "Gain weight" },
-  { key: "lose",     label: "Lose weight" },
   { key: "maintain", label: "Stay where I'm at" },
+  { key: "lose",     label: "Lose weight" },
+  { key: "gain",     label: "Gain weight" },
 ] as const;
 
 const RATE_OPTIONS_LOSE = [-0.25, -0.5, -1];
