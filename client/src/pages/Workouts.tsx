@@ -374,7 +374,7 @@ export default function Workouts() {
         )}
 
         {/* ── All Programs section ── */}
-        <section className="space-y-3 pt-2">
+        {(loadingAll || allPrograms.length > 0) && <section className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               My Programs
@@ -456,7 +456,7 @@ export default function Workouts() {
               ))}
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </AppShell>
   );
