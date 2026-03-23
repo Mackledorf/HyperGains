@@ -271,7 +271,7 @@ export async function searchFoods(
   if (!q) return [];
 
   const cached = getCached(q);
-  if (cached) {
+  if (cached !== null) {
     onPartial?.(cached);
     return cached;
   }
@@ -363,16 +363,18 @@ export async function searchFoods(
   let rerankedOff: FoodSearchResult[] = [];
   offFetch.then(off => {
     if (signal?.aborted) return;
-    rerankedOff = rerankOFF(off);
-    onPartial?.(rerankedOff);
+    try { rerankedOff = rerankOFF(off); } catch { return; }
+    if (rerankedOff.length > 0) onPartial?.(rerankedOff);  // only if non-empty — don't clear stale results
   }).catch(() => {});
 
   // ── 3. Wait for both, merge, cache, fire final onPartial ──────────────────
   const [offRaw, usdaResults] = await Promise.all([offFetch, usdaFetch]);
-  if (rerankedOff.length === 0) rerankedOff = rerankOFF(offRaw);
+  if (rerankedOff.length === 0) {
+    try { rerankedOff = rerankOFF(offRaw); } catch { rerankedOff = []; }
+  }
 
   const results = mergeResults(rerankedOff, usdaResults);
-  setCached(q, results);
+  if (results.length > 0) setCached(q, results);  // never cache empty results
   onPartial?.(results);
   return results;
 }

@@ -236,7 +236,7 @@ function FoodEntryRow({
       <div className="flex items-center gap-3 flex-shrink-0 ml-2">
         <div className="text-right hidden sm:block">
           <p className="text-xs text-muted-foreground tabular-nums">
-            P {Math.round(entry.proteinG)}g · C {Math.round(entry.carbsG)}g · F {Math.round(entry.fatG)}g
+            Carbs {Math.round(entry.carbsG)}g · Protein {Math.round(entry.proteinG)}g · Fat {Math.round(entry.fatG)}g
           </p>
         </div>
         <button
@@ -295,7 +295,7 @@ function MealCard({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground hidden sm:block tabular-nums">
-            P {Math.round(mealTotals.proteinG)} · C {Math.round(mealTotals.carbsG)} · F {Math.round(mealTotals.fatG)}
+            Carbs {Math.round(mealTotals.carbsG)} · Protein {Math.round(mealTotals.proteinG)} · Fat {Math.round(mealTotals.fatG)}
           </span>
           {expanded ? (
             <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -869,9 +869,9 @@ function AddFoodSheet({
                       <span className="text-xs font-semibold text-foreground">
                         {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
                       </span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>P {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>C {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>F {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>Fat {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
                     </div>
                   </button>
                 ))}

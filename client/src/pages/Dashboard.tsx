@@ -90,16 +90,16 @@ export default function Dashboard() {
 
             <div className="space-y-2.5">
               <MacroBar
-                label="Protein"
-                consumed={totals.proteinG}
-                target={goals.proteinTargetG}
-                color={MACRO_COLORS.protein}
-              />
-              <MacroBar
                 label="Carbs"
                 consumed={totals.carbsG}
                 target={goals.carbsTargetG}
                 color={MACRO_COLORS.carbs}
+              />
+              <MacroBar
+                label="Protein"
+                consumed={totals.proteinG}
+                target={goals.proteinTargetG}
+                color={MACRO_COLORS.protein}
               />
               <MacroBar
                 label="Fat"
