@@ -43,6 +43,16 @@ export const HG_EVENTS = {
 
 export const SESSION_KEY = "hg_session";
 
+// ── New User Experience flag (user-level, persists across sessions) ──
+
+export function isNuxComplete(userId: string): boolean {
+  return localStorage.getItem(`hg_nux_${userId}`) === "1";
+}
+
+export function setNuxComplete(userId: string): void {
+  localStorage.setItem(`hg_nux_${userId}`, "1");
+}
+
 // ── Helpers ──
 
 function uuid(): string {
@@ -371,11 +381,6 @@ export function saveProfile(data: Omit<UserProfile, "id" | "userId" | "createdAt
   };
   localStorage.setItem(KEYS.profile, JSON.stringify(profile));
 
-  // Append to weight history when weight changes
-  if (data.weightKg !== null && data.weightKg !== existing?.weightKg) {
-    addWeightEntry(data.weightKg);
-  }
-
   // Append to goal history when goals change
   const goalsChanged =
     !existing ||
@@ -398,12 +403,14 @@ export function getWeightHistory(): WeightEntry[] {
   );
 }
 
-export function addWeightEntry(weightKg: number): WeightEntry {
+export function addWeightEntry(weightKg: number, timeOfDay: "AM" | "PM" = "AM", fed: boolean = false): WeightEntry {
   const entries = getStore<WeightEntry>(KEYS.weightHistory);
   const entry: WeightEntry = {
     id: crypto.randomUUID(),
     userId: _activeUserId,
     weightKg,
+    timeOfDay,
+    fed,
     recordedAt: new Date().toISOString(),
   };
   entries.push(entry);

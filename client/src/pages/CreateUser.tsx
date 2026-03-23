@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Dumbbell, Lock, User, Loader2 } from "lucide-react";
+import { Link } from "wouter";
+import { Dumbbell, Lock, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as store from "@/lib/storage";
 import * as gist from "@/lib/gist";
 import { hashPassword } from "@/lib/auth";
 
-export default function CreateUser() {
-  const [, setLocation] = useLocation();
-  const [name, setName] = useState("");
+export default function CreateUser({
+  onAuthenticated,
+}: {
+  onAuthenticated: (userId: string) => void;
+}) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -38,7 +40,6 @@ export default function CreateUser() {
         setSubmitting(false);
         return;
       }
-      store.setUserName(userId, name.trim());
       store.setActiveUser(userId);
       await gist.setUserData(userId, store.exportAll());
     } catch (err) {
@@ -47,7 +48,7 @@ export default function CreateUser() {
       return;
     }
 
-    setLocation("/profile-setup");
+    onAuthenticated(userId);
   };
 
   return (
@@ -62,32 +63,29 @@ export default function CreateUser() {
             Create Account
           </h1>
           <p className="text-xs text-muted-foreground text-center">
-            Pick a name and a password you'll remember.
+            Choose a password to get started.
+          </p>
+        </div>
+
+        {/* Key-loss warning */}
+        <div className="flex gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-200/80 leading-relaxed">
+            Your password <span className="font-semibold text-amber-300">is your unique access key</span> to this account. There is no email or recovery option — if you lose your password, you lose access to your account.
           </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setError(""); }}
-              placeholder="Your name"
-              className="pl-10 rounded-xl bg-card border-0 h-12 text-sm"
-              autoFocus
-            />
-          </div>
-
-          <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              placeholder="Password"
+              placeholder="Choose a password"
               className="pl-10 rounded-xl bg-card border-0 h-12 text-sm"
+              autoFocus
             />
           </div>
 
@@ -110,7 +108,7 @@ export default function CreateUser() {
 
           <Button
             type="submit"
-            disabled={!name.trim() || !password || !confirm || submitting}
+            disabled={!password || !confirm || submitting}
             className="w-full rounded-xl h-12 text-sm font-bold"
           >
             {submitting ? (

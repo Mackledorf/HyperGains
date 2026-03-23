@@ -112,6 +112,14 @@ export type UserProfile = {
   unitSystem: "imperial" | "metric";
   /** Predefined goal keys, e.g. ["build_muscle", "lose_fat"] */
   goals: string[];
+  /** Age in years — used for TDEE calculation */
+  ageYears: number | null;
+  /** Activity multiplier tier for TDEE */
+  activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active" | null;
+  /** Overall body-weight direction goal */
+  bodyWeightGoal: "gain" | "lose" | "maintain" | null;
+  /** Target lbs gained / lost per week (positive = gain, negative = lose) */
+  weeklyRateLbs: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -121,6 +129,8 @@ export type WeightEntry = {
   id: string;
   userId: string;
   weightKg: number;
+  timeOfDay?: "AM" | "PM";
+  fed?: boolean;
   recordedAt: string;
 };
 

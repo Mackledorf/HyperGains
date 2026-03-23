@@ -34,6 +34,13 @@ export default function Dashboard() {
 
   const calRemaining = Math.max(0, goals.calorieTarget - totals.calories);
 
+  const hasWeighedToday = useMemo(() => {
+    const history = store.getWeightHistory();
+    if (history.length === 0) return false;
+    const todayStr = new Date().toLocaleDateString();
+    return new Date(history[0].recordedAt).toLocaleDateString() === todayStr;
+  }, []);
+
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -111,7 +118,7 @@ export default function Dashboard() {
                 <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
                   <Dumbbell className="w-4 h-4 text-primary" />
                 </div>
-                <span className="font-semibold text-sm">Workouts</span>
+                <span className="font-semibold text-sm">Lifts</span>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </div>
@@ -152,6 +159,18 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground mt-3">Coming soon</p>
           </div>
         </Link>
+
+        {/* Weight nudge */}
+        {!hasWeighedToday && (
+          <Link href="/profile" className="block">
+            <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Have you weighed yourself today?</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
     </AppShell>
   );

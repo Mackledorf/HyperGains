@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import CreateUser from "@/pages/CreateUser";
+import NewUserExperience from "@/pages/NewUserExperience";
 import Dashboard from "@/pages/Dashboard";
 import Workouts from "@/pages/Workouts";
 import Food from "@/pages/Food";
@@ -20,7 +21,6 @@ import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import ProgramSettings from "@/pages/ProgramSettings";
 import Profile from "@/pages/Profile";
-import ProfileSetup from "@/pages/ProfileSetup";
 import * as store from "@/lib/storage";
 import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
 import * as gist from "@/lib/gist";
@@ -39,7 +39,6 @@ function AppRouter() {
       <Route path="/workout/:sessionId" component={ActiveWorkout} />
       <Route path="/history" component={History} />
       <Route path="/profile" component={Profile} />
-      <Route path="/profile-setup" component={ProfileSetup} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -76,7 +75,8 @@ function App() {
     return () => window.removeEventListener(HG_EVENTS.LOGOUT, onLogout);
   }, []);
 
-  // Push to gist whenever data changes (debounced) and on page unload
+  // Push to gist whenever data changes (debounced) and on page unload.
+  // Also pull fresh gist data when the tab regains visibility (cross-device sync).
   useEffect(() => {
     if (!activeUserId) return;
 
@@ -86,12 +86,24 @@ function App() {
     const onBeforeUnload = () => {
       void gist.flushSync(store.exportAll());
     };
+    const onVisibilityChange = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const payload = await gist.getUserData(activeUserId);
+          if (payload) store.importAll(payload);
+        } catch {
+          // offline — silently ignore
+        }
+      }
+    };
 
     window.addEventListener(HG_EVENTS.DATA_CHANGED, onDataChanged);
     window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener(HG_EVENTS.DATA_CHANGED, onDataChanged);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [activeUserId]);
 
@@ -101,14 +113,21 @@ function App() {
         <TooltipProvider>
           <Toaster />
           {activeUserId ? (
-            <Router hook={useHashLocation}>
-              <AppRouter />
-            </Router>
+            store.isNuxComplete(activeUserId) ? (
+              <Router hook={useHashLocation}>
+                <AppRouter />
+              </Router>
+            ) : (
+              <NewUserExperience
+                userId={activeUserId}
+                onNuxComplete={() => setActiveUserId(activeUserId)}
+              />
+            )
           ) : (
             <Router hook={useHashLocation}>
               <Switch>
                 <Route path="/create-user">
-                  <CreateUser />
+                  <CreateUser onAuthenticated={handleAuthenticated} />
                 </Route>
                 <Route>
                   <Login onAuthenticated={handleAuthenticated} />
