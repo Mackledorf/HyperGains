@@ -58,6 +58,16 @@ function App() {
     return null;
   });
 
+  // Track NUX completion as separate state so completing the form triggers a re-render
+  const [nuxDone, setNuxDone] = useState<boolean>(() =>
+    !!activeUserId && store.isNuxComplete(activeUserId)
+  );
+
+  // Re-check NUX status whenever the active user changes (login/logout/switch)
+  useEffect(() => {
+    setNuxDone(!!activeUserId && store.isNuxComplete(activeUserId));
+  }, [activeUserId]);
+
   const handleAuthenticated = (userId: string) => {
     store.setActiveUser(userId);
     sessionStorage.setItem(SESSION_KEY, userId);
@@ -113,14 +123,14 @@ function App() {
         <TooltipProvider>
           <Toaster />
           {activeUserId ? (
-            store.isNuxComplete(activeUserId) ? (
+            nuxDone ? (
               <Router hook={useHashLocation}>
                 <AppRouter />
               </Router>
             ) : (
               <NewUserExperience
                 userId={activeUserId}
-                onNuxComplete={() => setActiveUserId(activeUserId)}
+                onNuxComplete={() => setNuxDone(true)}
               />
             )
           ) : (

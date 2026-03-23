@@ -165,7 +165,7 @@ function Step1Name({
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name or nickname"
+            placeholder="Enter your name"
           className="h-12 rounded-xl bg-card border-0 text-base"
           autoFocus
           onKeyDown={(e) => e.key === "Enter" && handleNext()}
