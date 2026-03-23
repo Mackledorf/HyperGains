@@ -300,14 +300,32 @@ export async function searchFoods(
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function rerankOFF(offResults: OffResultWithMeta[]): FoodSearchResult[] {
-    return offResults
-      .map((item, i) => ({ item, score: scoreOFFResult(item, q, lang, country, i) }))
-      .sort((a, b) => b.score - a.score)
-      .map(({ item }) => {
-        const { _lang, _countries, ...rest } = item;
-        void _lang; void _countries;
-        return rest as FoodSearchResult;
-      });
+    function strip(item: OffResultWithMeta): FoodSearchResult {
+      const { _lang, _countries, ...rest } = item;
+      void _lang; void _countries;
+      return rest as FoodSearchResult;
+    }
+
+    // Split into two tiers:
+    //  • preferred: lang matches user locale, or lang is unset (benefit of the doubt)
+    //  • foreign:   lang is explicitly a different language — pushed to the end
+    const preferred: OffResultWithMeta[] = [];
+    const foreign: OffResultWithMeta[] = [];
+    offResults.forEach(item => {
+      if (!item._lang || item._lang === lang) preferred.push(item);
+      else foreign.push(item);
+    });
+
+    function scoreAndSort(list: OffResultWithMeta[]): FoodSearchResult[] {
+      return list
+        .map((item, i) => ({ item, score: scoreOFFResult(item, q, lang, country, i) }))
+        .sort((a, b) => b.score - a.score)
+        .map(({ item }) => strip(item));
+    }
+
+    // Preferred-locale results always come first; foreign-language results appear
+    // only if shown via "Show more" (they fill slots 9+).
+    return [...scoreAndSort(preferred), ...scoreAndSort(foreign)];
   }
 
   function mergeResults(off: FoodSearchResult[], usda: FoodSearchResult[]): FoodSearchResult[] {
@@ -325,7 +343,7 @@ export async function searchFoods(
     `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
     `&search_terms=${encodeURIComponent(q)}&json=1` +
     `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-    `&page_size=12&sort_by=popularity_key`,
+    `&page_size=20&sort_by=popularity_key`,
     { signal }
   )
     .then(r => r.ok ? r.json() : { products: [] })
