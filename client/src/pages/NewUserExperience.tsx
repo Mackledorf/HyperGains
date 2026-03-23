@@ -6,7 +6,7 @@
  *   3. Goals (weight direction · fitness goals · rate)
  *   4. Calorie & macro targets (TDEE-based suggestions)
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,29 +18,6 @@ import MacroBar from "@/components/MacroBar";
 // ─────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────
-
-const FUNNY_NAMES = [
-  "Lord Penguin",
-  "The Architect",
-  "Big Dave",
-  "Sir Liftsalot",
-  "CrunchMaster",
-  "Karen",
-  "John",
-  "The Shadow",
-  "CaptainCalves",
-  "Mike",
-  "El Bicep",
-  "Swole Patrol",
-  "GainzGuru",
-  "Thunderquads",
-  "Flex Luthor",
-  "Brochacho",
-  "The Grinder",
-  "CoachPotato",
-  "IronMike",
-  "Dave",
-];
 
 const GENDERS = [
   { key: "male", label: "Male" },
@@ -96,97 +73,6 @@ function rateToDailyKcal(rateLbs: number): number {
 function lbsToKg(lbs: number) { return Math.round((lbs / 2.2046) * 10) / 10; }
 function ftInToCm(ft: number, inches: number) {
   return Math.round((ft * 12 + inches) * 2.54 * 10) / 10;
-}
-
-// ─────────────────────────────────────────────────
-// Vestaboard flip animation component
-// ─────────────────────────────────────────────────
-
-/** A single character cell that flips through characters before settling. */
-function FlipCell({ targetChar, delay }: { targetChar: string; delay: number }) {
-  const [displayChar, setDisplayChar] = useState(" ");
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz";
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    let elapsed = 0;
-    const TOTAL = 600; // ms per cell
-    const TICK = 40;
-
-    const t = setTimeout(() => {
-      intervalRef.current = setInterval(() => {
-        elapsed += TICK;
-        if (elapsed >= TOTAL) {
-          setDisplayChar(targetChar);
-          if (intervalRef.current) clearInterval(intervalRef.current);
-        } else {
-          setDisplayChar(chars[Math.floor(Math.random() * chars.length)]);
-        }
-      }, TICK);
-    }, delay);
-
-    return () => {
-      clearTimeout(t);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetChar, delay]);
-
-  return (
-    <span
-      className="inline-flex items-center justify-center w-7 h-9 bg-zinc-900 border border-zinc-700 rounded-sm text-sm font-mono font-bold text-amber-400 select-none"
-      style={{ fontVariantNumeric: "tabular-nums" }}
-    >
-      {displayChar}
-    </span>
-  );
-}
-
-/** Full flip-board showing a name, cycling through CYCLES random names before landing. */
-const CYCLES = 3;
-function VestaBoard({ onDone }: { onDone: (name: string) => void }) {
-  const finalName = useRef(
-    FUNNY_NAMES[Math.floor(Math.random() * FUNNY_NAMES.length)]
-  );
-  const [displayName, setDisplayName] = useState(
-    FUNNY_NAMES[Math.floor(Math.random() * FUNNY_NAMES.length)]
-  );
-  const cycleRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const runCycle = useCallback(() => {
-    if (cycleRef.current >= CYCLES) {
-      setDisplayName(finalName.current);
-      // Small delay after landing so user can read it
-      timerRef.current = setTimeout(() => onDone(finalName.current), 900);
-      return;
-    }
-    cycleRef.current++;
-    const next =
-      cycleRef.current === CYCLES
-        ? finalName.current
-        : FUNNY_NAMES[Math.floor(Math.random() * FUNNY_NAMES.length)];
-    setDisplayName(next);
-    // Each cycle takes ~700ms per char + a short pause
-    const duration = Math.max(next.length, 4) * 90 + 400;
-    timerRef.current = setTimeout(runCycle, duration);
-  }, [onDone]);
-
-  useEffect(() => {
-    timerRef.current = setTimeout(runCycle, 300);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <div className="flex flex-wrap gap-1 items-center justify-start my-4">
-      {displayName.split("").map((ch, i) => (
-        <FlipCell key={`${i}-${displayName}`} targetChar={ch} delay={i * 35} />
-      ))}
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────────
@@ -259,13 +145,6 @@ function Step1Name({
   userId: string;
 }) {
   const [name, setName] = useState("");
-  const [animDone, setAnimDone] = useState(false);
-
-  const handleAnimDone = (landedName: string) => {
-    setAnimDone(true);
-    // Pre-fill the input with the funny name if user hasn't typed anything
-    setName((prev) => (prev.trim() === "" ? landedName : prev));
-  };
 
   const handleNext = () => {
     const finalName = name.trim() || "Hero";
@@ -278,34 +157,27 @@ function Step1Name({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">What should we call you?</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          A nickname is totally fine.{" "}
-          <span className="text-muted-foreground/70">
-            This name is just for you — it isn't shared or used anywhere else.
-          </span>
+          This name is just for you — it isn't shared or used anywhere else.
         </p>
       </div>
 
-      <VestaBoard onDone={handleAnimDone} />
-
-      {animDone && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your name or nickname"
-            className="h-12 rounded-xl bg-card border-0 text-base"
-            autoFocus
-            onKeyDown={(e) => e.key === "Enter" && handleNext()}
-          />
-          <Button
-            onClick={handleNext}
-            className="w-full h-12 rounded-xl text-sm font-bold"
-            disabled={!name.trim()}
-          >
-            Continue
-          </Button>
-        </div>
-      )}
+      <div className="space-y-4">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your name or nickname"
+          className="h-12 rounded-xl bg-card border-0 text-base"
+          autoFocus
+          onKeyDown={(e) => e.key === "Enter" && handleNext()}
+        />
+        <Button
+          onClick={handleNext}
+          className="w-full h-12 rounded-xl text-sm font-bold"
+          disabled={!name.trim()}
+        >
+          Continue
+        </Button>
+      </div>
     </div>
   );
 }
