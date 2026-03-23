@@ -120,7 +120,7 @@ function getUserLocale(): { lang: string; country: string } {
 // ── In-memory search cache (5-minute TTL) ─────────────────────────────────────
 
 const _cache = new Map<string, { results: FoodSearchResult[]; at: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000;
 
 function getCached(key: string): FoodSearchResult[] | null {
   const entry = _cache.get(key);
@@ -131,7 +131,7 @@ function getCached(key: string): FoodSearchResult[] | null {
 
 function setCached(key: string, results: FoodSearchResult[]) {
   _cache.set(key, { results, at: Date.now() });
-  if (_cache.size > 50) {
+  if (_cache.size > 100) {
     const firstKey = _cache.keys().next().value;
     if (firstKey !== undefined) _cache.delete(firstKey);
   }
@@ -257,62 +257,104 @@ async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSear
 // ── Combined Search ───────────────────────────────────────────────────────────
 
 /** Search for foods matching the query string.
- *  Queries Open Food Facts + USDA in parallel. Re-ranks OFF results by locale
- *  relevance and name similarity. Results are cached in-memory for 5 minutes. */
-export async function searchFoods(query: string, signal?: AbortSignal): Promise<FoodSearchResult[]> {
+ *  Calls onPartial progressively — up to 3 times:
+ *    1) Instant: prefix-filtered results from a related cached query
+ *    2) Fast:    OFF results re-ranked by locale (~800ms)
+ *    3) Full:    OFF + USDA merged (~1.5s)
+ *  Results are cached in-memory for 30 minutes. */
+export async function searchFoods(
+  query: string,
+  signal?: AbortSignal,
+  onPartial?: (results: FoodSearchResult[]) => void,
+): Promise<FoodSearchResult[]> {
   const q = query.trim();
   if (!q) return [];
 
   const cached = getCached(q);
-  if (cached) return cached;
+  if (cached) {
+    onPartial?.(cached);
+    return cached;
+  }
 
   const { lang, country } = getUserLocale();
 
-  const [offResults, usdaResults] = await Promise.all([
-    // Open Food Facts — also request lang + countries_tags for re-ranking
-    fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
-      `&search_terms=${encodeURIComponent(q)}&json=1` +
-      `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-      `&page_size=20&sort_by=popularity_key`,
-      { signal }
-    )
-      .then((r) => (r.ok ? r.json() : { products: [] }))
-      .then((d) =>
-        (d.products ?? [])
-          .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
-          .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0)
-      )
-      .catch((e): OffResultWithMeta[] => {
-        if ((e as Error)?.name === "AbortError") throw e;
-        return [];
-      }),
-    searchUSDA(q, signal),
-  ]);
-
-  // Re-rank OFF results by locale/name relevance
-  const reranked: FoodSearchResult[] = (offResults as OffResultWithMeta[])
-    .map((item: OffResultWithMeta, i: number) => ({ item, score: scoreOFFResult(item, q, lang, country, i) }))
-    .sort((a: { item: OffResultWithMeta; score: number }, b: { item: OffResultWithMeta; score: number }) => b.score - a.score)
-    .map(({ item }: { item: OffResultWithMeta }) => {
-      // Strip internal meta fields before returning
-      const { _lang, _countries, ...rest } = item;
-      void _lang; void _countries;
-      return rest as FoodSearchResult;
-    });
-
-  // Merge: re-ranked OFF first (branded), USDA second (raw ingredients)
-  const seen = new Set<string>();
-  const merged: FoodSearchResult[] = [];
-  for (const item of [...reranked, ...usdaResults]) {
-    const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(item);
+  // ── 1. Instant prefix-cache results ────────────────────────────────────────
+  // If a related query is cached, filter and display matching items immediately.
+  if (onPartial) {
+    for (const [key, entry] of Array.from(_cache.entries())) {
+      if (Date.now() - entry.at > CACHE_TTL_MS) continue;
+      const ql = q.toLowerCase();
+      const kl = key.toLowerCase();
+      if (ql.startsWith(kl) || kl.startsWith(ql)) {
+        const words = ql.split(/\s+/).filter(Boolean);
+        const filtered = entry.results.filter((r: FoodSearchResult) =>
+          words.every(w =>
+            r.name.toLowerCase().includes(w) ||
+            (r.brand?.toLowerCase() ?? "").includes(w)
+          )
+        );
+        if (filtered.length > 0) { onPartial(filtered); break; }
+      }
     }
   }
 
-  const results = merged.slice(0, 20);
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function rerankOFF(offResults: OffResultWithMeta[]): FoodSearchResult[] {
+    return offResults
+      .map((item, i) => ({ item, score: scoreOFFResult(item, q, lang, country, i) }))
+      .sort((a, b) => b.score - a.score)
+      .map(({ item }) => {
+        const { _lang, _countries, ...rest } = item;
+        void _lang; void _countries;
+        return rest as FoodSearchResult;
+      });
+  }
+
+  function mergeResults(off: FoodSearchResult[], usda: FoodSearchResult[]): FoodSearchResult[] {
+    const seen = new Set<string>();
+    const merged: FoodSearchResult[] = [];
+    for (const item of [...off, ...usda]) {
+      const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
+      if (!seen.has(key)) { seen.add(key); merged.push(item); }
+    }
+    return merged.slice(0, 20);
+  }
+
+  // ── 2. Fire both requests independently ────────────────────────────────────
+  const offFetch = fetch(
+    `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
+    `&search_terms=${encodeURIComponent(q)}&json=1` +
+    `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
+    `&page_size=12&sort_by=popularity_key`,
+    { signal }
+  )
+    .then(r => r.ok ? r.json() : { products: [] })
+    .then((d): OffResultWithMeta[] =>
+      (d.products ?? [])
+        .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
+        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0)
+    )
+    .catch((e): OffResultWithMeta[] => {
+      if ((e as Error)?.name === "AbortError") throw e;
+      return [];
+    });
+
+  const usdaFetch = searchUSDA(q, signal);
+
+  // Show OFF results as soon as they arrive, without waiting for USDA
+  let rerankedOff: FoodSearchResult[] = [];
+  offFetch.then(off => {
+    if (signal?.aborted) return;
+    rerankedOff = rerankOFF(off);
+    onPartial?.(rerankedOff);
+  }).catch(() => {});
+
+  // ── 3. Wait for both, merge, cache, fire final onPartial ──────────────────
+  const [offRaw, usdaResults] = await Promise.all([offFetch, usdaFetch]);
+  if (rerankedOff.length === 0) rerankedOff = rerankOFF(offRaw);
+
+  const results = mergeResults(rerankedOff, usdaResults);
   setCached(q, results);
+  onPartial?.(results);
   return results;
 }

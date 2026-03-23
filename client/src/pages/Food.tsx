@@ -708,6 +708,7 @@ function AddFoodSheet({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -720,32 +721,37 @@ function AddFoodSheet({
       setResults([]);
       setSelectedFood(null);
       setIsSearching(false);
+      setShowAll(false);
     }
   }, [open]);
 
-  // Debounced search with AbortController — stale results stay visible while refreshing
+  // Debounced search — shows OFF results early via onPartial, then merges USDA results
   useEffect(() => {
-    if (!query.trim()) {
+    const q = query.trim();
+    if (!q || q.length < 2) {
       setResults([]);
       setIsSearching(false);
+      setShowAll(false);
       return;
     }
+    setShowAll(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      // Cancel any previous in-flight request
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+      const ctrl = abortRef.current;
       setIsSearching(true);
       try {
-        const r = await searchFoods(query.trim(), abortRef.current.signal);
-        setResults(r);
+        await searchFoods(q, ctrl.signal, (partial) => {
+          if (!ctrl.signal.aborted) setResults(partial);
+        });
       } catch (e) {
         // AbortError = superseded by a newer query, keep showing stale results
         if ((e as Error)?.name !== "AbortError") setResults([]);
       } finally {
-        setIsSearching(false);
+        if (!ctrl.signal.aborted) setIsSearching(false);
       }
-    }, 700);
+    }, 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
@@ -845,14 +851,10 @@ function AddFoodSheet({
               </Button>
             </div>
 
-            {/* Results — kept visible and dimmed while a refresh is in-flight */}
+            {/* Results list with progressive updates and "Show more" */}
             {results.length > 0 && (
-              <div
-                className={`divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden transition-opacity duration-200 ${
-                  isSearching ? "opacity-40 pointer-events-none" : "opacity-100"
-                }`}
-              >
-                {results.map(r => (
+              <div className="divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden">
+                {results.slice(0, showAll ? results.length : 8).map(r => (
                   <button
                     key={r.id}
                     className="w-full text-left px-4 py-3 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
@@ -865,10 +867,18 @@ function AddFoodSheet({
                     </p>
                   </button>
                 ))}
+                {!showAll && results.length > 8 && (
+                  <button
+                    className="w-full px-4 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors text-center"
+                    onClick={() => setShowAll(true)}
+                  >
+                    Show {results.length - 8} more results
+                  </button>
+                )}
               </div>
             )}
 
-            {/* First-load spinner: only shown when there are no stale results yet */}
+            {/* Spinner: only shown when there are no results at all yet */}
             {isSearching && results.length === 0 && (
               <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
                 <LoaderCircle className="w-4 h-4 animate-spin" />
@@ -876,21 +886,13 @@ function AddFoodSheet({
               </div>
             )}
 
-            {/* Small indicator when stale results are showing and a refresh is running */}
-            {isSearching && results.length > 0 && (
-              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 -mt-2">
-                <LoaderCircle className="w-3 h-3 animate-spin" />
-                Updating…
-              </div>
-            )}
-
-            {!isSearching && query.trim() && results.length === 0 && (
+            {!isSearching && query.trim().length >= 2 && results.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-8">
                 No results found. Try a different name.
               </p>
             )}
 
-            {!query.trim() && (
+            {query.trim().length < 2 && (
               <p className="text-center text-sm text-muted-foreground py-8">
                 Type to search, or tap <Scan className="inline w-3.5 h-3.5 mx-1" /> to scan a barcode.
               </p>
