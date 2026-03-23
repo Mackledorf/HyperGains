@@ -530,6 +530,25 @@ function Step4Macros({
 
   const age = parseInt(step2.ageYears) || null;
 
+  // Derive metric height/weight and lbs from the raw step2 inputs
+  const weightLbs: number | null = (() => {
+    const raw = parseFloat(step2.weightDisplay);
+    if (isNaN(raw) || raw <= 0) return null;
+    return step2.unitSystem === "imperial" ? raw : Math.round(raw * 2.2046 * 10) / 10;
+  })();
+  const weightKg: number | null = weightLbs ? lbsToKg(weightLbs) : null;
+  const heightCm: number | null = (() => {
+    if (step2.unitSystem === "imperial") {
+      const ft = parseFloat(step2.heightFt) || 0;
+      const inches = parseFloat(step2.heightIn) || 0;
+      if (ft <= 0 && inches <= 0) return null;
+      return ftInToCm(ft, inches);
+    } else {
+      const cm = parseFloat(step2.heightCm);
+      return isNaN(cm) || cm <= 0 ? null : cm;
+    }
+  })();
+
   // Compute base TDEE
   const baseTDEE = (() => {
     if (!weightKg || !heightCm || !age) return 2000; // fallback
@@ -562,18 +581,14 @@ function Step4Macros({
 
   const handleFinish = () => {
     const profile = store.getProfile();
-    // Resolve height/weight into metric for storage
-    const storeWeightKg = weightKg;
-    const storeHeightCm = heightCm;
-    const storeAgeYears = age;
 
     store.saveProfile({
       gender: step2.gender,
-      heightCm: storeHeightCm,
-      weightKg: storeWeightKg,
+      heightCm: heightCm,
+      weightKg: weightKg,
       unitSystem: step2.unitSystem,
       goals: [],
-      ageYears: storeAgeYears,
+      ageYears: age,
       activityLevel: step3.activityLevel as UserProfile["activityLevel"],
       bodyWeightGoal: step3.bodyWeightGoal,
       weeklyRateLbs: step3.weeklyRateLbs,
