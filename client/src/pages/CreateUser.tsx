@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Dumbbell, Lock, AlertTriangle, Loader2 } from "lucide-react";
+import { Dumbbell, Lock, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as store from "@/lib/storage";
@@ -67,11 +67,11 @@ export default function CreateUser({
           </p>
         </div>
 
-        {/* Key-loss warning */}
-        <div className="flex gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-200/80 leading-relaxed">
-            Your password <span className="font-semibold text-amber-300">is your unique access key</span> to this account. There is no email or recovery option — if you lose your password, you lose access to your account.
+        {/* Key info */}
+        <div className="flex gap-3 rounded-xl bg-primary/10 border border-primary/20 p-3">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-xs text-foreground/70 leading-relaxed">
+            Your password <span className="font-semibold text-foreground/90">is your unique access key</span> to this account. There is no email or recovery option — if you lose your password, you lose access to your account.
           </p>
         </div>
 

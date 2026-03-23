@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ChevronLeft, Check } from "lucide-react";
 import * as store from "@/lib/storage";
 import type { UserProfile } from "@shared/schema";
+import MacroBar from "@/components/MacroBar";
 
 // ─────────────────────────────────────────────────
 // Constants
@@ -56,21 +57,13 @@ const ACTIVITY_LEVELS = [
   { key: "very_active", label: "Very Active",     desc: "Twice daily / physical job",  multiplier: 1.9 },
 ] as const;
 
-const FITNESS_GOALS = [
-  { key: "get_stronger",      label: "Get stronger" },
-  { key: "build_muscle",      label: "Gain muscle" },
-  { key: "lose_fat",          label: "Lose fat" },
-  { key: "maintain",          label: "Maintain body composition" },
-  { key: "improve_endurance", label: "Improve endurance" },
-] as const;
-
 const WEIGHT_GOAL_OPTIONS = [
   { key: "gain",     label: "Gain weight" },
   { key: "lose",     label: "Lose weight" },
   { key: "maintain", label: "Stay where I'm at" },
 ] as const;
 
-const RATE_OPTIONS_LOSE = [-1, -0.5, -0.25];
+const RATE_OPTIONS_LOSE = [-0.25, -0.5, -1];
 const RATE_OPTIONS_GAIN = [0.25, 0.5, 1];
 
 // ─────────────────────────────────────────────────
@@ -359,16 +352,6 @@ function Step2About({
         <p className="text-sm text-muted-foreground mt-1">I am…</p>
       </div>
 
-      {/* Units */}
-      <SegmentedControl
-        options={[
-          { label: "Imperial (lbs, ft)", value: "imperial" },
-          { label: "Metric (kg, cm)", value: "metric" },
-        ]}
-        value={unitSystem}
-        onChange={setUnitSystem}
-      />
-
       {/* Sex */}
       <div className="space-y-2">
         <span className="text-sm font-semibold text-foreground">Sex</span>
@@ -388,8 +371,7 @@ function Step2About({
       {/* Age */}
       <div className="space-y-2">
         <label className="text-sm font-semibold text-foreground" htmlFor="nux-age">
-          Age{" "}
-          <span className="text-muted-foreground/60 font-normal text-xs">(used for calorie estimates)</span>
+          Age
         </label>
         <div className="relative w-36">
           <Input
@@ -407,10 +389,7 @@ function Step2About({
 
       {/* Height */}
       <div className="space-y-2">
-        <span className="text-sm font-semibold text-foreground">
-          Height{" "}
-          <span className="text-muted-foreground/60 font-normal text-xs">(optional)</span>
-        </span>
+        <span className="text-sm font-semibold text-foreground">Height</span>
         {unitSystem === "imperial" ? (
           <div className="flex gap-2">
             <div className="relative w-24">
@@ -453,10 +432,7 @@ function Step2About({
 
       {/* Weight */}
       <div className="space-y-2">
-        <span className="text-sm font-semibold text-foreground">
-          Weight{" "}
-          <span className="text-muted-foreground/60 font-normal text-xs">(optional)</span>
-        </span>
+        <span className="text-sm font-semibold text-foreground">Weight</span>
         <div className="relative w-36">
           <Input
             type="number"
@@ -469,6 +445,27 @@ function Step2About({
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
             {unitSystem === "imperial" ? "lbs" : "kg"}
           </span>
+        </div>
+      </div>
+
+      {/* Units — compact square toggle */}
+      <div className="space-y-1.5">
+        <span className="text-xs text-muted-foreground">Units</span>
+        <div className="flex gap-2">
+          {(["imperial", "metric"] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setUnitSystem(u)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition-colors ${
+                unitSystem === u
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {u === "imperial" ? "Imperial" : "Metric"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -492,7 +489,7 @@ function Step2About({
 type Step3Data = {
   bodyWeightGoal: "gain" | "lose" | "maintain";
   weeklyRateLbs: number | null;
-  fitnessGoals: string[];
+  activityLevel: typeof ACTIVITY_LEVELS[number]["key"];
 };
 
 function Step3Goals({
@@ -508,16 +505,12 @@ function Step3Goals({
     initial.bodyWeightGoal
   );
   const [weeklyRateLbs, setWeeklyRateLbs] = useState<number | null>(initial.weeklyRateLbs);
-  const [fitnessGoals, setFitnessGoals] = useState<string[]>(initial.fitnessGoals);
+  const [activityLevel, setActivityLevel] = useState<typeof ACTIVITY_LEVELS[number]["key"]>(
+    initial.activityLevel
+  );
 
   const rateOptions =
     bodyWeightGoal === "lose" ? RATE_OPTIONS_LOSE : RATE_OPTIONS_GAIN;
-
-  const toggleGoal = (key: string) => {
-    setFitnessGoals((prev) =>
-      prev.includes(key) ? prev.filter((g) => g !== key) : [...prev, key]
-    );
-  };
 
   // When weight goal changes, reset rate if it doesn't make sense anymore
   const handleWeightGoalChange = (goal: "gain" | "lose" | "maintain") => {
@@ -531,7 +524,7 @@ function Step3Goals({
   };
 
   const handleNext = () => {
-    onNext({ bodyWeightGoal, weeklyRateLbs, fitnessGoals });
+    onNext({ bodyWeightGoal, weeklyRateLbs, activityLevel });
   };
 
   return (
@@ -588,21 +581,29 @@ function Step3Goals({
         </div>
       )}
 
-      {/* Fitness goals (multi-select) */}
+      {/* Activity level */}
       <div className="space-y-2">
-        <span className="text-sm font-semibold text-foreground">
-          Fitness goals{" "}
-          <span className="text-muted-foreground/60 font-normal text-xs">(pick all that apply)</span>
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {FITNESS_GOALS.map(({ key, label }) => (
-            <PillButton
+        <span className="text-sm font-semibold text-foreground">Activity level</span>
+        <div className="flex flex-col gap-1.5">
+          {ACTIVITY_LEVELS.map(({ key, label, desc }) => (
+            <button
               key={key}
-              selected={fitnessGoals.includes(key)}
-              onClick={() => toggleGoal(key)}
+              type="button"
+              onClick={() => setActivityLevel(key)}
+              className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm border transition-all text-left ${
+                activityLevel === key
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
             >
-              {label}
-            </PillButton>
+              <div>
+                <span className="font-semibold">{label}</span>
+                <span className={`text-xs ms-2 ${activityLevel === key ? "text-primary/70" : "text-muted-foreground/60"}`}>
+                  {desc}
+                </span>
+              </div>
+              {activityLevel === key && <Check className="w-4 h-4 shrink-0" />}
+            </button>
           ))}
         </div>
       </div>
@@ -615,7 +616,6 @@ function Step3Goals({
         <Button
           className="flex-1 h-12 rounded-xl text-sm font-bold"
           onClick={handleNext}
-          disabled={fitnessGoals.length === 0}
         >
           Continue
         </Button>
@@ -653,34 +653,10 @@ function Step4Macros({
 
   const [mode, setMode] = useState<CalorieMode>(initialMode);
   const [proteinRatio, setProteinRatio] = useState<"1g" | "0.8g">("1g");
-  const [activityLevel, setActivityLevel] = useState<typeof ACTIVITY_LEVELS[number]["key"]>(
-    "moderate"
-  );
 
-  // Derived metric values from step 2
-  const weightKg = (() => {
-    const v = parseFloat(step2.weightDisplay);
-    if (isNaN(v) || v <= 0) return null;
-    return step2.unitSystem === "imperial" ? lbsToKg(v) : v;
-  })();
-
-  const weightLbs = weightKg ? Math.round(weightKg * 2.2046 * 10) / 10 : null;
-
-  const heightCm = (() => {
-    if (step2.unitSystem === "imperial") {
-      const ft = parseInt(step2.heightFt) || 0;
-      const inches = parseInt(step2.heightIn) || 0;
-      if (ft === 0 && inches === 0) return null;
-      return ftInToCm(ft, inches);
-    } else {
-      const v = parseFloat(step2.heightCm);
-      return isNaN(v) || v <= 0 ? null : v;
-    }
-  })();
+  const activityMultiplier = ACTIVITY_LEVELS.find((a) => a.key === step3.activityLevel)!.multiplier;
 
   const age = parseInt(step2.ageYears) || null;
-
-  const activityMultiplier = ACTIVITY_LEVELS.find((a) => a.key === activityLevel)!.multiplier;
 
   // Compute base TDEE
   const baseTDEE = (() => {
@@ -712,20 +688,6 @@ function Step4Macros({
   const carbsKcal = Math.max(0, suggestedCalories - proteinKcal - fatKcal);
   const carbsG = Math.round(carbsKcal / 4);
 
-  // Editable state (initialized from computed values)
-  const [calories, setCalories] = useState(() => String(suggestedCalories));
-  const [proteinG, setProteinG] = useState(() => String(proteinBase));
-  const [cbs, setCbs] = useState(() => String(carbsG));
-  const [fat, setFat] = useState(() => String(fatG));
-
-  // Sync computed values when inputs change
-  useEffect(() => {
-    setCalories(String(suggestedCalories));
-    setProteinG(String(proteinBase));
-    setCbs(String(carbsG));
-    setFat(String(fatG));
-  }, [suggestedCalories, proteinBase, carbsG, fatG]);
-
   const handleFinish = () => {
     const profile = store.getProfile();
     // Resolve height/weight into metric for storage
@@ -738,9 +700,9 @@ function Step4Macros({
       heightCm: storeHeightCm,
       weightKg: storeWeightKg,
       unitSystem: step2.unitSystem,
-      goals: step3.fitnessGoals,
+      goals: [],
       ageYears: storeAgeYears,
-      activityLevel: activityLevel as UserProfile["activityLevel"],
+      activityLevel: step3.activityLevel as UserProfile["activityLevel"],
       bodyWeightGoal: step3.bodyWeightGoal,
       weeklyRateLbs: step3.weeklyRateLbs,
       id: profile?.id,
@@ -748,10 +710,10 @@ function Step4Macros({
     });
 
     store.saveNutritionGoals({
-      calorieTarget: parseInt(calories) || suggestedCalories,
-      proteinTargetG: parseInt(proteinG) || proteinBase,
-      carbsTargetG: parseInt(cbs) || carbsG,
-      fatTargetG: parseInt(fat) || fatG,
+      calorieTarget: suggestedCalories,
+      proteinTargetG: proteinBase,
+      carbsTargetG: carbsG,
+      fatTargetG: fatG,
       waterTargetOz: 64,
     });
 
@@ -759,99 +721,32 @@ function Step4Macros({
     onFinish();
   };
 
-  const macroInputRow = (
-    label: string,
-    color: string,
-    value: string,
-    onChange: (v: string) => void,
-    suffix: string = "g"
-  ) => (
-    <div className="flex items-center gap-3">
-      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`} />
-      <span className="text-sm text-muted-foreground w-16 shrink-0">{label}</span>
-      <div className="flex-1 relative">
-        <Input
-          type="number"
-          inputMode="decimal"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 rounded-xl bg-background border-border text-sm pr-8 text-right"
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-          {suffix}
-        </span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Here's what I recommend</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Based on your profile. You can adjust everything below.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Nutritional goals</h1>
       </div>
 
-      {/* Surplus / Maintenance / Deficit toggle */}
       <SegmentedControl
         options={[
-          { label: "Surplus", value: "surplus" },
-          { label: "Maintenance", value: "maintenance" },
           { label: "Deficit", value: "deficit" },
+          { label: "Maintenance", value: "maintenance" },
+          { label: "Surplus", value: "surplus" },
         ]}
         value={mode}
         onChange={setMode}
       />
 
-      {/* Activity level */}
-      <div className="space-y-2">
-        <span className="text-sm font-semibold text-foreground">Activity level</span>
-        <div className="flex flex-col gap-1.5">
-          {ACTIVITY_LEVELS.map(({ key, label, desc }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActivityLevel(key)}
-              className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm border transition-all text-left ${
-                activityLevel === key
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div>
-                <span className="font-semibold">{label}</span>
-                <span className={`text-xs ms-2 ${activityLevel === key ? "text-primary/70" : "text-muted-foreground/60"}`}>
-                  {desc}
-                </span>
-              </div>
-              {activityLevel === key && <Check className="w-4 h-4 shrink-0" />}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Calorie target (large editable) */}
-      <div className="rounded-2xl bg-card p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">Daily calorie target</span>
-          <div className="relative w-28">
-            <Input
-              type="number"
-              inputMode="decimal"
-              value={calories}
-              onChange={(e) => setCalories(e.target.value)}
-              className="h-10 rounded-xl bg-background border-border text-lg font-bold text-right pr-12 tabular-nums"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-              kcal
-            </span>
-          </div>
+      {/* Calorie target (Food.tsx style display) */}
+      <div className="rounded-2xl bg-card p-4 space-y-5">
+        <div className="flex flex-col items-center text-center pb-2">
+          <p className="text-5xl font-bold tabular-nums leading-none tracking-tighter">{suggestedCalories}</p>
+          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
         </div>
 
         {/* Protein ratio toggle */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Protein target</span>
+        <div className="flex items-center justify-between border-t border-border/50 pt-4">
+          <span className="text-xs font-semibold">Protein target</span>
           <div className="flex rounded-lg overflow-hidden border border-border text-xs font-semibold">
             {(["1g", "0.8g"] as const).map((r) => (
               <button
@@ -861,7 +756,7 @@ function Step4Macros({
                 className={`px-3 py-1.5 transition-colors ${
                   proteinRatio === r
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "bg-background text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {r}/lb
@@ -871,14 +766,14 @@ function Step4Macros({
         </div>
 
         {/* Macro rows */}
-        <div className="space-y-3">
-          {macroInputRow("Protein", "bg-orange-400", proteinG, setProteinG)}
-          {macroInputRow("Carbs",   "bg-yellow-400", cbs, setCbs)}
-          {macroInputRow("Fat",     "bg-blue-400",   fat, setFat)}
+        <div className="space-y-4 pt-2">
+          <MacroBar label="Carbs"   consumed={0} target={carbsG}   color="#eab308" />
+          <MacroBar label="Protein" consumed={0} target={proteinBase} color="#f97316" />
+          <MacroBar label="Fat"     consumed={0} target={fatG}     color="#3b82f6" />
         </div>
 
         {!weightLbs && (
-          <p className="text-xs text-muted-foreground/70">
+          <p className="text-xs text-muted-foreground/70 text-center pt-2">
             Add your weight for a personalised protein suggestion.
           </p>
         )}
@@ -933,7 +828,7 @@ const EMPTY_STEP2: Step2Data = {
 const EMPTY_STEP3: Step3Data = {
   bodyWeightGoal: "maintain",
   weeklyRateLbs: null,
-  fitnessGoals: [],
+  activityLevel: "moderate",
 };
 
 export default function NewUserExperience({
@@ -958,7 +853,7 @@ export default function NewUserExperience({
 
   return (
     <div className="min-h-screen bg-background px-6 py-8 flex flex-col">
-      <div className="w-full max-w-sm flex flex-col flex-1">
+      <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
         {/* Progress + step indicator */}
         <div className="flex items-center justify-between mb-8">
           <ProgressDots step={step} total={4} />

@@ -45,7 +45,7 @@ const WEIGHT_GOAL_OPTIONS = [
   { key: "maintain", label: "Stay where I'm at" },
 ] as const;
 
-const RATE_OPTIONS_LOSE = [-1, -0.5, -0.25];
+const RATE_OPTIONS_LOSE = [-0.25, -0.5, -1];
 const RATE_OPTIONS_GAIN = [0.25, 0.5, 1];
 
 // ── Conversion helpers ─────────────────────────────────────
