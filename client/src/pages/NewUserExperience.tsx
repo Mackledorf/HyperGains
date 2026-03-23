@@ -74,6 +74,7 @@ function lbsToKg(lbs: number) { return Math.round((lbs / 2.2046) * 10) / 10; }
 function ftInToCm(ft: number, inches: number) {
   return Math.round((ft * 12 + inches) * 2.54 * 10) / 10;
 }
+function roundTo50(n: number) { return Math.round(n / 50) * 50; }
 
 // ─────────────────────────────────────────────────
 // Shared UI helpers
@@ -515,7 +516,6 @@ function Step4Macros({
   onBack: () => void;
   userId: string;
 }) {
-  // Determine initial mode from weight goal
   const initialMode: CalorieMode =
     step3.bodyWeightGoal === "gain"
       ? "surplus"
@@ -524,13 +524,17 @@ function Step4Macros({
       : "maintenance";
 
   const [mode, setMode] = useState<CalorieMode>(initialMode);
-  const [proteinRatio, setProteinRatio] = useState<"1g" | "0.8g">("1g");
+  // g of protein per lb of bodyweight; 0.9 is the recommended default
+  const [proteinPerLb, setProteinPerLb] = useState(0.9);
+  const PROTEIN_MIN = 0.7;
+  const PROTEIN_MAX = 1.5;
+  const [editingCalories, setEditingCalories] = useState(false);
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
+  const [calorieInput, setCalorieInput] = useState("");
 
   const activityMultiplier = ACTIVITY_LEVELS.find((a) => a.key === step3.activityLevel)!.multiplier;
-
   const age = parseInt(step2.ageYears) || null;
 
-  // Derive metric height/weight and lbs from the raw step2 inputs
   const weightLbs: number | null = (() => {
     const raw = parseFloat(step2.weightDisplay);
     if (isNaN(raw) || raw <= 0) return null;
@@ -549,34 +553,48 @@ function Step4Macros({
     }
   })();
 
-  // Compute base TDEE
   const baseTDEE = (() => {
-    if (!weightKg || !heightCm || !age) return 2000; // fallback
+    if (!weightKg || !heightCm || !age) return 2000;
     return computeTDEE(step2.gender, weightKg, heightCm, age, activityMultiplier);
   })();
 
-  // Apply mode offset
+  // Surplus/deficit capped at 350 cal/day — assumes the user will use cardio to cover
+  // the remainder. A full 500 cal/day deficit without cardio is too aggressive.
+  // TODO: revisit once "Cardio Mode" is added.
   const rateKcal = (() => {
     if (mode === "maintenance") return 0;
     const absRate = Math.abs(step3.weeklyRateLbs ?? 0.5);
-    const kcal = rateToDailyKcal(absRate);
-    return mode === "surplus" ? kcal : -kcal;
+    const raw = Math.round((absRate * 3500) / 7);
+    const capped = Math.min(raw, 350);
+    return mode === "surplus" ? capped : -capped;
   })();
 
-  const suggestedCalories = baseTDEE + rateKcal;
+  // Round suggestion to nearest 50, e.g. 2850
+  const suggestedCalories = roundTo50(baseTDEE + rateKcal);
 
-  // Protein target
+  // Active calories: use custom override if set, else suggestion
+  const activeCalories = customCalories ?? suggestedCalories;
+
+  const openEditor = () => {
+    setCalorieInput(String(activeCalories));
+    setEditingCalories(true);
+  };
+  const commitEdit = () => {
+    const val = parseInt(calorieInput);
+    if (!isNaN(val) && val > 500 && val < 10000) {
+      setCustomCalories(roundTo50(val));
+    }
+    setEditingCalories(false);
+  };
+
+  // Macros derived from activeCalories
   const proteinBase = weightLbs
-    ? Math.round(weightLbs * (proteinRatio === "1g" ? 1 : 0.8))
+    ? Math.round(weightLbs * proteinPerLb)
     : 150;
   const proteinKcal = proteinBase * 4;
-
-  // Fat — ~25% of calories
-  const fatG = Math.round((suggestedCalories * 0.25) / 9);
+  const fatG = Math.round((activeCalories * 0.25) / 9);
   const fatKcal = fatG * 9;
-
-  // Carbs — remainder
-  const carbsKcal = Math.max(0, suggestedCalories - proteinKcal - fatKcal);
+  const carbsKcal = Math.max(0, activeCalories - proteinKcal - fatKcal);
   const carbsG = Math.round(carbsKcal / 4);
 
   const handleFinish = () => {
@@ -597,7 +615,7 @@ function Step4Macros({
     });
 
     store.saveNutritionGoals({
-      calorieTarget: suggestedCalories,
+      calorieTarget: activeCalories,
       proteinTargetG: proteinBase,
       carbsTargetG: carbsG,
       fatTargetG: fatG,
@@ -612,6 +630,9 @@ function Step4Macros({
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Nutritional goals</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          These are estimates — you'll be able to fine-tune them later.
+        </p>
       </div>
 
       <SegmentedControl
@@ -621,34 +642,75 @@ function Step4Macros({
           { label: "Surplus", value: "surplus" },
         ]}
         value={mode}
-        onChange={setMode}
+        onChange={(v) => { setMode(v); setCustomCalories(null); }}
       />
 
-      {/* Calorie target (Food.tsx style display) */}
+      {/* Calorie target */}
       <div className="rounded-2xl bg-card p-4 space-y-5">
         <div className="flex flex-col items-center text-center pb-2">
-          <p className="text-5xl font-bold tabular-nums leading-none tracking-tighter">{suggestedCalories}</p>
-          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
+          {editingCalories ? (
+            <input
+              type="number"
+              inputMode="numeric"
+              value={calorieInput}
+              autoFocus
+              onChange={(e) => setCalorieInput(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingCalories(false); }}
+              className="text-5xl font-bold tabular-nums leading-none tracking-tighter w-40 text-center bg-transparent border-b-2 border-primary outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={openEditor}
+              className="text-5xl font-bold tabular-nums leading-none tracking-tighter hover:text-primary transition-colors"
+            >
+              {activeCalories}
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-widest font-semibold text-primary/80">
+            kcal / day
+          </p>
+          {customCalories !== null && (
+            <button
+              type="button"
+              onClick={() => setCustomCalories(null)}
+              className="text-xs text-muted-foreground/60 underline mt-1"
+            >
+              Reset to suggestion ({suggestedCalories})
+            </button>
+          )}
+          <p className="text-xs text-muted-foreground/50 mt-1">Tap to edit</p>
         </div>
 
-        {/* Protein ratio toggle */}
+        {/* Protein ratio stepper */}
         <div className="flex items-center justify-between border-t border-border/50 pt-4">
-          <span className="text-xs font-semibold">Protein target</span>
-          <div className="flex rounded-lg overflow-hidden border border-border text-xs font-semibold">
-            {(["1g", "0.8g"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setProteinRatio(r)}
-                className={`px-3 py-1.5 transition-colors ${
-                  proteinRatio === r
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {r}/lb
-              </button>
-            ))}
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold">Protein target</span>
+            {proteinPerLb === 0.9 && (
+              <span className="text-xs text-muted-foreground/60">Recommended</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={proteinPerLb <= PROTEIN_MIN}
+              onClick={() => setProteinPerLb((p) => Math.round((p - 0.1) * 10) / 10)}
+              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-base font-bold text-foreground disabled:opacity-30 active:scale-95 transition-all"
+            >
+              −
+            </button>
+            <span className="text-sm font-bold tabular-nums w-16 text-center">
+              {proteinPerLb.toFixed(1)}g / lb
+            </span>
+            <button
+              type="button"
+              disabled={proteinPerLb >= PROTEIN_MAX}
+              onClick={() => setProteinPerLb((p) => Math.round((p + 0.1) * 10) / 10)}
+              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-base font-bold text-foreground disabled:opacity-30 active:scale-95 transition-all"
+            >
+              +
+            </button>
           </div>
         </div>
 
