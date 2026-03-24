@@ -742,7 +742,7 @@ function Step4Macros({
           <div className="flex items-center gap-1.5">
             <button
               className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setProteinG((g) => Math.max(PROTEIN_MIN_G, g - 5))}
+              onClick={() => setProteinG((g) => Math.max(PROTEIN_MIN_G, (Math.ceil((g - 4) / 5) * 5)))}
               disabled={proteinG <= PROTEIN_MIN_G}
             >−</button>
             <div className="flex-1 relative">
@@ -760,7 +760,7 @@ function Step4Macros({
             </div>
             <button
               className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setProteinG((g) => Math.min(PROTEIN_MAX_G, g + 5))}
+              onClick={() => setProteinG((g) => Math.min(PROTEIN_MAX_G, (Math.floor((g + 5) / 5) * 5)))}
               disabled={proteinG >= PROTEIN_MAX_G}
             >+</button>
             <div className="w-14 flex-shrink-0">

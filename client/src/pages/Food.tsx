@@ -631,6 +631,24 @@ function ServingScreen({
   );
 }
 
+function computeTDEE(
+  gender: UserProfile["gender"],
+  weightKg: number,
+  heightCm: number,
+  ageYears: number,
+  activityMultiplier: number
+): number {
+  let bmr: number;
+  if (gender === "male") {
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5;
+  } else if (gender === "female") {
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
+  } else {
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 78;
+  }
+  return Math.round(bmr * activityMultiplier);
+}
+
 // ── SegmentedControl ─────────────────────────────────────────────────────────
 
 function SegmentedControl<T extends string>({
@@ -671,15 +689,24 @@ function GoalsSheet({
   onClose,
   onSaved,
 }: { open: boolean; onClose: () => void; onSaved: () => void }) {
-  // ── Derived weight info ──
+  // ── Derived weight/profile info ──
   const profile = store.getProfile();
   const weightKgInput = profile?.weightKg ?? 0;
-  // Use precise conversion
   const weightLbs = weightKgInput ? Math.round(weightKgInput * 2.20462 * 10) / 10 : null;
+
+  // ── Suggestions ─────────────────────────────────────────────────────────
+  const suggestedBase = useMemo(() => {
+    if (!profile?.weightKg || !profile?.heightCm || !profile?.ageYears || !profile?.activityLevel) return 2000;
+    const multipliers: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+    const mult = multipliers[profile.activityLevel] || 1.2;
+    const tdee = computeTDEE(profile.gender, profile.weightKg, profile.heightCm, profile.ageYears, mult);
+    return Math.round(tdee / 50) * 50;
+  }, [profile]);
 
   // ── State ───────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<CalorieMode>("maintenance");
   const [calorieInput, setCalorieInput] = useState("2000");
+  const [customCalories, setCustomCalories] = useState<number | null>(null);
   const [editingCalories, setEditingCalories] = useState(false);
   const [waterOz, setWaterOz] = useState(64);
 
@@ -710,10 +737,27 @@ function GoalsSheet({
       
       const bodyGoal = profile?.bodyWeightGoal;
       setMode(bodyGoal === "gain" ? "surplus" : bodyGoal === "lose" ? "deficit" : "maintenance");
+      // If the saved goal matches the suggested base (approx), assume no custom offset yet
+      if (Math.abs(g.calorieTarget - suggestedBase) > 351) {
+         setCustomCalories(g.calorieTarget);
+      }
     }
-  }, [open, profile?.bodyWeightGoal]);
+  }, [open, profile?.bodyWeightGoal, suggestedBase]);
 
-  const activeCalories = parseInt(calorieInput) || 2000;
+  // ── Reactive calorie computation ────────────────────────────────────────
+  const suggestedCalories = useMemo(() => {
+    if (mode === "maintenance") return suggestedBase;
+    const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
+    const raw = Math.round((absRate * 3500) / 7);
+    const capped = Math.min(raw, 350);
+    return suggestedBase + (mode === "surplus" ? capped : -capped);
+  }, [mode, suggestedBase, profile?.weeklyRateLbs]);
+
+  const activeCalories = customCalories ?? suggestedCalories;
+
+  useEffect(() => {
+    setCalorieInput(String(activeCalories));
+  }, [activeCalories]);
 
   // ── Macro calculations ──────────────────────────────────────────────────
   const proteinPct = Math.round((proteinG * 4 / activeCalories) * 100);
@@ -725,7 +769,10 @@ function GoalsSheet({
   // ── Handlers ───────────────────────────────────────────────────────────
   const commitEdit = () => {
     const val = parseInt(calorieInput);
-    if (!isNaN(val) && val > 500 && val < 10000) setCalorieInput(String(Math.round(val / 50) * 50));
+    if (!isNaN(val) && val > 500 && val < 10000) {
+      const rounded = Math.round(val / 50) * 50;
+      setCustomCalories(rounded);
+    }
     setEditingCalories(false);
   };
   function snapTo5(val: number, delta: number): number {
@@ -800,7 +847,13 @@ function GoalsSheet({
                 </button>
               )}
               <p className="text-[10px] text-muted-foreground mt-1.5 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
-              <p className="text-[10px] text-muted-foreground/50 mt-1">Tap to edit</p>
+              {customCalories !== null ? (
+                <button type="button" onClick={() => setCustomCalories(null)} className="text-[10px] text-muted-foreground/60 underline mt-1">
+                  Reset to suggestion ({suggestedCalories})
+                </button>
+              ) : (
+                <p className="text-[10px] text-muted-foreground/50 mt-1">Tap to edit</p>
+              )}
             </div>
 
             {/* Split total indicator */}
@@ -827,7 +880,7 @@ function GoalsSheet({
               <div className="flex items-center gap-1.5">
                 <button
                   className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-                  onClick={() => setProteinG((g) => Math.max(50, g - 5))}
+                  onClick={() => setProteinG((g) => Math.max(50, (Math.ceil((g - 4) / 5) * 5)))}
                   disabled={proteinG <= 50}
                 >−</button>
                 <div className="flex-1 relative">
@@ -845,7 +898,7 @@ function GoalsSheet({
                 </div>
                 <button
                   className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-                  onClick={() => setProteinG((g) => Math.min(400, g + 5))}
+                  onClick={() => setProteinG((g) => Math.min(400, (Math.floor((g + 5) / 5) * 5)))}
                   disabled={proteinG >= 400}
                 >+</button>
                 <div className="w-14 flex-shrink-0">
