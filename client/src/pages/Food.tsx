@@ -684,7 +684,10 @@ function GoalsSheet({
   const [waterOz, setWaterOz] = useState(64);
 
   // Protein as a direct gram target (5g steps)
-  const [proteinG, setProteinG] = useState(150);
+  const [proteinG, setProteinG] = useState(() => {
+    if (weightLbs) return Math.round(weightLbs * 0.9 / 5) * 5;
+    return 150;
+  });
   const [proteinSet, setProteinSet] = useState(true);
 
   // Carbs & fat as % of total calories
@@ -815,7 +818,7 @@ function GoalsSheet({
                   Protein
                   {proteinPerLbDisplay && (
                     <span className="ml-1.5 text-muted-foreground/60 font-normal">
-                      ({proteinPerLbDisplay}g / lb)
+                      ({proteinPerLbDisplay}g / lb) {proteinPerLbDisplay === "0.9" && <span className="text-[10px] text-primary/70 font-semibold ml-0.5">(recommended)</span>}
                     </span>
                   )}
                 </span>
