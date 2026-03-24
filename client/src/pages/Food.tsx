@@ -497,14 +497,14 @@ function ServingScreen({
       {/* Live macro preview */}
       <div className="rounded-2xl bg-muted/40 p-4 grid grid-cols-4 gap-2 text-center">
         {[
-          { label: "Calories", value: Math.round(macros.calories), unit: "kcal" },
-          { label: "Carbs",    value: Math.round(macros.carbsG),    unit: "g"    },
-          { label: "Protein",  value: Math.round(macros.proteinG),  unit: "g"    },
-          { label: "Fat",      value: Math.round(macros.fatG),      unit: "g"    },
-        ].map(({ label, value, unit: u }) => (
+          { label: "Calories", value: Math.round(macros.calories), unit: "kcal", color: undefined },
+          { label: "Carbs",    value: Math.round(macros.carbsG),    unit: "g",   color: MACRO_COLORS.carbs   },
+          { label: "Protein",  value: Math.round(macros.proteinG),  unit: "g",   color: MACRO_COLORS.protein },
+          { label: "Fat",      value: Math.round(macros.fatG),      unit: "g",   color: MACRO_COLORS.fat     },
+        ].map(({ label, value, unit: u, color }) => (
           <div key={label}>
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-bold text-sm tabular-nums">{value}<span className="text-muted-foreground font-normal">{u}</span></p>
+            <p className="font-bold text-sm tabular-nums" style={color ? { color } : undefined}>{value}<span className="text-muted-foreground font-normal">{u}</span></p>
           </div>
         ))}
       </div>
@@ -938,7 +938,7 @@ function AddFoodSheet({
                     </p>
                     <div className="flex items-center gap-2.5">
                       <span className="text-xs font-semibold text-foreground">
-                        {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
+                        {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} cal
                       </span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
@@ -1023,14 +1023,13 @@ export default function Food() {
     setAddOpen(true);
   }
 
-  function createMealAndAdd() {
-    const meal = store.createMeal({
+  function createMeal() {
+    store.createMeal({
       name: "",
       loggedAt: new Date().toISOString(),
       date: today,
     });
     refresh();
-    openAddToMeal(meal.id, meal.name);
   }
 
   function handleDeleteEntry(id: string) {
@@ -1074,14 +1073,6 @@ export default function Food() {
           onEditGoals={() => setGoalsOpen(true)}
         />
 
-        {/* Water bar */}
-        <WaterBar
-          goals={goals}
-          carbsConsumedG={totals.carbsG}
-          today={today}
-          onRefresh={refresh}
-        />
-
         {/* Log header */}
         <div className="flex items-center justify-between pt-1">
           <h2 className="font-semibold text-sm">Today's Log</h2>
@@ -1090,9 +1081,9 @@ export default function Food() {
               size="sm"
               variant="outline"
               className="rounded-xl h-8 text-xs"
-              onClick={createMealAndAdd}
+              onClick={createMeal}
             >
-              <Plus className="w-3.5 h-3.5 mr-1" /> New Meal
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Meal
             </Button>
             <Button
               size="sm"
@@ -1138,6 +1129,14 @@ export default function Food() {
             })}
           </div>
         )}
+
+        {/* Water bar */}
+        <WaterBar
+          goals={goals}
+          carbsConsumedG={totals.carbsG}
+          today={today}
+          onRefresh={refresh}
+        />
       </div>
 
       {/* Sheets */}
