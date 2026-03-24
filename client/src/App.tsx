@@ -21,6 +21,7 @@ import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import ProgramSettings from "@/pages/ProgramSettings";
 import Profile from "@/pages/Profile";
+import QuickWorkoutSetup from "@/pages/QuickWorkoutSetup";
 import * as store from "@/lib/storage";
 import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
 import * as gist from "@/lib/gist";
@@ -34,6 +35,7 @@ function AppRouter() {
       <Route path="/supplements" component={Supplements} />
       <Route path="/programs" component={Programs} />
       <Route path="/create" component={CreateProgram} />
+      <Route path="/quick-workout" component={QuickWorkoutSetup} />
       <Route path="/program/:id/settings" component={ProgramSettings} />
       <Route path="/program/:id" component={ProgramDetail} />
       <Route path="/workout/:sessionId" component={ActiveWorkout} />

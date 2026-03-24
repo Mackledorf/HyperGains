@@ -89,8 +89,10 @@ const KEYS = {
   get customFoods()    { return `hg_customfoods_${_activeUserId}`; },
   get meals()          { return `hg_meals_${_activeUserId}`; },
   get foodEntries()    { return `hg_foodentries_${_activeUserId}`; },
-  get nutritionGoals() { return `hg_nutrigoals_${_activeUserId}`; },
-  get waterEntries()   { return `hg_water_${_activeUserId}`; },
+  get nutritionGoals()   { return `hg_nutrigoals_${_activeUserId}`; },
+  get waterEntries()     { return `hg_water_${_activeUserId}`; },
+  // Ad-hoc workout exercises (not tied to a program)
+  get adHocExercises()   { return `hg_adhoc_exercises_${_activeUserId}`; },
 };
 
 // ══════════════════════════════════════════════════
@@ -260,6 +262,53 @@ export function getWorkoutSessions(programId: string): WorkoutSession[] {
       (a, b) =>
         new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     );
+}
+
+// ══════════════════════════════════════════════════
+// Ad-Hoc Exercises
+// Exercises added on-the-fly during an unplanned (ad-hoc) workout session.
+// Stored separately from ProgramExercises (no programId / dayIndex).
+// ══════════════════════════════════════════════════
+
+export function getAdHocExercisesForSession(sessionId: string): ProgramExercise[] {
+  return getStore<ProgramExercise>(KEYS.adHocExercises)
+    .filter((e) => e.programId === sessionId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function addAdHocExercise(
+  sessionId: string,
+  data: { exerciseName: string; muscleGroup: string; difficulty?: ProgramExercise["difficulty"] }
+): ProgramExercise {
+  const existing = getAdHocExercisesForSession(sessionId);
+  const exercise: ProgramExercise = {
+    id: uuid(),
+    // Reuse programId field to scope exercise to the session
+    programId: sessionId,
+    dayIndex: 0,
+    exerciseName: data.exerciseName,
+    muscleGroup: data.muscleGroup,
+    sortOrder: existing.length,
+    targetSets: 3,
+    targetReps: 10,
+    restSeconds: 120,
+    difficulty: data.difficulty,
+  };
+  const all = getStore<ProgramExercise>(KEYS.adHocExercises);
+  all.push(exercise);
+  setStore(KEYS.adHocExercises, all);
+  notifyDataChanged();
+  return exercise;
+}
+
+export function removeAdHocExercise(sessionId: string, exerciseId: string): void {
+  setStore(
+    KEYS.adHocExercises,
+    getStore<ProgramExercise>(KEYS.adHocExercises).filter(
+      (e) => !(e.programId === sessionId && e.id === exerciseId)
+    )
+  );
+  notifyDataChanged();
 }
 
 export function getWorkoutSession(id: string): WorkoutSession | undefined {

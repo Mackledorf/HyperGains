@@ -289,7 +289,24 @@ export default function Workouts() {
 
             {/* Start workout */}
             <div className="space-y-2">
-              <p className="micro-label px-1">Start Workout</p>
+              <div className="flex items-center justify-between px-1">
+                <p className="micro-label">Start Workout</p>
+                <Link href="/quick-workout">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs rounded-lg"
+                    onClick={(e) => {
+                      if (inProgressSession) {
+                        e.preventDefault();
+                        toast({ title: "Finish current workout first", description: "You have an active session in progress." });
+                      }
+                    }}
+                  >
+                    Record Workout
+                  </Button>
+                </Link>
+              </div>
               <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
                 {(activeProgram.dayLabels as string[]).map((label, index) => {
                   const dayExercises =
@@ -366,6 +383,11 @@ export default function Workouts() {
               <Button className="rounded-xl px-6 h-11" data-testid="button-create-program">
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Create Program
+              </Button>
+            </Link>
+            <Link href="/quick-workout">
+              <Button variant="outline" className="rounded-xl px-6 h-11">
+                Record Workout
               </Button>
             </Link>
           </div>

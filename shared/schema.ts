@@ -41,13 +41,16 @@ export type ProgramExercise = {
 
 export type WorkoutSession = {
   id: string;
-  programId: string;
+  /** null for ad-hoc (unplanned) workouts that are not tied to a program */
+  programId: string | null;
   dayIndex: number;
   dayLabel: string;
   weekNumber: number;
   status: string;
   startedAt: string;
   completedAt: string | null;
+  /** true for ad-hoc sessions started from "Record Workout" (no program) */
+  isAdHoc?: boolean;
 };
 
 export type SetLog = {

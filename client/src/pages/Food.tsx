@@ -40,6 +40,7 @@ import {
   LoaderCircle,
   ChevronLeft,
   GlassWater,
+  Clock,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -57,6 +58,27 @@ function computeMacros(food: FoodSearchResult, servingG: number) {
     carbsG:   Math.round(food.carbsPer100g * m * 10) / 10,
     fatG:     Math.round(food.fatPer100g * m * 10) / 10,
   };
+}
+
+/** Convert an ISO timestamp to "HH:MM" for <input type="time"> (local time). */
+function isoToTimeInput(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** Apply an "HH:MM" time (local) onto an existing ISO timestamp, preserving its date. */
+function applyTimeToIso(iso: string, hhmm: string): string {
+  const d = new Date(iso);
+  const [h, m] = hhmm.split(":").map(Number);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+}
+
+/** Build a full ISO timestamp from a food-date string ("YYYY-MM-DD") and "HH:MM" local time. */
+function buildLoggedAt(date: string, hhmm: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(year, month - 1, day, h, m, 0, 0).toISOString();
 }
 
 // ── CalorieSummary ────────────────────────────────────────────────────────────
@@ -259,12 +281,14 @@ function MealCard({
   onDeleteEntry,
   onDeleteMeal,
   onAddFood,
+  onUpdateTime,
 }: {
   meal: Meal;
   entries: FoodEntry[];
   onDeleteEntry: (id: string) => void;
   onDeleteMeal: (id: string) => void;
   onAddFood: (mealId: string, mealName: string) => void;
+  onUpdateTime: (mealId: string, loggedAt: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -280,20 +304,32 @@ function MealCard({
 
   return (
     <div className="rounded-2xl bg-card overflow-hidden">
-      {/* Meal header */}
-      <button
-        className="w-full p-4 flex items-center justify-between text-left active:bg-white/[0.03]"
+      {/* Meal header — clicking anywhere expands/collapses; the time input stops propagation */}
+      <div
+        className="w-full p-4 flex items-center justify-between text-left cursor-pointer active:bg-white/[0.03]"
         onClick={() => setExpanded(v => !v)}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="min-w-0">
             <p className="font-semibold text-sm">{meal.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatTime(meal.loggedAt)} · {Math.round(mealTotals.calories)} kcal
-            </p>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="w-3 h-3 shrink-0" />
+              <input
+                type="time"
+                value={isoToTimeInput(meal.loggedAt)}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  if (e.target.value) onUpdateTime(meal.id, applyTimeToIso(meal.loggedAt, e.target.value));
+                }}
+                className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
+              />
+              <span>· {Math.round(mealTotals.calories)} kcal</span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-muted-foreground hidden sm:block tabular-nums">
             Carbs {Math.round(mealTotals.carbsG)} · Protein {Math.round(mealTotals.proteinG)} · Fat {Math.round(mealTotals.fatG)}
           </span>
@@ -303,7 +339,7 @@ function MealCard({
             <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           )}
         </div>
-      </button>
+      </div>
 
       {/* Expanded entries */}
       {expanded && (
@@ -350,7 +386,8 @@ function MealCard({
 function StandaloneFoodCard({
   entry,
   onDelete,
-}: { entry: FoodEntry; onDelete: () => void }) {
+  onUpdateTime,
+}: { entry: FoodEntry; onDelete: () => void; onUpdateTime: (entryId: string, loggedAt: string) => void }) {
   return (
     <div className="rounded-2xl bg-card p-4 flex items-center justify-between group">
       <div className="min-w-0">
@@ -362,7 +399,17 @@ function StandaloneFoodCard({
           {entry.servingG}g · {Math.round(entry.calories)} kcal ·{" "}
           P {Math.round(entry.proteinG)}g · C {Math.round(entry.carbsG)}g · F {Math.round(entry.fatG)}g
         </p>
-        <p className="text-xs text-muted-foreground">{formatTime(entry.loggedAt)}</p>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+          <Clock className="w-3 h-3 shrink-0" />
+          <input
+            type="time"
+            value={isoToTimeInput(entry.loggedAt)}
+            onChange={(e) => {
+              if (e.target.value) onUpdateTime(entry.id, applyTimeToIso(entry.loggedAt, e.target.value));
+            }}
+            className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
+          />
+        </div>
       </div>
       <button
         onClick={onDelete}
@@ -401,12 +448,14 @@ function fromGrams(grams: number, unit: ServingUnit, servingSizeG: number): numb
 
 function ServingScreen({
   food,
+  today,
   onBack,
   onSave,
 }: {
   food: FoodSearchResult;
+  today: string;
   onBack: () => void;
-  onSave: (servingG: number) => void;
+  onSave: (servingG: number, loggedAt: string) => void;
 }) {
   const defaultServingG = food.servingSizeG || 100;
   const isLiquid = /\bml\b|fl\.?\s*oz/i.test(food.servingSizeLabel ?? "");
@@ -425,6 +474,7 @@ function ServingScreen({
 
   const [unit, setUnit] = useState<ServingUnit>("serving");
   const [qty, setQty] = useState<string>("1");
+  const [logTime, setLogTime] = useState(() => isoToTimeInput(new Date().toISOString()));
 
   function handleUnitChange(newUnit: ServingUnit) {
     const currentG = toGrams(parseFloat(qty) || 1, unit, defaultServingG);
@@ -504,15 +554,30 @@ function ServingScreen({
         ].map(({ label, value, unit: u, color }) => (
           <div key={label}>
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-bold text-sm tabular-nums" style={color ? { color } : undefined}>{value}<span className="text-muted-foreground font-normal">{u}</span></p>
+            <p className="font-bold text-sm tabular-nums" style={color ? { color } : undefined}>{value}<span className="font-normal opacity-80">{u}</span></p>
           </div>
         ))}
       </div>
 
+      {/* Log time — lets the user back-fill food logged at an earlier time */}
+      <div className="space-y-1.5">
+        <Label htmlFor="log-time">Time</Label>
+        <div className="relative">
+          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            id="log-time"
+            type="time"
+            value={logTime}
+            onChange={(e) => setLogTime(e.target.value)}
+            className="rounded-xl pl-9"
+          />
+        </div>
+      </div>
+
       <Button
         className="w-full rounded-xl h-11"
-        disabled={servingG <= 0}
-        onClick={() => onSave(servingG)}
+        disabled={servingG <= 0 || !logTime}
+        onClick={() => onSave(servingG, buildLoggedAt(today, logTime))}
       >
         Add to Log
       </Button>
@@ -845,7 +910,7 @@ function AddFoodSheet({
     }
   }
 
-  function saveFood(servingG: number) {
+  function saveFood(servingG: number, loggedAt: string) {
     if (!selectedFood) return;
     const macros = computeMacros(selectedFood, servingG);
     store.createFoodEntry({
@@ -859,7 +924,7 @@ function AddFoodSheet({
       proteinG: macros.proteinG,
       carbsG: macros.carbsG,
       fatG: macros.fatG,
-      loggedAt: new Date().toISOString(),
+      loggedAt,
       date: today,
     });
     onSaved();
@@ -893,6 +958,7 @@ function AddFoodSheet({
         {screen === "serving" && selectedFood && (
           <ServingScreen
             food={selectedFood}
+            today={today}
             onBack={() => setScreen("search")}
             onSave={saveFood}
           />
@@ -938,7 +1004,7 @@ function AddFoodSheet({
                     </p>
                     <div className="flex items-center gap-2.5">
                       <span className="text-xs font-semibold text-foreground">
-                        {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} cal
+                        {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
                       </span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
@@ -1042,6 +1108,16 @@ export default function Food() {
     refresh();
   }
 
+  function handleUpdateMealTime(id: string, loggedAt: string) {
+    store.updateMeal(id, { loggedAt });
+    refresh();
+  }
+
+  function handleUpdateEntryTime(id: string, loggedAt: string) {
+    store.updateFoodEntry(id, { loggedAt });
+    refresh();
+  }
+
   // Build merged + sorted log items (newest first) ─ Meals and standalone entries
   const standaloneEntries = allEntries.filter(e => e.mealId === null);
 
@@ -1116,6 +1192,7 @@ export default function Food() {
                     onDeleteEntry={handleDeleteEntry}
                     onDeleteMeal={handleDeleteMeal}
                     onAddFood={openAddToMeal}
+                    onUpdateTime={handleUpdateMealTime}
                   />
                 );
               }
@@ -1124,6 +1201,7 @@ export default function Food() {
                   key={item.entry.id}
                   entry={item.entry}
                   onDelete={() => handleDeleteEntry(item.entry.id)}
+                  onUpdateTime={handleUpdateEntryTime}
                 />
               );
             })}

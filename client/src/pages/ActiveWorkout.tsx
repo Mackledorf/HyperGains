@@ -10,6 +10,7 @@ import { useLocation, useParams } from "wouter";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import ExerciseFeedbackSheet from "@/components/ExerciseFeedbackSheet";
 import PostSessionCheckInSheet from "@/components/PostSessionCheckInSheet";
@@ -17,12 +18,15 @@ import RestTimer from "@/components/RestTimer";
 import ExerciseSetCard, { type SetEntry } from "@/components/ExerciseSetCard";
 import { applyFeedbackModifiers } from "@/lib/feedbackModifiers";
 import { getRepRange, getDifficultyForExercise } from "@/lib/exerciseTiers";
+import { MUSCLE_GROUPS, EXERCISE_DB } from "@/lib/exerciseDb";
 import {
   ChevronLeft,
   Check,
   Zap,
   Clock,
   AlertTriangle,
+  Plus,
+  Search,
 } from "lucide-react";
 import type {
   WorkoutSession,
@@ -49,6 +53,12 @@ export default function ActiveWorkout() {
   // Show post-session check-in sheet after completing workout
   const [showCheckIn, setShowCheckIn] = useState(false);
 
+  // Ad-hoc: add exercise sheet state
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [exSearch, setExSearch] = useState("");
+  const [exMuscleFilter, setExMuscleFilter] = useState<string>("All");
+  const [adHocExercises, setAdHocExercises] = useState<ProgramExercise[]>([]);
+
   // Workout timer
   useEffect(() => {
     const timer = setInterval(() => setElapsedSeconds(s => s + 1), 1000);
@@ -60,11 +70,24 @@ export default function ActiveWorkout() {
     queryFn: () => store.getWorkoutSession(sessionId!) ?? null,
   });
 
-  const { data: exercises, isLoading: loadingExercises } = useQuery<ProgramExercise[]>({
+  const isAdHoc = session?.isAdHoc === true;
+
+  // For programmed workouts, load exercises from the program day.
+  // For ad-hoc workouts, we maintain adHocExercises in local state (loaded below).
+  const { data: programExercises, isLoading: loadingExercises } = useQuery<ProgramExercise[]>({
     queryKey: ["exercises", session?.programId, "day", session?.dayIndex],
-    enabled: !!session,
+    enabled: !!session && !isAdHoc,
     queryFn: () => store.getProgramExercisesByDay(session!.programId, session!.dayIndex),
   });
+
+  // Load ad-hoc exercises into state once session is ready
+  useEffect(() => {
+    if (!sessionId || !isAdHoc) return;
+    setAdHocExercises(store.getAdHocExercisesForSession(sessionId));
+  }, [sessionId, isAdHoc]);
+
+  const exercises = isAdHoc ? adHocExercises : programExercises;
+  const loadingExercisesAdHoc = isAdHoc ? false : loadingExercises;
 
   const { data: existingLogs } = useQuery<SetLog[]>({
     queryKey: ["setlogs", sessionId],
@@ -72,21 +95,22 @@ export default function ActiveWorkout() {
     queryFn: () => store.getSetLogs(sessionId!),
   });
 
-  // Feedback data for overload modifiers
+  // Feedback data for overload modifiers (programmed only)
   const { data: latestCheckIn } = useQuery<PostSessionCheckIn | undefined>({
     queryKey: ["checkIns", session?.programId, "latest"],
-    enabled: !!session,
-    queryFn: () => store.getLatestCheckIn(session!.programId),
+    enabled: !!session && !isAdHoc,
+    queryFn: () => store.getLatestCheckIn(session!.programId!),
   });
 
   const { data: emphases } = useQuery<MuscleGroupEmphasis[]>({
     queryKey: ["emphasis", session?.programId],
-    enabled: !!session,
-    queryFn: () => store.getMuscleGroupEmphases(session!.programId),
+    enabled: !!session && !isAdHoc,
+    queryFn: () => store.getMuscleGroupEmphases(session!.programId!),
   });
 
-  // Compute overload data client-side
+  // Compute overload data client-side (programmed sessions only)
   const overloadData = useMemo(() => {
+    if (isAdHoc) return undefined;
     if (!session || !exercises || exercises.length === 0) return undefined;
 
     const emphasisMap = Object.fromEntries(
@@ -97,7 +121,7 @@ export default function ActiveWorkout() {
     for (const ex of exercises) {
       const muscleGroup = ex.muscleGroup;
       const defaultRir = getDefaultRirForExercise(session.weekNumber, muscleGroup);
-      const previousLogs = store.getLastSetLogsForExercise(ex.id, session.programId);
+      const previousLogs = store.getLastSetLogsForExercise(ex.id, session.programId!);
       const emphasis = (emphasisMap[muscleGroup.toLowerCase()] ?? "grow") as "maintain" | "grow" | "emphasize";
 
       if (previousLogs.length === 0) {
@@ -122,7 +146,7 @@ export default function ActiveWorkout() {
       }
     }
     return results;
-  }, [session, exercises, latestCheckIn, emphases]);
+  }, [isAdHoc, session, exercises, latestCheckIn, emphases]);
 
   const allSuggestions = overloadData
     ? Object.fromEntries(Object.entries(overloadData).map(([id, d]) => [id, d.suggestions]))
@@ -248,7 +272,11 @@ export default function ActiveWorkout() {
       queryClient.invalidateQueries({ queryKey: ["inProgress"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
       toast({ title: "Workout completed" });
-      setShowCheckIn(true);
+      if (isAdHoc) {
+        navigate("/");
+      } else {
+        setShowCheckIn(true);
+      }
     },
   });
 
@@ -315,7 +343,7 @@ export default function ActiveWorkout() {
           setNumber: sets.length + 1,
           weight: lastSet?.weight || "",
           reps: "",
-          rir: lastSet?.rir || (overloadData?.[exerciseId]?.defaultRir?.toString() ?? ""),
+          rir: lastSet?.rir || (overloadData?.[exerciseId]?.defaultRir?.toString() ?? "2"),
           completed: false,
           skipped: false,
         },
@@ -359,7 +387,7 @@ export default function ActiveWorkout() {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  if (loadingSession || loadingExercises) {
+  if (loadingSession || loadingExercisesAdHoc) {
     return (
       <AppShell>
         <div className="space-y-4">
@@ -404,7 +432,11 @@ export default function ActiveWorkout() {
               <h1 className="text-lg font-bold" data-testid="text-workout-title">
                 {session.dayLabel}
               </h1>
-              <p className="micro-label">Week {session.weekNumber}</p>
+              <p className="micro-label">
+                {isAdHoc
+                  ? new Date(session.startedAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+                  : `Week ${session.weekNumber}`}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5">
@@ -442,6 +474,18 @@ export default function ActiveWorkout() {
             />
           );
         })}
+
+        {/* Add Exercise (ad-hoc only) */}
+        {isAdHoc && (
+          <Button
+            variant="outline"
+            className="w-full rounded-xl h-11 text-sm"
+            onClick={() => { setExSearch(""); setExMuscleFilter("All"); setShowAddExercise(true); }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Exercise
+          </Button>
+        )}
 
         {/* End / Complete workout */}
         <Button
@@ -521,17 +565,101 @@ export default function ActiveWorkout() {
         />
       )}
 
-      {/* Post-session check-in sheet */}
-      {showCheckIn && session && exercises && (
+      {/* Post-session check-in sheet (programmed only) */}
+      {showCheckIn && !isAdHoc && session && exercises && (
         <PostSessionCheckInSheet
           sessionId={session.id}
-          programId={session.programId}
+          programId={session.programId!}
           exercises={exercises}
           onClose={() => {
             setShowCheckIn(false);
             navigate("/");
           }}
         />
+      )}
+
+      {/* Add Exercise sheet (ad-hoc only) */}
+      {showAddExercise && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm">
+          <div className="bg-background rounded-t-3xl max-h-[80vh] flex flex-col">
+            {/* Sheet header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <h2 className="text-base font-bold">Add Exercise</h2>
+              <button
+                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
+                onClick={() => setShowAddExercise(false)}
+              >
+                <span className="text-sm font-bold leading-none">✕</span>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 pb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={exSearch}
+                  onChange={(e) => setExSearch(e.target.value)}
+                  placeholder="Search exercises…"
+                  className="pl-9 rounded-xl h-10"
+                />
+              </div>
+            </div>
+
+            {/* Muscle group chips */}
+            <div className="px-5 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
+              {["All", ...MUSCLE_GROUPS].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setExMuscleFilter(g)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    exMuscleFilter === g
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+
+            {/* Exercise list */}
+            <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-1">
+              {(exMuscleFilter === "All" ? MUSCLE_GROUPS.slice() : [exMuscleFilter as typeof MUSCLE_GROUPS[number]])
+                .flatMap((mg) =>
+                  (EXERCISE_DB[mg] || [])
+                    .filter((ex) =>
+                      exSearch.trim() === "" ||
+                      ex.toLowerCase().includes(exSearch.toLowerCase())
+                    )
+                    .map((ex) => ({ exerciseName: ex, muscleGroup: mg }))
+                )
+                .map(({ exerciseName, muscleGroup }) => (
+                  <button
+                    key={`${muscleGroup}-${exerciseName}`}
+                    className="w-full text-left px-4 py-3 rounded-xl bg-card hover:bg-muted/60 transition-colors"
+                    onClick={() => {
+                      const newEx = store.addAdHocExercise(sessionId!, { exerciseName, muscleGroup });
+                      setAdHocExercises((prev) => [...prev, newEx]);
+                      // Initialize empty sets for the new exercise
+                      setExerciseSets((prev) => ({
+                        ...prev,
+                        [newEx.id]: [
+                          { setNumber: 1, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+                          { setNumber: 2, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+                          { setNumber: 3, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+                        ],
+                      }));
+                      setShowAddExercise(false);
+                    }}
+                  >
+                    <p className="text-sm font-semibold">{exerciseName}</p>
+                    <p className="text-xs text-muted-foreground">{muscleGroup}</p>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
       )}
     </AppShell>
   );
