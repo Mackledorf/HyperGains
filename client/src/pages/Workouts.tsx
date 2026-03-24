@@ -267,11 +267,6 @@ export default function Workouts() {
                     </AlertDialogContent>
                   )}
                 </AlertDialog>
-                <Link href={`/program/${activeProgram.id}/settings`}>
-                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                    <Settings className="w-4 h-4" />
-                  </button>
-                </Link>
               </div>
             </div>
 
