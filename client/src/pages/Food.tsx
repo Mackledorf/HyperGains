@@ -41,7 +41,6 @@ import {
   ChevronUp,
   Trash2,
   Settings2,
-  Droplets,
   Search,
   LoaderCircle,
   ChevronLeft,
@@ -223,7 +222,7 @@ function WaterBar({
     <div className="rounded-2xl bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Droplets className="w-4 h-4 text-sky-400" />
+          <GlassWater className="w-4 h-4 text-sky-400" />
           <span className="font-semibold text-sm">Water</span>
         </div>
         <div className="flex items-center gap-2">
