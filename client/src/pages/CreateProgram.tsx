@@ -333,34 +333,45 @@ export default function CreateProgram() {
               </button>
 
               {isDecentralized && (
-                <div className="bg-primary/5 border-t border-primary/20 px-4 py-3 flex items-center gap-3">
-                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-                    Auto-advance on
-                  </label>
-                  <select
-                    value={weekStartDay}
-                    onChange={(e) => { setWeekStartDay(Number(e.target.value)); setWeekStartDaySaved(false); }}
-                    className="flex-1 h-9 rounded-xl bg-background border border-border text-sm px-3 focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value={0}>Sunday</option>
-                    <option value={1}>Monday</option>
-                    <option value={2}>Tuesday</option>
-                    <option value={3}>Wednesday</option>
-                    <option value={4}>Thursday</option>
-                    <option value={5}>Friday</option>
-                    <option value={6}>Saturday</option>
-                  </select>
-                  <button
-                    onClick={() => setWeekStartDaySaved(true)}
-                    disabled={weekStartDaySaved}
-                    className={`h-9 px-4 rounded-xl text-xs font-semibold transition-colors ${
-                      weekStartDaySaved
-                        ? "bg-muted text-muted-foreground cursor-default"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
-                    }`}
-                  >
-                    Saved
-                  </button>
+                <div className="bg-primary/5 border-t border-primary/20 px-4 py-3 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Auto-advance on</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-1 flex-wrap gap-1.5">
+                      {[
+                        { label: "Sun", value: 0 },
+                        { label: "Mon", value: 1 },
+                        { label: "Tue", value: 2 },
+                        { label: "Wed", value: 3 },
+                        { label: "Thu", value: 4 },
+                        { label: "Fri", value: 5 },
+                        { label: "Sat", value: 6 },
+                      ].map(({ label, value }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => { setWeekStartDay(value); setWeekStartDaySaved(false); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
+                            weekStartDay === value
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:text-foreground bg-card"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setWeekStartDaySaved(true)}
+                      disabled={weekStartDaySaved}
+                      className={`h-8 px-4 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
+                        weekStartDaySaved
+                          ? "bg-muted text-muted-foreground cursor-default"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
+                      }`}
+                    >
+                      Saved
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
