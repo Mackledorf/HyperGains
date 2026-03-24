@@ -770,11 +770,6 @@ function GoalsSheet({
     }
     setMode(newMode);
   };
-    const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
-    const raw = Math.round((absRate * 3500) / 7);
-    const capped = Math.min(raw, 350);
-    return suggestedBase + (mode === "surplus" ? capped : -capped);
-  }, [mode, suggestedBase, profile?.weeklyRateLbs]);
 
   const activeCalories = customCalories ?? suggestedCalories;
 
