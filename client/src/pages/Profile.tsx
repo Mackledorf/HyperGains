@@ -69,6 +69,13 @@ function cmToFtIn(cm: number): { ft: number; inches: number } {
   return { ft: Math.floor(totalIn / 12), inches: Math.round(totalIn % 12) };
 }
 function ftInToCm(ft: number, inches: number) { return Math.round((ft * 12 + inches) * 2.54 * 10) / 10; }
+function calcBmi(weightKg: number, heightCm: number) { return parseFloat((weightKg / Math.pow(heightCm / 100, 2)).toFixed(1)); }
+function bmiCategory(bmi: number) {
+  if (bmi < 18.5) return "Underweight";
+  if (bmi < 25) return "Normal";
+  if (bmi < 30) return "Overweight";
+  return "Obese";
+}
 
 // ── Main component ─────────────────────────────────────────
 
@@ -306,23 +313,19 @@ export default function Profile() {
             </div>
           ) : isEditing ? (
             <div className="rounded-2xl bg-card p-4 space-y-4">
-              {/* Unit system */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Units</span>
-                <div className="flex rounded-xl overflow-hidden border border-border text-xs font-semibold">
-                  {(["imperial", "metric"] as const).map((u) => (
-                    <button
-                      key={u}
-                      onClick={() => setUnitSystem(u)}
-                      className={`px-3 py-1.5 transition-colors ${
-                        unitSystem === u
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {u === "imperial" ? "Imperial" : "Metric"}
-                    </button>
-                  ))}
+              {/* Age */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Age</span>
+                <div className="relative w-32">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    value={ageYears}
+                    onChange={(e) => setAgeYears(e.target.value)}
+                    placeholder="25"
+                    className="rounded-xl bg-background border-border h-10 text-sm pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">yrs</span>
                 </div>
               </div>
 
@@ -392,19 +395,23 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Age */}
-              <div className="space-y-2">
-                <span className="text-sm font-medium">Age</span>
-                <div className="relative w-32">
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    value={ageYears}
-                    onChange={(e) => setAgeYears(e.target.value)}
-                    placeholder="25"
-                    className="rounded-xl bg-background border-border h-10 text-sm pr-10"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">yrs</span>
+              {/* Unit system */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Units</span>
+                <div className="flex rounded-xl overflow-hidden border border-border text-xs font-semibold">
+                  {(["imperial", "metric"] as const).map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => setUnitSystem(u)}
+                      className={`px-3 py-1.5 transition-colors ${
+                        unitSystem === u
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {u === "imperial" ? "Imperial" : "Metric"}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -415,16 +422,21 @@ export default function Profile() {
             </div>
           ) : (
             <div className="rounded-2xl bg-card p-4 space-y-3">
+              {/* Age */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Units</span>
-                <span className="text-sm font-medium capitalize">{unitSystem}</span>
+                <span className="text-xs text-muted-foreground">Age</span>
+                <span className="text-sm font-medium">
+                  {ageYears ? `${ageYears} yrs` : "—"}
+                </span>
               </div>
+              {/* Sex */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Sex</span>
                 <span className="text-sm font-medium">
                   {GENDERS.find((g) => g.key === gender)?.label ?? "—"}
                 </span>
               </div>
+              {/* Height */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Height</span>
                 <span className="text-sm font-medium">
@@ -433,11 +445,41 @@ export default function Profile() {
                     : (heightCmDisplay ? `${heightCmDisplay} cm` : "—")}
                 </span>
               </div>
+              {/* Last Recorded Weight */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Age</span>
+                <span className="text-xs text-muted-foreground">Last Recorded Weight</span>
                 <span className="text-sm font-medium">
-                  {ageYears ? `${ageYears} yrs` : "—"}
+                  {existingProfile?.weightKg
+                    ? unitSystem === "imperial"
+                      ? `${kgToLbs(existingProfile.weightKg)} lbs`
+                      : `${roundWeight(existingProfile.weightKg)} kg`
+                    : "—"}
                 </span>
+              </div>
+              {/* Calculated BMI */}
+              {(() => {
+                const wKg = existingProfile?.weightKg;
+                const hCm = existingProfile?.heightCm;
+                if (!wKg || !hCm) return (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">BMI</span>
+                    <span className="text-sm font-medium">—</span>
+                  </div>
+                );
+                const bmi = calcBmi(wKg, hCm);
+                return (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">BMI</span>
+                    <span className="text-sm font-medium">
+                      {bmi} <span className="text-xs text-muted-foreground font-normal">({bmiCategory(bmi)})</span>
+                    </span>
+                  </div>
+                );
+              })()}
+              {/* Units */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Units</span>
+                <span className="text-sm font-medium capitalize">{unitSystem}</span>
               </div>
             </div>
           )}

@@ -415,16 +415,17 @@ export default function Workouts() {
               </div>
             </div>
 
-            <Link href={`/program/${activeProgram.id}`}>
-              <Button
-                variant="ghost"
-                className="w-full text-muted-foreground hover:text-foreground text-sm"
-                data-testid="button-view-program"
-              >
-                View Program Details
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
+            <div className="flex justify-center mt-4">
+              <Link href={`/program/${activeProgram.id}`}>
+                <button
+                  className="group flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-all active:scale-95"
+                  data-testid="button-view-program"
+                >
+                  View Program Details
+                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </Link>
+            </div>
           </>
         ) : (
           /* No active program */
