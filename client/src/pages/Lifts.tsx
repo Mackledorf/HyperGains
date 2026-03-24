@@ -462,48 +462,6 @@ export default function Lifts() {
                 </button>
               </Link>
             </div>
-
-            {/* Workout History */}
-            <div className="space-y-3 mt-8">
-              <p className="micro-label px-1">Workout History</p>
-              {recentSessions?.length ? (
-                <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
-                  {recentSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      className="w-full p-4 text-left flex items-center justify-between transition-all active:bg-white/[0.03]"
-                      onClick={() => navigate(`/workout/${session.id}`)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
-                          <CalendarCheck className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm">{session.dayLabel}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(session.completedAt || session.startedAt).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {session.isAdHoc && " · Quick Lift"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-border/50 p-8 text-center bg-card/30">
-                  <p className="text-sm text-muted-foreground">No recent workouts</p>
-                </div>
-              )}
-              <Link href="/history">
-                <button className="w-full py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
-                  View Full History
-                </button>
-              </Link>
-            </div>
           </>
         ) : (
           /* No active program */
@@ -534,6 +492,48 @@ export default function Lifts() {
             </div>
           </div>
         )}
+
+        {/* Workout History — always visible */}
+        <div className="space-y-3 mt-8">
+          <p className="micro-label px-1">Workout History</p>
+          {recentSessions?.length ? (
+            <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
+              {recentSessions.map((session) => (
+                <button
+                  key={session.id}
+                  className="w-full p-4 text-left flex items-center justify-between transition-all active:bg-white/[0.03]"
+                  onClick={() => navigate(`/workout/${session.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
+                      <CalendarCheck className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{session.dayLabel}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(session.completedAt || session.startedAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {session.isAdHoc && " · Quick Lift"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border/50 p-8 text-center bg-card/30">
+              <p className="text-sm text-muted-foreground">No recent workouts</p>
+            </div>
+          )}
+          <Link href="/history">
+            <button className="w-full py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+              View Full History
+            </button>
+          </Link>
+        </div>
       </div>
     </AppShell>
   );
