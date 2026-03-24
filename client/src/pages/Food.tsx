@@ -495,8 +495,8 @@ function ServingScreen({
       <div className="rounded-2xl bg-muted/40 p-4 grid grid-cols-4 gap-2 text-center">
         {[
           { label: "Calories", value: Math.round(macros.calories), unit: "kcal" },
-          { label: "Protein",  value: Math.round(macros.proteinG),  unit: "g"    },
           { label: "Carbs",    value: Math.round(macros.carbsG),    unit: "g"    },
+          { label: "Protein",  value: Math.round(macros.proteinG),  unit: "g"    },
           { label: "Fat",      value: Math.round(macros.fatG),      unit: "g"    },
         ].map(({ label, value, unit: u }) => (
           <div key={label}>
@@ -937,9 +937,9 @@ function AddFoodSheet({
                       <span className="text-xs font-semibold text-foreground">
                         {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
                       </span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>C {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>P {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>F {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>Fat {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
                     </div>
                   </button>
                 ))}
