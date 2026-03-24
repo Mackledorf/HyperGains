@@ -214,26 +214,31 @@ export default function MuscleVisualizer({ muscleData }: Props) {
 
       {/* Volume zone legend — only shown in fatigue mode */}
       {showFatigue && (
-        <div className="rounded-xl bg-muted/30 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-            Volume Legend
-          </p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            {(
-              [
-                { color: VOLUME_ZONE_COLORS.none, label: "Untrained" },
-                { color: VOLUME_ZONE_COLORS.mv, label: "Maintenance (MV)" },
-                { color: VOLUME_ZONE_COLORS.mev, label: "Building (MEV)" },
-                { color: VOLUME_ZONE_COLORS.mav, label: "Optimal (MAV)" },
-                { color: VOLUME_ZONE_COLORS["above-mav"], label: "High Volume" },
-              ] as const
-            ).map(({ color, label }) => (
-              <div key={label} className="flex items-center gap-2">
+        <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Volume Landmarks
+            </p>
+            <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
+              sets / week
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {[
+              { id: "none", label: "No Volume", color: VOLUME_ZONE_COLORS.none },
+              { id: "warning", label: "Under/Overtrained", color: VOLUME_ZONE_COLORS.warning },
+              { id: "mv", label: "Maintaining", color: VOLUME_ZONE_COLORS.mv },
+              { id: "mev", label: "Growing", color: VOLUME_ZONE_COLORS.mev },
+              { id: "mav", label: "Emphasizing", color: VOLUME_ZONE_COLORS.mav },
+            ].map(({ id, label, color }) => (
+              <div key={id} className="flex items-center gap-2.5">
                 <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
                   style={{ backgroundColor: color }}
                 />
-                <span className="text-[11px] text-muted-foreground">{label}</span>
+                <span className="text-xs font-medium text-foreground/80 leading-tight">
+                  {label}
+                </span>
               </div>
             ))}
           </div>

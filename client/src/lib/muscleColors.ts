@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { getVolumeLandmarks } from "./volumeLandmarks";
 
-export type VolumeZone = "none" | "mv" | "mev" | "mav" | "above-mav";
+export type VolumeZone = "none" | "mv" | "mev" | "mav" | "warning";
 
 export interface MuscleVolumeInfo {
   actualSets: number;
@@ -11,25 +11,25 @@ export interface MuscleVolumeInfo {
 }
 
 // Colors per volume zone (user-specified):
-//   none      → gray       (untrained)
-//   mv        → yellow     (at maintenance volume)
-//   mev       → green      (MEV → start of MAV)
-//   mav       → blue       (in the MAV sweet spot)
-//   above-mav → red        (above MAV, approaching overtraining)
+//   none      → gray       (no volume)
+//   mv        → yellow     (maintaining muscle)
+//   mev       → green      (growing)
+//   mav       → blue       (emphasizing)
+//   warning   → red        (undertrained <MV or overtrained >MAV)
 export const VOLUME_ZONE_COLORS: Record<VolumeZone, string> = {
   none: "#4b5563",          // gray-600
   mv: "#ca8a04",            // yellow-600
   mev: "#16a34a",           // green-600
   mav: "#2563eb",           // blue-600
-  "above-mav": "#f92672",   // brandRed
+  warning: "#f92672",       // brandRed
 };
 
 const ZONE_LABELS: Record<VolumeZone, string> = {
-  none: "Untrained",
-  mv: "Maintenance",
-  mev: "Building",
-  mav: "Optimal (MAV)",
-  "above-mav": "High Volume",
+  none: "No Volume",
+  mv: "Maintaining",
+  mev: "Growing",
+  mav: "Emphasizing",
+  warning: "Under/Overtrained",
 };
 
 /**
@@ -88,11 +88,19 @@ export function getMuscleVolumeInfo(
   const lm = getVolumeLandmarks(muscleGroup);
 
   let zone: VolumeZone;
-  if (actualSets === 0) zone = "none";
-  else if (actualSets <= lm.mv) zone = "mv";
-  else if (actualSets <= lm.mev) zone = "mev";
-  else if (actualSets <= lm.mavHigh) zone = "mav";
-  else zone = "above-mav";
+  if (actualSets === 0) {
+    zone = "none";
+  } else if (actualSets < lm.mv) {
+    zone = "warning"; // Undertrained
+  } else if (actualSets <= lm.mv) {
+    zone = "mv";
+  } else if (actualSets <= lm.mev) {
+    zone = "mev";
+  } else if (actualSets <= lm.mavHigh) {
+    zone = "mav";
+  } else {
+    zone = "warning"; // Overtrained
+  }
 
   return {
     actualSets,
