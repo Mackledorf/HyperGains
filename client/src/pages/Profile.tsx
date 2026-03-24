@@ -103,6 +103,13 @@ export default function Profile() {
   // Starts in edit mode if no profile has been saved yet (new user).
   const [isEditing, setIsEditing] = useState(!existingProfile);
 
+  const [skippedAbout, setSkippedAbout] = useState(() =>
+    store.getNuxSkippedAbout(store.getActiveUserId())
+  );
+  const [skippedGoals, setSkippedGoals] = useState(() =>
+    store.getNuxSkippedGoals(store.getActiveUserId())
+  );
+
   // Height display state
   const [heightFt, setHeightFt] = useState(() => {
     if (!existingProfile?.heightCm) return "";
@@ -259,7 +266,21 @@ export default function Profile() {
             Personal Info
           </h2>
 
-          {isEditing ? (
+          {skippedAbout ? (
+            <div className="rounded-2xl bg-card/50 border border-dashed border-border/50 p-8 flex flex-col items-center justify-center gap-2 text-center">
+              <p className="text-xs text-muted-foreground/60">Personal info not set up yet</p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  store.clearNuxSkippedAbout(store.getActiveUserId());
+                  setSkippedAbout(false);
+                  setIsEditing(true);
+                }}
+              >
+                Add Info
+              </Button>
+            </div>
+          ) : isEditing ? (
             <div className="rounded-2xl bg-card p-4 space-y-4">
               {/* Unit system */}
               <div className="flex items-center justify-between">
@@ -656,7 +677,21 @@ export default function Profile() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Weight Goal
           </h2>
-          {isEditing ? (
+          {skippedGoals ? (
+            <div className="rounded-2xl bg-card/50 border border-dashed border-border/50 p-8 flex flex-col items-center justify-center gap-2 text-center">
+              <p className="text-xs text-muted-foreground/60">Weight goals not set up yet</p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  store.clearNuxSkippedGoals(store.getActiveUserId());
+                  setSkippedGoals(false);
+                  setIsEditing(true);
+                }}
+              >
+                Set My Goals
+              </Button>
+            </div>
+          ) : isEditing ? (
             <div className="rounded-2xl bg-card p-4 space-y-4">
               <div className="flex flex-col gap-2">
                 {WEIGHT_GOAL_OPTIONS.map(({ key, label }) => (

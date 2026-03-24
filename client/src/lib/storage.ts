@@ -54,6 +54,26 @@ export function setNuxComplete(userId: string): void {
   notifyDataChanged();
 }
 
+export function getNuxSkippedAbout(userId: string): boolean {
+  return localStorage.getItem(`hg_nux_skipped_about_${userId}`) === "1";
+}
+export function setNuxSkippedAbout(userId: string): void {
+  localStorage.setItem(`hg_nux_skipped_about_${userId}`, "1");
+}
+export function clearNuxSkippedAbout(userId: string): void {
+  localStorage.removeItem(`hg_nux_skipped_about_${userId}`);
+}
+
+export function getNuxSkippedGoals(userId: string): boolean {
+  return localStorage.getItem(`hg_nux_skipped_goals_${userId}`) === "1";
+}
+export function setNuxSkippedGoals(userId: string): void {
+  localStorage.setItem(`hg_nux_skipped_goals_${userId}`, "1");
+}
+export function clearNuxSkippedGoals(userId: string): void {
+  localStorage.removeItem(`hg_nux_skipped_goals_${userId}`);
+}
+
 // ── Helpers ──
 
 function uuid(): string {

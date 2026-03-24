@@ -202,10 +202,12 @@ function Step2About({
   initial,
   onNext,
   onBack,
+  onSkip,
 }: {
   initial: Step2Data;
   onNext: (data: Step2Data) => void;
   onBack: () => void;
+  onSkip: () => void;
 }) {
   const [gender, setGender] = useState<UserProfile["gender"]>(initial.gender);
   const [ageYears, setAgeYears] = useState(initial.ageYears);
@@ -344,9 +346,16 @@ function Step2About({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
         <Button variant="ghost" size="icon" className="rounded-xl h-12 w-12 shrink-0" onClick={onBack}>
           <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex-1 h-12 rounded-xl text-sm text-muted-foreground"
+          onClick={onSkip}
+        >
+          Do this later
         </Button>
         <Button className="flex-1 h-12 rounded-xl text-sm font-bold" onClick={handleNext}>
           Continue
@@ -370,10 +379,12 @@ function Step3Goals({
   initial,
   onNext,
   onBack,
+  onSkip,
 }: {
   initial: Step3Data;
   onNext: (data: Step3Data) => void;
   onBack: () => void;
+  onSkip: () => void;
 }) {
   const [bodyWeightGoal, setBodyWeightGoal] = useState<"gain" | "lose" | "maintain">(
     initial.bodyWeightGoal
@@ -483,9 +494,16 @@ function Step3Goals({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
         <Button variant="ghost" size="icon" className="rounded-xl h-12 w-12 shrink-0" onClick={onBack}>
           <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex-1 h-12 rounded-xl text-sm text-muted-foreground"
+          onClick={onSkip}
+        >
+          Do this later
         </Button>
         <Button
           className="flex-1 h-12 rounded-xl text-sm font-bold"
@@ -510,12 +528,14 @@ function Step4Macros({
   onFinish,
   onBack,
   userId,
+  onSkip,
 }: {
   step2: Step2Data;
   step3: Step3Data;
   onFinish: () => void;
   onBack: () => void;
   userId: string;
+  onSkip: () => void;
 }) {
   // ── Derived from props ──────────────────────────────────────────────────
   const activityMultiplier = ACTIVITY_LEVELS.find((a) => a.key === step3.activityLevel)!.multiplier;
@@ -554,10 +574,13 @@ function Step4Macros({
   const [editingCalories, setEditingCalories] = useState(false);
   const [calorieInput, setCalorieInput] = useState("");
 
-  // Protein driven by g/lb bodyweight (0.7–1.5, default 0.9 recommended)
-  const PROTEIN_MIN = 0.7;
-  const PROTEIN_MAX = 1.5;
-  const [proteinPerLb, setProteinPerLb] = useState(0.9);
+  // Protein as a direct gram target (5g steps); g/lb shown as informational hint.
+  const PROTEIN_MIN_G = 50;
+  const PROTEIN_MAX_G = weightLbs ? Math.round(weightLbs * 1.5) : 300;
+  const defaultProteinG = weightLbs
+    ? Math.round(weightLbs * 0.9)
+    : Math.round((2000 * 0.25) / 4);
+  const [proteinG, setProteinG] = useState(defaultProteinG);
 
   // Carbs & fat as % of total calories; protein% is derived from g/lb
   const [carbsPct, setCarbsPct] = useState(45);
@@ -577,10 +600,9 @@ function Step4Macros({
   const activeCalories = customCalories ?? suggestedCalories;
 
   // ── Macro calculations ──────────────────────────────────────────────────
-  const proteinBase = weightLbs
-    ? Math.round(weightLbs * proteinPerLb)
-    : Math.round(activeCalories * 0.25 / 4);
-  const proteinPct = Math.round((proteinBase * 4 / activeCalories) * 100);
+  const proteinBase = proteinG;
+  const proteinPct = Math.round((proteinG * 4 / activeCalories) * 100);
+  const proteinPerLbDisplay = weightLbs ? (proteinG / weightLbs).toFixed(2).replace(/\.?0+$/, "") : null;
   const fatG = Math.round((activeCalories * fatPct) / 100 / 9);
   const carbsG = Math.round((activeCalories * carbsPct) / 100 / 4);
   const splitTotal = proteinPct + carbsPct + fatPct;
@@ -704,27 +726,32 @@ function Step4Macros({
           </span>
         </div>
 
-        {/* Protein row — g/lb stepper */}
+        {/* Protein row — direct gram stepper */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold" style={{ color: MACRO_COLORS.protein }}>
-              Protein{proteinPerLb === 0.9 && <span className="ml-1.5 text-muted-foreground/60 font-normal">(recommended)</span>}
+              Protein
+              {proteinPerLbDisplay && (
+                <span className="ml-1.5 text-muted-foreground/60 font-normal">
+                  ({proteinPerLbDisplay}g / lb)
+                </span>
+              )}
             </span>
-            <span className="text-xs text-muted-foreground tabular-nums">{proteinBase}g · {proteinPct}%</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{proteinG}g · {proteinPct}%</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
               className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setProteinPerLb((p) => Math.round((p - 0.1) * 10) / 10)}
-              disabled={proteinPerLb <= PROTEIN_MIN}
+              onClick={() => setProteinG((g) => Math.max(PROTEIN_MIN_G, g - 5))}
+              disabled={proteinG <= PROTEIN_MIN_G}
             >−</button>
             <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
-              {proteinPerLb.toFixed(1)}g / lb
+              {proteinG}g
             </div>
             <button
               className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setProteinPerLb((p) => Math.round((p + 0.1) * 10) / 10)}
-              disabled={proteinPerLb >= PROTEIN_MAX}
+              onClick={() => setProteinG((g) => Math.min(PROTEIN_MAX_G, g + 5))}
+              disabled={proteinG >= PROTEIN_MAX_G}
             >+</button>
             <div className="w-14 flex-shrink-0">
               {!proteinSet && (
@@ -784,15 +811,22 @@ function Step4Macros({
 
         {!weightLbs && (
           <p className="text-xs text-muted-foreground/70 text-center">
-            Enter your weight for a bodyweight-based protein suggestion.
+            Add your weight in Step 2 for a bodyweight-based protein suggestion.
           </p>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
         <Button variant="ghost" size="icon" className="rounded-xl h-12 w-12 shrink-0" onClick={onBack}>
           <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex-1 h-12 rounded-xl text-sm text-muted-foreground"
+          onClick={onSkip}
+        >
+          Do this later
         </Button>
         <Button className="flex-1 h-12 rounded-xl text-sm font-bold" onClick={handleFinish}>
           Let's Go
@@ -861,6 +895,56 @@ export default function NewUserExperience({
     }
   };
 
+  const handleSkipAbout = () => {
+    store.setNuxSkippedAbout(userId);
+    setStep(2);
+  };
+
+  const handleSkipGoals = () => {
+    store.setNuxSkippedGoals(userId);
+    setStep(3);
+  };
+
+  const handleSkipMacros = () => {
+    const rawW = parseFloat(step2Data.weightDisplay);
+    const weightLbs = !isNaN(rawW) && rawW > 0
+      ? (step2Data.unitSystem === "imperial" ? rawW : rawW * 2.2046)
+      : null;
+    const weightKg = weightLbs ? lbsToKg(weightLbs) : null;
+    let heightCm: number | null = null;
+    if (step2Data.unitSystem === "imperial") {
+      const ft = parseFloat(step2Data.heightFt) || 0;
+      const inches = parseFloat(step2Data.heightIn) || 0;
+      if (ft > 0 || inches > 0) heightCm = ftInToCm(ft, inches);
+    } else {
+      const cm = parseFloat(step2Data.heightCm);
+      if (!isNaN(cm) && cm > 0) heightCm = cm;
+    }
+    const profile = store.getProfile();
+    store.saveProfile({
+      gender: step2Data.gender,
+      heightCm,
+      weightKg,
+      unitSystem: step2Data.unitSystem,
+      goals: [],
+      ageYears: parseInt(step2Data.ageYears) || null,
+      activityLevel: step3Data.activityLevel as UserProfile["activityLevel"],
+      bodyWeightGoal: step3Data.bodyWeightGoal,
+      weeklyRateLbs: step3Data.weeklyRateLbs,
+      id: profile?.id,
+      createdAt: profile?.createdAt,
+    });
+    store.saveNutritionGoals({
+      calorieTarget: 2000,
+      proteinTargetG: 100,
+      carbsTargetG: 250,
+      fatTargetG: 67,
+      waterTargetOz: 64,
+    });
+    store.setNuxComplete(userId);
+    handleFinish();
+  };
+
   return (
     <div className="min-h-screen bg-background px-6 py-8 flex flex-col">
       <div className="w-full max-w-sm mx-auto flex flex-col flex-1">
@@ -885,6 +969,7 @@ export default function NewUserExperience({
               initial={step2Data}
               onNext={(data) => { setStep2Data(data); setStep(2); }}
               onBack={() => setStep(0)}
+              onSkip={handleSkipAbout}
             />
           )}
           {step === 2 && (
@@ -892,6 +977,7 @@ export default function NewUserExperience({
               initial={step3Data}
               onNext={(data) => { setStep3Data(data); setStep(3); }}
               onBack={() => setStep(1)}
+              onSkip={handleSkipGoals}
             />
           )}
           {step === 3 && (
@@ -901,6 +987,7 @@ export default function NewUserExperience({
               onFinish={handleFinish}
               onBack={() => setStep(2)}
               userId={userId}
+              onSkip={handleSkipMacros}
             />
           )}
         </div>
