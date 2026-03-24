@@ -377,6 +377,28 @@ function StandaloneFoodCard({
 
 // ── ServingScreen (inside AddFoodSheet) ───────────────────────────────────────
 
+type ServingUnit = "serving" | "g" | "oz" | "ml" | "floz";
+
+function toGrams(qty: number, unit: ServingUnit, servingSizeG: number): number {
+  switch (unit) {
+    case "serving": return qty * servingSizeG;
+    case "g":       return qty;
+    case "oz":      return qty * 28.3495;
+    case "ml":      return qty; // 1 ml ≈ 1 g for typical liquids
+    case "floz":    return qty * 29.5735;
+  }
+}
+
+function fromGrams(grams: number, unit: ServingUnit, servingSizeG: number): number {
+  switch (unit) {
+    case "serving": return grams / servingSizeG;
+    case "g":       return grams;
+    case "oz":      return grams / 28.3495;
+    case "ml":      return grams;
+    case "floz":    return grams / 29.5735;
+  }
+}
+
 function ServingScreen({
   food,
   onBack,
@@ -386,13 +408,41 @@ function ServingScreen({
   onBack: () => void;
   onSave: (servingG: number) => void;
 }) {
-  const [servingG, setServingG] = useState<string>(
-    String(food.servingSizeG || 100)
-  );
+  const defaultServingG = food.servingSizeG || 100;
+  const isLiquid = /\bml\b|fl\.?\s*oz/i.test(food.servingSizeLabel ?? "");
 
-  const parsed = parseFloat(servingG);
-  const macros = !isNaN(parsed) && parsed > 0
-    ? computeMacros(food, parsed)
+  const unitOptions: { key: ServingUnit; label: string }[] = [
+    { key: "serving", label: food.servingSizeLabel || `${defaultServingG}g serving` },
+    { key: "g",       label: "grams (g)" },
+    { key: "oz",      label: "ounces (oz)" },
+    ...(isLiquid
+      ? [
+          { key: "ml"   as ServingUnit, label: "milliliters (ml)" },
+          { key: "floz" as ServingUnit, label: "fl oz" },
+        ]
+      : []),
+  ];
+
+  const [unit, setUnit] = useState<ServingUnit>("serving");
+  const [qty, setQty] = useState<string>("1");
+
+  function handleUnitChange(newUnit: ServingUnit) {
+    const currentG = toGrams(parseFloat(qty) || 1, unit, defaultServingG);
+    const converted = fromGrams(currentG, newUnit, defaultServingG);
+    // Round nicely: servings to 2dp, others to 1dp
+    const rounded = newUnit === "serving"
+      ? Math.round(converted * 100) / 100
+      : Math.round(converted * 10) / 10;
+    setQty(String(rounded));
+    setUnit(newUnit);
+  }
+
+  const parsedQty = parseFloat(qty);
+  const servingG = !isNaN(parsedQty) && parsedQty > 0
+    ? toGrams(parsedQty, unit, defaultServingG)
+    : 0;
+  const macros = servingG > 0
+    ? computeMacros(food, servingG)
     : { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
 
   return (
@@ -410,21 +460,33 @@ function ServingScreen({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="serving-g">Serving size (grams)</Label>
-        <Input
-          id="serving-g"
-          type="number"
-          inputMode="decimal"
-          min="1"
-          value={servingG}
-          onChange={e => setServingG(e.target.value)}
-          className="rounded-xl"
-          placeholder="100"
-          autoFocus
-        />
-        {food.servingSizeLabel && (
+        <Label htmlFor="serving-qty">Amount</Label>
+        <div className="flex gap-2">
+          <Input
+            id="serving-qty"
+            type="number"
+            inputMode="decimal"
+            min="0.01"
+            step="any"
+            value={qty}
+            onChange={e => setQty(e.target.value)}
+            className="rounded-xl flex-1 min-w-0"
+            placeholder="1"
+            autoFocus
+          />
+          <select
+            value={unit}
+            onChange={e => handleUnitChange(e.target.value as ServingUnit)}
+            className="h-10 rounded-xl border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring shrink-0 max-w-[180px] truncate"
+          >
+            {unitOptions.map(o => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        {unit === "serving" && defaultServingG > 0 && (
           <p className="text-xs text-muted-foreground">
-            Typical serving: {food.servingSizeLabel} ({food.servingSizeG}g)
+            1 serving = {defaultServingG}g
           </p>
         )}
       </div>
@@ -436,18 +498,18 @@ function ServingScreen({
           { label: "Protein",  value: Math.round(macros.proteinG),  unit: "g"    },
           { label: "Carbs",    value: Math.round(macros.carbsG),    unit: "g"    },
           { label: "Fat",      value: Math.round(macros.fatG),      unit: "g"    },
-        ].map(({ label, value, unit }) => (
+        ].map(({ label, value, unit: u }) => (
           <div key={label}>
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-bold text-sm tabular-nums">{value}<span className="text-muted-foreground font-normal">{unit}</span></p>
+            <p className="font-bold text-sm tabular-nums">{value}<span className="text-muted-foreground font-normal">{u}</span></p>
           </div>
         ))}
       </div>
 
       <Button
         className="w-full rounded-xl h-11"
-        disabled={isNaN(parsed) || parsed <= 0}
-        onClick={() => onSave(parsed)}
+        disabled={servingG <= 0}
+        onClick={() => onSave(servingG)}
       >
         Add to Log
       </Button>
@@ -710,6 +772,7 @@ function AddFoodSheet({
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [searchError, setSearchError] = useState<'search_unavailable' | null>(null);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -723,19 +786,22 @@ function AddFoodSheet({
       setSelectedFood(null);
       setIsSearching(false);
       setShowAll(false);
+      setSearchError(null);
     }
   }, [open]);
 
   // Debounced search — shows OFF results early via onPartial, then merges USDA results
   useEffect(() => {
     const q = query.trim();
-    if (!q || q.length < 2) {
+    if (!q || q.length < 3) {
       setResults([]);
       setIsSearching(false);
       setShowAll(false);
+      setSearchError(null);
       return;
     }
     setShowAll(false);
+    setSearchError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       abortRef.current?.abort();
@@ -745,6 +811,8 @@ function AddFoodSheet({
       try {
         await searchFoods(q, ctrl.signal, (partial) => {
           if (!ctrl.signal.aborted) setResults(partial);
+        }, (errorType) => {
+          if (!ctrl.signal.aborted) setSearchError(errorType);
         });
       } catch (e) {
         // AbortError = superseded by a newer query, keep showing stale results
@@ -752,7 +820,7 @@ function AddFoodSheet({
       } finally {
         if (!ctrl.signal.aborted) setIsSearching(false);
       }
-    }, 350);
+    }, 500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
@@ -869,9 +937,9 @@ function AddFoodSheet({
                       <span className="text-xs font-semibold text-foreground">
                         {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
                       </span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
-                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>Fat {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>C {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>P {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                      <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>F {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
                     </div>
                   </button>
                 ))}
@@ -894,13 +962,15 @@ function AddFoodSheet({
               </div>
             )}
 
-            {!isSearching && query.trim().length >= 2 && results.length === 0 && (
+            {!isSearching && query.trim().length >= 3 && results.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-8">
-                No results found. Try a different name.
+                {searchError === 'search_unavailable'
+                  ? "Search temporarily unavailable — please wait a moment and try again."
+                  : "No results found. Try a different name."}
               </p>
             )}
 
-            {query.trim().length < 2 && (
+            {query.trim().length < 3 && (
               <p className="text-center text-sm text-muted-foreground py-8">
                 Type to search, or tap <Scan className="inline w-3.5 h-3.5 mx-1" /> to scan a barcode.
               </p>

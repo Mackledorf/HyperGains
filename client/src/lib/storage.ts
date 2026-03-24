@@ -51,6 +51,7 @@ export function isNuxComplete(userId: string): boolean {
 
 export function setNuxComplete(userId: string): void {
   localStorage.setItem(`hg_nux_${userId}`, "1");
+  notifyDataChanged();
 }
 
 // ── Helpers ──
@@ -448,6 +449,7 @@ export function addGoalEntry(goals: string[]): GoalEntry {
 export interface UserDataPayload {
   userId: string;
   name: string;
+  nuxComplete?: boolean;
   programs: Program[];
   exercises: ProgramExercise[];
   sessions: WorkoutSession[];
@@ -473,6 +475,7 @@ export function exportAll(): UserDataPayload {
   return {
     userId: _activeUserId,
     name: getUserName(_activeUserId),
+    nuxComplete: isNuxComplete(_activeUserId),
     programs: getStore<Program>(KEYS.programs),
     exercises: getStore<ProgramExercise>(KEYS.exercises),
     sessions: getStore<WorkoutSession>(KEYS.sessions),
@@ -509,6 +512,7 @@ export function importAll(payload: UserDataPayload): void {
   if (payload.nutritionGoals) localStorage.setItem(KEYS.nutritionGoals, JSON.stringify(payload.nutritionGoals));
   if (payload.waterEntries) setStore(KEYS.waterEntries, payload.waterEntries);
   if (payload.name) setUserName(_activeUserId, payload.name);
+  if (payload.nuxComplete) localStorage.setItem(`hg_nux_${_activeUserId}`, "1");
 }
 
 export function updateSetLog(

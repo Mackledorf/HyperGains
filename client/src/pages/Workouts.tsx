@@ -164,11 +164,48 @@ export default function Workouts() {
                   {activeProgram.name}
                 </h1>
               </div>
-              <Link href={`/program/${activeProgram.id}/settings`}>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                  <Settings className="w-4 h-4" />
-                </button>
-              </Link>
+              <div className="flex items-center gap-1">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => {
+                        if (inProgressSession) {
+                          toast({
+                            title: "Finish your active workout first",
+                            description: "Complete or discard the current session before ending the week.",
+                          });
+                        }
+                      }}
+                      disabled={advanceWeekMutation.isPending}
+                      data-testid="button-end-week"
+                    >
+                      <CalendarCheck className="w-4 h-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  {!inProgressSession && (
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>End Week {currentWeek}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will advance your program to Week {currentWeek + 1}. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => advanceWeekMutation.mutate()}>
+                          End Week
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  )}
+                </AlertDialog>
+                <Link href={`/program/${activeProgram.id}/settings`}>
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
             </div>
 
             {/* Stats row */}
@@ -300,45 +337,6 @@ export default function Workouts() {
                 })}
               </div>
             </div>
-
-            {/* End Week */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full rounded-xl h-11 border-dashed"
-                  onClick={() => {
-                    if (inProgressSession) {
-                      toast({
-                        title: "Finish your active workout first",
-                        description: "Complete or discard the current session before ending the week.",
-                      });
-                    }
-                  }}
-                  disabled={advanceWeekMutation.isPending}
-                  data-testid="button-end-week"
-                >
-                  <CalendarCheck className="w-4 h-4 mr-2" />
-                  End Week {currentWeek}
-                </Button>
-              </AlertDialogTrigger>
-              {!inProgressSession && (
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>End Week {currentWeek}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will advance your program to Week {currentWeek + 1}. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => advanceWeekMutation.mutate()}>
-                      End Week
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              )}
-            </AlertDialog>
 
             <Link href={`/program/${activeProgram.id}`}>
               <Button

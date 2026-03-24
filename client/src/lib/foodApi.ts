@@ -222,7 +222,7 @@ async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSear
     const key = getUsdaKey();
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
       query
-    )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)&pageSize=10`;
+    )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Branded,Survey%20(FNDDS)&pageSize=10`;
     const res = await fetch(url, { signal });
     if (!res.ok) return [];
     const data = await res.json();
@@ -266,6 +266,7 @@ export async function searchFoods(
   query: string,
   signal?: AbortSignal,
   onPartial?: (results: FoodSearchResult[]) => void,
+  onError?: (type: 'search_unavailable') => void,
 ): Promise<FoodSearchResult[]> {
   const q = query.trim();
   if (!q) return [];
@@ -339,23 +340,29 @@ export async function searchFoods(
   }
 
   // ── 2. Fire both requests independently ────────────────────────────────────
-  const offFetch = fetch(
-    `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
-    `&search_terms=${encodeURIComponent(q)}&json=1` +
-    `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-    `&page_size=20&sort_by=popularity_key`,
-    { signal }
-  )
-    .then(r => r.ok ? r.json() : { products: [] })
-    .then((d): OffResultWithMeta[] =>
-      (d.products ?? [])
+  // Track whether OFF failed (network/CORS/rate-limit) so we can surface a
+  // meaningful error to the UI instead of silently showing "no results".
+  let offFailed = false;
+  const offFetch = (async (): Promise<OffResultWithMeta[]> => {
+    try {
+      const r = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
+        `&search_terms=${encodeURIComponent(q)}&json=1` +
+        `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
+        `&page_size=20&sort_by=popularity_key`,
+        { signal }
+      );
+      if (!r.ok) return [];
+      const d = await r.json();
+      return (d.products ?? [])
         .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
-        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0)
-    )
-    .catch((e): OffResultWithMeta[] => {
+        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
+    } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
+      offFailed = true;  // network / CORS / 429 — capture for user feedback
       return [];
-    });
+    }
+  })();
 
   const usdaFetch = searchUSDA(q, signal);
 
@@ -374,7 +381,12 @@ export async function searchFoods(
   }
 
   const results = mergeResults(rerankedOff, usdaResults);
-  if (results.length > 0) setCached(q, results);  // never cache empty results
+  if (results.length > 0) {
+    setCached(q, results);
+  } else if (offFailed) {
+    // Both sources empty and OFF failed — likely rate-limited or temporarily down
+    onError?.('search_unavailable');
+  }
   onPartial?.(results);
   return results;
 }
