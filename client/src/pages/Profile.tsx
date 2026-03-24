@@ -31,6 +31,8 @@ const GENDERS = [
   { key: "prefer_not_to_say", label: "Prefer not to say" },
 ] as const;
 
+// NOTE: Activity Level data — will be moved to the Food page where it is used to
+// calculate TDEE / daily calorie targets. Kept here until that migration is complete.
 const ACTIVITY_LEVELS = [
   { key: "sedentary",   label: "Sedentary",        desc: "Desk job, no exercise" },
   { key: "light",      label: "Lightly Active",    desc: "1–3 days/wk" },
@@ -85,6 +87,8 @@ export default function Profile() {
   const [ageYears, setAgeYears] = useState(
     existingProfile?.ageYears ? String(existingProfile.ageYears) : ""
   );
+  // NOTE: activityLevel — UI removed from this page; will be surfaced on the Food page
+  // to calculate TDEE / calorie targets. State and save logic retained until migration.
   const [activityLevel, setActivityLevel] = useState<UserProfile["activityLevel"]>(
     existingProfile?.activityLevel ?? null
   );
@@ -94,6 +98,10 @@ export default function Profile() {
   const [weeklyRateLbs, setWeeklyRateLbs] = useState<number | null>(
     existingProfile?.weeklyRateLbs ?? null
   );
+
+  // Controls whether personal info and goals are in editable mode.
+  // Starts in edit mode if no profile has been saved yet (new user).
+  const [isEditing, setIsEditing] = useState(!existingProfile);
 
   // Height display state
   const [heightFt, setHeightFt] = useState(() => {
@@ -199,6 +207,7 @@ export default function Profile() {
     onSuccess: () => {
       toast({ title: "Profile saved" });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setIsEditing(false);
     },
   });
 
@@ -230,9 +239,18 @@ export default function Profile() {
     <AppShell>
       <div className="space-y-5 pb-4">
         {/* Header */}
-        <div>
-          <h1 className="text-lg font-bold">{userName}</h1>
-          <p className="micro-label mt-0.5">Personal details &amp; goals</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold">{userName}</h1>
+            <p className="micro-label mt-0.5">Personal details &amp; goals</p>
+          </div>
+          <button
+            onClick={() => setIsEditing((v) => !v)}
+            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={isEditing ? "Finish editing" : "Edit profile"}
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
         </div>
 
         {/* ── Section A: Personal Info ── */}
@@ -241,137 +259,143 @@ export default function Profile() {
             Personal Info
           </h2>
 
-          {/* Unit system toggle */}
-          <div className="rounded-2xl bg-card p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Units</span>
-              <div className="flex rounded-xl overflow-hidden border border-border text-xs font-semibold">
-                {(["imperial", "metric"] as const).map((u) => (
-                  <button
-                    key={u}
-                    onClick={() => setUnitSystem(u)}
-                    className={`px-3 py-1.5 transition-colors ${
-                      unitSystem === u
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {u === "imperial" ? "Imperial" : "Metric"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Gender */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Gender</span>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {GENDERS.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setGender(key as UserProfile["gender"])}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                      gender === key
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Height */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Ruler className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-sm font-medium">Height</span>
-              </div>
-              {unitSystem === "imperial" ? (
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={heightFt}
-                      onChange={(e) => setHeightFt(e.target.value)}
-                      placeholder="5"
-                      className="rounded-xl bg-background border-border h-10 text-sm pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
-                  </div>
-                  <div className="flex-1 relative">
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={heightIn}
-                      onChange={(e) => setHeightIn(e.target.value)}
-                      placeholder="10"
-                      className="rounded-xl bg-background border-border h-10 text-sm pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
-                  </div>
+          {isEditing ? (
+            <div className="rounded-2xl bg-card p-4 space-y-4">
+              {/* Unit system */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Units</span>
+                <div className="flex rounded-xl overflow-hidden border border-border text-xs font-semibold">
+                  {(["imperial", "metric"] as const).map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => setUnitSystem(u)}
+                      className={`px-3 py-1.5 transition-colors ${
+                        unitSystem === u
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {u === "imperial" ? "Imperial" : "Metric"}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="relative">
+              </div>
+
+              {/* Gender */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Gender</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {GENDERS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setGender(key as UserProfile["gender"])}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                        gender === key
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Height */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-sm font-medium">Height</span>
+                </div>
+                {unitSystem === "imperial" ? (
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        value={heightFt}
+                        onChange={(e) => setHeightFt(e.target.value)}
+                        placeholder="5"
+                        className="rounded-xl bg-background border-border h-10 text-sm pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
+                    </div>
+                    <div className="flex-1 relative">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        value={heightIn}
+                        onChange={(e) => setHeightIn(e.target.value)}
+                        placeholder="10"
+                        className="rounded-xl bg-background border-border h-10 text-sm pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={heightCmDisplay}
+                      onChange={(e) => setHeightCmDisplay(e.target.value)}
+                      placeholder="178"
+                      className="rounded-xl bg-background border-border h-10 text-sm pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Age */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Age</span>
+                <div className="relative w-32">
                   <Input
                     type="number"
-                    inputMode="decimal"
-                    value={heightCmDisplay}
-                    onChange={(e) => setHeightCmDisplay(e.target.value)}
-                    placeholder="178"
+                    inputMode="numeric"
+                    value={ageYears}
+                    onChange={(e) => setAgeYears(e.target.value)}
+                    placeholder="25"
                     className="rounded-xl bg-background border-border h-10 text-sm pr-10"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">yrs</span>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Age */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Age</span>
-              <div className="relative w-32">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={ageYears}
-                  onChange={(e) => setAgeYears(e.target.value)}
-                  placeholder="25"
-                  className="rounded-xl bg-background border-border h-10 text-sm pr-10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">yrs</span>
+              {/* NOTE: Activity Level selector removed from Personal Info UI.
+                  It will be added to the Food page to support TDEE / calorie-target
+                  calculations. The ACTIVITY_LEVELS constant, activityLevel state, and
+                  its save logic remain in this file until that migration is complete. */}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Units</span>
+                <span className="text-sm font-medium capitalize">{unitSystem}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Gender</span>
+                <span className="text-sm font-medium">
+                  {GENDERS.find((g) => g.key === gender)?.label ?? "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Height</span>
+                <span className="text-sm font-medium">
+                  {unitSystem === "imperial"
+                    ? (heightFt ? `${heightFt}′ ${heightIn || 0}″` : "—")
+                    : (heightCmDisplay ? `${heightCmDisplay} cm` : "—")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Age</span>
+                <span className="text-sm font-medium">
+                  {ageYears ? `${ageYears} yrs` : "—"}
+                </span>
               </div>
             </div>
-
-            {/* Activity Level */}
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Activity Level</span>
-              <div className="flex flex-col gap-1.5">
-                {ACTIVITY_LEVELS.map(({ key, label, desc }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setActivityLevel(key)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-colors text-left ${
-                      activityLevel === key
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <div>
-                      <span className="font-semibold">{label}</span>
-                      <span className={`ms-2 font-normal ${activityLevel === key ? "text-primary/70" : "text-muted-foreground/60"}`}>
-                        {desc}
-                      </span>
-                    </div>
-                    {activityLevel === key && <Check className="w-3 h-3 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-          </div>
+          )}
         </section>
 
         {/* ── Weight Tracking ── */}
@@ -576,32 +600,55 @@ export default function Profile() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             My Goals
           </h2>
-          <div className="rounded-2xl bg-card p-4">
-            <div className="flex flex-wrap gap-2">
-              {GOALS.map(({ key, label }) => {
-                const selected = goals.includes(key);
-                return (
-                  <button
-                    key={key}
-                    onClick={() => toggleGoal(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                      selected
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {selected && <Check className="w-3 h-3" />}
-                    {label}
-                  </button>
-                );
-              })}
+          {isEditing ? (
+            <div className="rounded-2xl bg-card p-4">
+              <div className="flex flex-wrap gap-2">
+                {GOALS.map(({ key, label }) => {
+                  const selected = goals.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleGoal(key)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3" />}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {goals.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Select at least one goal.
+                </p>
+              )}
             </div>
-            {goals.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Select at least one goal.
-              </p>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-2xl bg-card p-4">
+              {goals.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {goals.map((key) => {
+                    const goal = GOALS.find((g) => g.key === key);
+                    return goal ? (
+                      <span
+                        key={key}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary bg-primary/10 text-primary"
+                      >
+                        <Check className="w-3 h-3" />
+                        {goal.label}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No goals set.</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── Weight Direction & Rate ── */}
@@ -609,63 +656,84 @@ export default function Profile() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Weight Goal
           </h2>
-          <div className="rounded-2xl bg-card p-4 space-y-4">
-            <div className="flex flex-col gap-2">
-              {WEIGHT_GOAL_OPTIONS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setBodyWeightGoal(key);
-                    if (key === "maintain") setWeeklyRateLbs(null);
-                    else if (!weeklyRateLbs) setWeeklyRateLbs(key === "lose" ? -0.5 : 0.5);
-                  }}
-                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all text-left ${
-                    bodyWeightGoal === key
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                  {bodyWeightGoal === key && <Check className="w-4 h-4 shrink-0" />}
-                </button>
-              ))}
-            </div>
-
-            {bodyWeightGoal && bodyWeightGoal !== "maintain" && (
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Rate (lbs/week)
-                </span>
-                <div className="flex gap-2 flex-wrap">
-                  {(bodyWeightGoal === "lose" ? RATE_OPTIONS_LOSE : RATE_OPTIONS_GAIN).map((rate) => (
-                    <button
-                      key={rate}
-                      type="button"
-                      onClick={() => setWeeklyRateLbs(rate)}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                        weeklyRateLbs === rate
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {rate > 0 ? `+${rate}` : rate} lb/wk
-                    </button>
-                  ))}
-                </div>
+          {isEditing ? (
+            <div className="rounded-2xl bg-card p-4 space-y-4">
+              <div className="flex flex-col gap-2">
+                {WEIGHT_GOAL_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setBodyWeightGoal(key);
+                      if (key === "maintain") setWeeklyRateLbs(null);
+                      else if (!weeklyRateLbs) setWeeklyRateLbs(key === "lose" ? -0.5 : 0.5);
+                    }}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all text-left ${
+                      bodyWeightGoal === key
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                    {bodyWeightGoal === key && <Check className="w-4 h-4 shrink-0" />}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
+
+              {bodyWeightGoal && bodyWeightGoal !== "maintain" && (
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Rate (lbs/week)
+                  </span>
+                  <div className="flex gap-2 flex-wrap">
+                    {(bodyWeightGoal === "lose" ? RATE_OPTIONS_LOSE : RATE_OPTIONS_GAIN).map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setWeeklyRateLbs(rate)}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+                          weeklyRateLbs === rate
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {rate > 0 ? `+${rate}` : rate} lb/wk
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-card p-4">
+              {bodyWeightGoal ? (
+                <div className="space-y-1">
+                  <span className="text-sm font-semibold">
+                    {WEIGHT_GOAL_OPTIONS.find((o) => o.key === bodyWeightGoal)?.label}
+                  </span>
+                  {weeklyRateLbs !== null && bodyWeightGoal !== "maintain" && (
+                    <p className="text-xs text-muted-foreground">
+                      {weeklyRateLbs > 0 ? `+${weeklyRateLbs}` : weeklyRateLbs} lb/wk
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No weight goal set.</p>
+              )}
+            </div>
+          )}
         </section>
 
-        {/* Save button */}
-        <Button
-          className="w-full"
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}
-        >
-          {saveMutation.isPending ? "Saving…" : "Save Profile"}
-        </Button>
+        {/* Save button — only shown while in edit mode */}
+        {isEditing && (
+          <Button
+            className="w-full"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+          >
+            {saveMutation.isPending ? "Saving…" : "Save Profile"}
+          </Button>
+        )}
 
         {/* ── Section C: My Programs ── */}
         <section className="space-y-3">
