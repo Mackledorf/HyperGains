@@ -745,8 +745,18 @@ function Step4Macros({
               onClick={() => setProteinG((g) => Math.max(PROTEIN_MIN_G, g - 5))}
               disabled={proteinG <= PROTEIN_MIN_G}
             >−</button>
-            <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
-              {proteinG}g
+            <div className="flex-1 relative">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={proteinG}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setProteinG(Math.min(PROTEIN_MAX_G, val));
+                }}
+                className="w-full h-8 rounded-lg bg-muted border border-transparent focus:border-primary focus:bg-background outline-none text-center text-sm font-mono font-bold transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground pointer-events-none">g</span>
             </div>
             <button
               className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
@@ -781,8 +791,22 @@ function Step4Macros({
                   onClick={() => adjustPct(key, -5)}
                   disabled={pct <= 5}
                 >−</button>
-                <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
-                  {pct}%
+                <div className="flex-1 relative">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={pct}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val)) {
+                        if (key === "carbs") setCarbsPct(Math.min(90, val));
+                        else setFatPct(Math.min(90, val));
+                        setLastAdjusted(key);
+                      }
+                    }}
+                    className="w-full h-8 rounded-lg bg-muted border border-transparent focus:border-primary focus:bg-background outline-none text-center text-sm font-mono font-bold transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground pointer-events-none">%</span>
                 </div>
                 <button
                   className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
