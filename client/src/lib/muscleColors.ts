@@ -21,7 +21,7 @@ export const VOLUME_ZONE_COLORS: Record<VolumeZone, string> = {
   mv: "#ca8a04",            // yellow-600
   mev: "#16a34a",           // green-600
   mav: "#2563eb",           // blue-600
-  "above-mav": "#dc2626",   // red-600
+  "above-mav": "#f92672",   // brandRed
 };
 
 const ZONE_LABELS: Record<VolumeZone, string> = {

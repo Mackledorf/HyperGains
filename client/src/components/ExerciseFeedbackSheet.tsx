@@ -9,7 +9,7 @@ import type { ProgramExercise, ExerciseFeedback } from "@shared/schema";
 type Rating = "poor" | "okay" | "good" | "great";
 
 const RATING_COLORS: Record<Rating, string> = {
-  poor: "bg-red-500/20 text-red-400 border-red-500/40",
+  poor: "bg-brandRed/20 text-brandRed border-brandRed/40",
   okay: "bg-yellow-500/20 text-yellow-400 border-yellow-500/40",
   good: "bg-green-500/20 text-green-400 border-green-500/40",
   great: "bg-blue-500/20 text-blue-400 border-blue-500/40",

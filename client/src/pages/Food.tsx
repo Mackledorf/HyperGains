@@ -165,10 +165,10 @@ function CalorieSummary({
         </div>
         <div className="col-span-1 text-lg text-muted-foreground font-light">=</div>
         <div className="col-span-1">
-          <p className={`text-2xl font-bold tabular-nums leading-none ${isOver ? "text-red-400" : "text-green-400"}`}>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${isOver ? "text-brandRed" : "text-green-400"}`}>
             {Math.abs(remaining)}
           </p>
-          <p className={`text-[10px] mt-1 ${isOver ? "text-red-400/70" : "text-muted-foreground"}`}>
+          <p className={`text-[10px] mt-1 ${isOver ? "text-brandRed/70" : "text-muted-foreground"}`}>
             {isOver ? "kcal over" : "kcal left"}
           </p>
         </div>
@@ -887,7 +887,7 @@ function GoalsSheet({
             {/* Split total indicator */}
             <div className="flex justify-between text-xs border-t border-border/50 pt-4">
               <span className="text-muted-foreground font-medium">Total split</span>
-              <span className={splitTotal === 100 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+              <span className={splitTotal === 100 ? "text-green-400 font-semibold" : "text-brandRed font-semibold"}>
                 {splitTotal}%{splitTotal !== 100 && ` (${splitTotal > 100 ? "+" : ""}${splitTotal - 100}%)`}
               </span>
             </div>
@@ -1053,7 +1053,7 @@ function GoalsSheet({
             Save Goals
           </Button>
           {splitTotal !== 100 && (
-            <p className="text-center text-xs text-red-400 -mt-2">Percentages must sum to 100%</p>
+            <p className="text-center text-xs text-brandRed -mt-2">Percentages must sum to 100%</p>
           )}
         </div>
       </SheetContent>

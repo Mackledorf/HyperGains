@@ -630,7 +630,7 @@ export default function CreateProgram() {
                   ? "bg-green-500"
                   : current === "grow"
                   ? "bg-yellow-400"
-                  : "bg-red-500";
+                  : "bg-brandRed";
                 return (
                   <div key={mg} className="p-3.5 space-y-1.5">
                     <div className="flex items-center justify-between">
