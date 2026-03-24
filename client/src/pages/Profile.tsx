@@ -885,20 +885,17 @@ export default function Profile() {
       </div>
 
       <AlertDialog open={!!programToDelete} onOpenChange={(open) => !open && setProgramToDelete(null)}>
-        <AlertDialogContent className="w-[90vw] max-w-[400px] rounded-3xl p-6 bg-card border-border/50 shadow-xl">
-          <AlertDialogHeader className="space-y-3 pb-2 text-left">
-            <AlertDialogTitle className="text-xl font-bold">Delete Program?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
-              Are you sure you want to delete <span className="font-semibold text-foreground">{programToDelete?.name}</span>? 
-              This will permanently remove the program and its planned exercises. Your recorded history will not be affected.
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Program?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{programToDelete?.name}"? This will permanently remove the program and its planned exercises. Your recorded history will not be affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-3 mt-2 sm:justify-center">
-            <AlertDialogCancel className="flex-1 rounded-xl h-11 border-border/50 text-sm font-semibold hover:bg-muted/50 mt-0">
-              Cancel
-            </AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="flex-1 rounded-xl h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm font-semibold m-0"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (programToDelete) {
                   deleteProgramMutation.mutate(programToDelete.id);
