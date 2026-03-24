@@ -474,15 +474,18 @@ function ServingScreen({
             placeholder="1"
             autoFocus
           />
-          <select
-            value={unit}
-            onChange={e => handleUnitChange(e.target.value as ServingUnit)}
-            className="h-10 rounded-xl border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring shrink-0 max-w-[180px] truncate"
-          >
-            {unitOptions.map(o => (
-              <option key={o.key} value={o.key}>{o.label}</option>
-            ))}
-          </select>
+          <div className="relative shrink-0">
+            <select
+              value={unit}
+              onChange={e => handleUnitChange(e.target.value as ServingUnit)}
+              className="h-9 appearance-none rounded-xl border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-w-[180px] truncate cursor-pointer"
+            >
+              {unitOptions.map(o => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          </div>
         </div>
         {unit === "serving" && defaultServingG > 0 && (
           <p className="text-xs text-muted-foreground">
