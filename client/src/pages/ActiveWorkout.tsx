@@ -77,7 +77,7 @@ export default function ActiveWorkout() {
   const { data: programExercises, isLoading: loadingExercises } = useQuery<ProgramExercise[]>({
     queryKey: ["exercises", session?.programId, "day", session?.dayIndex],
     enabled: !!session && !isAdHoc,
-    queryFn: () => store.getProgramExercisesByDay(session!.programId, session!.dayIndex),
+    queryFn: () => store.getProgramExercisesByDay(session!.programId!, session!.dayIndex),
   });
 
   // Load ad-hoc exercises into state once session is ready

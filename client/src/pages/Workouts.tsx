@@ -379,17 +379,20 @@ export default function Workouts() {
               Create a training program to start tracking your workouts with
               automatic progressive overload.
             </p>
-            <Link href="/create">
-              <Button className="rounded-xl px-6 h-11" data-testid="button-create-program">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Create Program
-              </Button>
-            </Link>
-            <Link href="/quick-workout">
-              <Button variant="outline" className="rounded-xl px-6 h-11">
-                Record Workout
-              </Button>
-            </Link>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <Link href="/create" className="w-full">
+                <Button className="rounded-xl px-6 h-11 w-full" data-testid="button-create-program">
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Create Program
+                </Button>
+              </Link>
+              <Link href="/quick-workout" className="w-full">
+                <Button variant="outline" className="rounded-xl px-6 h-11 w-full">
+                  <Dumbbell className="w-4 h-4 mr-2" />
+                  Record Workout
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
 
