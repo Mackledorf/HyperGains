@@ -4,6 +4,7 @@
  * then the full programs list at the bottom.
  * (Previously Dashboard.tsx)
  */
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import * as store from "@/lib/storage";
@@ -11,7 +12,6 @@ import { Link, useLocation } from "wouter";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -34,12 +34,16 @@ import {
   CalendarClock,
   Settings,
   X,
+  MoreVertical,
 } from "lucide-react";
 import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
 
 export default function Workouts() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [showEndWeekDialog, setShowEndWeekDialog] = useState(false);
+  const [endWeekAcknowledged, setEndWeekAcknowledged] = useState(false);
+  const [showProgramMenu, setShowProgramMenu] = useState(false);
 
   // ── Active program & related data ──────────────────────────────────────────
   const { data: activeProgram, isLoading: loadingProgram } = useQuery<Program | null>({
@@ -62,12 +66,6 @@ export default function Workouts() {
   const { data: inProgressSession } = useQuery<WorkoutSession | null>({
     queryKey: ["inProgress"],
     queryFn: () => store.getInProgressSession() ?? null,
-  });
-
-  // ── All programs (for list at bottom) ─────────────────────────────────────
-  const { data: allPrograms = [], isLoading: loadingAll } = useQuery<Program[]>({
-    queryKey: ["programs", "all"],
-    queryFn: () => store.getPrograms(),
   });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
@@ -106,17 +104,6 @@ export default function Workouts() {
     },
     onError: () => {
       toast({ title: "Failed to start workout", variant: "destructive" });
-    },
-  });
-
-  const setActiveMutation = useMutation({
-    mutationFn: (programId: string) => {
-      store.setActiveProgram(programId);
-      return Promise.resolve();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs"] });
-      toast({ title: "Active program updated" });
     },
   });
 
@@ -226,7 +213,7 @@ export default function Workouts() {
                 </h1>
               </div>
               <div className="flex items-center gap-1">
-                <AlertDialog>
+                <AlertDialog open={showEndWeekDialog} onOpenChange={(v) => { setShowEndWeekDialog(v); if (!v) setEndWeekAcknowledged(false); }}>
                   <AlertDialogTrigger asChild>
                     <button
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -236,6 +223,9 @@ export default function Workouts() {
                             title: "Finish your active workout first",
                             description: "Complete or discard the current session before ending the week.",
                           });
+                        } else {
+                          setEndWeekAcknowledged(false);
+                          setShowEndWeekDialog(true);
                         }
                       }}
                       disabled={advanceWeekMutation.isPending}
@@ -252,9 +242,25 @@ export default function Workouts() {
                           This will advance your program to Week {currentWeek + 1}. This action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+                      {currentWeek === 1 && activeProgram.isDecentralized && (
+                        <label className="flex items-start gap-3 cursor-pointer select-none px-1">
+                          <input
+                            type="checkbox"
+                            checked={endWeekAcknowledged}
+                            onChange={e => setEndWeekAcknowledged(e.target.checked)}
+                            className="mt-0.5 accent-primary w-4 h-4 flex-shrink-0"
+                          />
+                          <span className="text-sm text-muted-foreground leading-snug">
+                            I understand that ending Week 1 will lock in my training frequency for this program and advance me to Week 2.
+                          </span>
+                        </label>
+                      )}
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => advanceWeekMutation.mutate()}>
+                        <AlertDialogAction
+                          disabled={currentWeek === 1 && activeProgram.isDecentralized && !endWeekAcknowledged}
+                          onClick={() => { advanceWeekMutation.mutate(); setShowEndWeekDialog(false); }}
+                        >
                           End Week
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -330,21 +336,36 @@ export default function Workouts() {
             <div className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <p className="micro-label">Start Workout</p>
-                <Link href="/quick-workout">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs rounded-lg"
-                    onClick={(e) => {
-                      if (inProgressSession) {
-                        e.preventDefault();
-                        toast({ title: "Finish current workout first", description: "You have an active session in progress." });
-                      }
-                    }}
+                <div className="relative">
+                  <button
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowProgramMenu(v => !v)}
+                    aria-label="Program options"
                   >
-                    Record Workout
-                  </Button>
-                </Link>
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {showProgramMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowProgramMenu(false)} />
+                      <div className="absolute right-0 top-8 z-50 min-w-[180px] rounded-xl bg-card border border-border/50 shadow-lg overflow-hidden">
+                        <button
+                          className="w-full text-left px-4 py-3 text-sm hover:bg-muted/60 transition-colors flex items-center gap-2"
+                          onClick={() => {
+                            setShowProgramMenu(false);
+                            if (inProgressSession) {
+                              toast({ title: "Finish current workout first", description: "You have an active session in progress." });
+                            } else {
+                              navigate("/quick-workout");
+                            }
+                          }}
+                        >
+                          <Dumbbell className="w-3.5 h-3.5 text-muted-foreground" />
+                          Record Workout
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="rounded-2xl bg-card overflow-hidden divide-y divide-border/50">
                 {(activeProgram.dayLabels as string[]).map((label, index) => {
@@ -434,91 +455,6 @@ export default function Workouts() {
             </div>
           </div>
         )}
-
-        {/* ── All Programs section ── */}
-        {(loadingAll || allPrograms.length > 0) && <section className="space-y-3 pt-2">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              My Programs
-            </h2>
-            <Link href="/create">
-              <Button size="sm" className="gap-1.5 h-7 text-xs">
-                <PlusCircle className="w-3 h-3" />
-                New
-              </Button>
-            </Link>
-          </div>
-
-          {loadingAll ? (
-            <div className="space-y-2">
-              <Skeleton className="h-16 w-full rounded-2xl" />
-              <Skeleton className="h-16 w-full rounded-2xl" />
-            </div>
-          ) : allPrograms.length === 0 ? (
-            <div className="rounded-2xl bg-card p-6 text-center text-muted-foreground">
-              <p className="text-xs">No programs yet. Create one above.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {allPrograms.map((program) => (
-                <div key={program.id} className="rounded-2xl bg-card overflow-hidden">
-                  <div className="p-4 flex items-center gap-3">
-                    {/* Icon */}
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        program.isActive ? "bg-primary/15" : "bg-muted"
-                      }`}
-                    >
-                      {program.isActive ? (
-                        <Zap className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Dumbbell className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-semibold truncate">{program.name}</span>
-                        {program.isActive && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-0 flex-shrink-0"
-                          >
-                            Active
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {program.splitType} · {program.daysPerWeek}d/wk · {program.durationWeeks}wk
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {!program.isActive && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setActiveMutation.mutate(program.id)}
-                          disabled={setActiveMutation.isPending}
-                        >
-                          Set Active
-                        </Button>
-                      )}
-                      <Link href={`/program/${program.id}`}>
-                        <button className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>}
       </div>
     </AppShell>
   );

@@ -1,14 +1,23 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronRight, Dumbbell, Zap, Scale, Check, Pencil, Ruler } from "lucide-react";
+import { ChevronRight, Dumbbell, Zap, Scale, Check, Pencil, Ruler, MoreVertical, Trash2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import AppShell from "@/components/AppShell";
-import SwipeableRow from "@/components/SwipeableRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import * as store from "@/lib/storage";
 import { queryClient } from "@/lib/queryClient";
@@ -175,14 +184,29 @@ export default function Profile() {
     queryFn: () => store.getPrograms(),
   });
 
+  const [programToDelete, setProgramToDelete] = useState<Program | null>(null);
+  const [menuProgramId, setMenuProgramId] = useState<string | null>(null);
+
   const deleteProgramMutation = useMutation({
-    mutationFn: (id: string) => {
-      store.deleteProgram(id);
+    mutationFn: (programId: string) => {
+      store.deleteProgram(programId);
       return Promise.resolve();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
+      setProgramToDelete(null);
       toast({ title: "Program deleted" });
+    },
+  });
+
+  const setActiveMutation = useMutation({
+    mutationFn: (programId: string) => {
+      store.setActiveProgram(programId);
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
+      toast({ title: "Active program updated" });
     },
   });
 
@@ -773,38 +797,34 @@ export default function Profile() {
 
         {/* ── Section C: My Programs ── */}
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            My Programs
-          </h2>
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              My Programs
+            </h2>
+            <Link href="/create">
+              <Button size="sm" className="gap-1.5 h-7 text-xs">
+                New
+              </Button>
+            </Link>
+          </div>
 
           {programsLoading ? (
-            <div className="space-y-px rounded-2xl overflow-hidden">
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-2xl" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
             </div>
           ) : programs.length === 0 ? (
             <div className="rounded-2xl bg-card p-6 text-center text-muted-foreground">
-              <Dumbbell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-xs">No programs yet.</p>
+              <p className="text-xs">No programs yet. Create one above.</p>
             </div>
           ) : (
-            <div className="rounded-2xl bg-card overflow-hidden">
-              {programs.map((program, idx) => (
-                <SwipeableRow
-                  key={program.id}
-                  onDelete={() => deleteProgramMutation.mutate(program.id)}
-                  confirmTitle={`Delete "${program.name}"?`}
-                  confirmDescription="All sessions and set logs for this program will also be deleted. This cannot be undone."
-                >
-                  <Link href={`/program/${program.id}`}>
-                    <div
-                      className={`flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer ${
-                        idx < programs.length - 1 ? "border-b border-border/50" : ""
-                      }`}
-                    >
-                      {/* Icon */}
+            <div className="space-y-2">
+              {programs.map((program) => (
+                <div key={program.id} className="rounded-2xl bg-card overflow-hidden">
+                  <div className="p-4 flex items-center gap-3">
+                    <Link href={`/program/${program.id}`} className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           program.isActive ? "bg-primary/15" : "bg-muted"
                         }`}
                       >
@@ -815,12 +835,14 @@ export default function Profile() {
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-sm font-semibold truncate">{program.name}</span>
                           {program.isActive && (
-                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-0 flex-shrink-0"
+                            >
                               Active
                             </Badge>
                           )}
@@ -829,22 +851,96 @@ export default function Profile() {
                           {program.splitType} · {program.daysPerWeek}d/wk · {program.durationWeeks}wk
                         </p>
                       </div>
+                    </Link>
 
-                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {!program.isActive && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setActiveMutation.mutate(program.id)}
+                          disabled={setActiveMutation.isPending}
+                        >
+                          Set Active
+                        </Button>
+                      )}
+                      
+                      <div className="relative">
+                        <button
+                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setMenuProgramId(menuProgramId === program.id ? null : program.id);
+                          }}
+                          aria-label="Program options"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {menuProgramId === program.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setMenuProgramId(null)} />
+                            <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl bg-card border border-border/50 shadow-lg overflow-hidden">
+                              <button
+                                className="w-full text-left px-4 py-3 text-sm hover:bg-muted/60 transition-colors flex items-center gap-2"
+                                onClick={() => {
+                                  setMenuProgramId(null);
+                                  navigate(`/program/${program.id}`);
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                                Edit / View
+                              </button>
+                              <button
+                                className="w-full text-left px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setMenuProgramId(null);
+                                  setProgramToDelete(program);
+                                }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete Program
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </Link>
-                </SwipeableRow>
+                  </div>
+                </div>
               ))}
             </div>
           )}
-
-          <Link href="/create">
-            <Button variant="outline" size="sm" className="w-full text-xs">
-              + New Program
-            </Button>
-          </Link>
         </section>
       </div>
+
+      <AlertDialog open={!!programToDelete} onOpenChange={(open) => !open && setProgramToDelete(null)}>
+        <AlertDialogContent className="w-[90vw] max-w-[400px] rounded-3xl p-6 bg-card border-border/50 shadow-xl">
+          <AlertDialogHeader className="space-y-3 pb-2 text-left">
+            <AlertDialogTitle className="text-xl font-bold">Delete Program?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{programToDelete?.name}</span>? 
+              This will permanently remove the program and its planned exercises. Your recorded history will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-3 mt-2 sm:justify-center">
+            <AlertDialogCancel className="flex-1 rounded-xl h-11 border-border/50 text-sm font-semibold hover:bg-muted/50 mt-0">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="flex-1 rounded-xl h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm font-semibold m-0"
+              onClick={() => {
+                if (programToDelete) {
+                  deleteProgramMutation.mutate(programToDelete.id);
+                }
+              }}
+            >
+              {deleteProgramMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

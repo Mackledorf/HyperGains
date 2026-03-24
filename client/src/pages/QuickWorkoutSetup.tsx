@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import * as store from "@/lib/storage";
-import { ChevronLeft, Dumbbell } from "lucide-react";
+import { ChevronLeft, Dumbbell, Info } from "lucide-react";
 
 function defaultWorkoutName(): string {
   return `Workout – ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
@@ -49,6 +49,14 @@ export default function QuickWorkoutSetup() {
           <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
             <Dumbbell className="w-10 h-10 text-primary" />
           </div>
+        </div>
+
+        {/* Temporary workout notice */}
+        <div className="flex items-start gap-3 rounded-xl bg-muted/60 px-4 py-3">
+          <Info className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This workout is <span className="font-semibold text-foreground">temporary</span> — your data will be recorded, but it will not count toward or affect your active program.
+          </p>
         </div>
 
         {/* Name input */}
