@@ -1,5 +1,5 @@
 /**
- * Workouts page — the primary workout hub.
+ * Lifts page — the primary lift hub.
  * Shows the active program + quick-start buttons at the top,
  * then the full programs list at the bottom.
  * (Previously Dashboard.tsx)
@@ -45,7 +45,7 @@ const ALL_MUSCLES = [
   "quads", "hamstrings", "glutes", "calves", "abs", "traps", "forearms",
 ];
 
-export default function Workouts() {
+export default function Lifts() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [showEndWeekDialog, setShowEndWeekDialog] = useState(false);
@@ -384,14 +384,14 @@ export default function Workouts() {
                           onClick={() => {
                             setShowProgramMenu(false);
                             if (inProgressSession) {
-                              toast({ title: "Finish current workout first", description: "You have an active session in progress." });
+                              toast({ title: "Finish current lift first", description: "You have an active session in progress." });
                             } else {
-                              navigate("/quick-workout");
+                              navigate("/quick-lift");
                             }
                           }}
                         >
                           <Dumbbell className="w-3.5 h-3.5 text-muted-foreground" />
-                          Record Workout
+                          Record Lift
                         </button>
                       </div>
                     </>
@@ -411,7 +411,7 @@ export default function Workouts() {
                           startWorkoutMutation.mutate({ dayIndex: index, dayLabel: label });
                         } else {
                           toast({
-                            title: "Finish current workout first",
+                            title: "Finish current lift first",
                             description: "You have an active session in progress.",
                           });
                         }
@@ -468,7 +468,7 @@ export default function Workouts() {
               No active program
             </h1>
             <p className="text-muted-foreground text-sm max-w-xs mb-8">
-              Create a training program to start tracking your workouts with
+              Create a training program to start tracking your lifts with
               automatic progressive overload.
             </p>
             <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -478,10 +478,10 @@ export default function Workouts() {
                   Create Program
                 </Button>
               </Link>
-              <Link href="/quick-workout" className="w-full">
+              <Link href="/quick-lift" className="w-full">
                 <Button variant="outline" className="rounded-xl px-6 h-11 w-full">
                   <Dumbbell className="w-4 h-4 mr-2" />
-                  Record Workout
+                  Record Lift
                 </Button>
               </Link>
             </div>

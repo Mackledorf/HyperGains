@@ -11,7 +11,7 @@ import Login from "@/pages/Login";
 import CreateUser from "@/pages/CreateUser";
 import NewUserExperience from "@/pages/NewUserExperience";
 import Dashboard from "@/pages/Dashboard";
-import Workouts from "@/pages/Workouts";
+import Lifts from "@/pages/Lifts";
 import Food from "@/pages/Food";
 import Supplements from "@/pages/Supplements";
 import CreateProgram from "@/pages/CreateProgram";
@@ -20,7 +20,7 @@ import History from "@/pages/History";
 import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
 import Profile from "@/pages/Profile";
-import QuickWorkoutSetup from "@/pages/QuickWorkoutSetup";
+import QuickLiftSetup from "@/pages/QuickLiftSetup";
 import * as store from "@/lib/storage";
 import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
 import * as gist from "@/lib/gist";
@@ -29,12 +29,12 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/workouts" component={Workouts} />
+      <Route path="/lifts" component={Lifts} />
       <Route path="/food" component={Food} />
       <Route path="/supplements" component={Supplements} />
       <Route path="/programs" component={Programs} />
       <Route path="/create" component={CreateProgram} />
-      <Route path="/quick-workout" component={QuickWorkoutSetup} />
+      <Route path="/quick-lift" component={QuickLiftSetup} />
       <Route path="/program/:id" component={ProgramDetail} />
       <Route path="/workout/:sessionId" component={ActiveWorkout} />
       <Route path="/history" component={History} />

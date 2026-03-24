@@ -111,8 +111,8 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {/* Workout card */}
-        <Link href="/workouts" className="block">
+        {/* Lift card */}
+        <Link href="/lifts" className="block">
           <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

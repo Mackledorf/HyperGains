@@ -18,16 +18,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/workouts", icon: Dumbbell, label: "Lifts" },
+    { href: "/lifts", icon: Dumbbell, label: "Lifts" },
     { href: "/food", icon: UtensilsCrossed, label: "Food" },
     { href: "/supplements", icon: Pill, label: "Supps" },
   ];
 
   function isActive(href: string): boolean {
     if (href === "/") return location === "/";
-    if (href === "/workouts")
+    if (href === "/lifts")
       return (
-        location === "/workouts" ||
+        location === "/lifts" ||
         location.startsWith("/workout/") ||
         location.startsWith("/program/") ||
         location === "/programs" ||
