@@ -709,6 +709,11 @@ function GoalsSheet({
   const [customCalories, setCustomCalories] = useState<number | null>(null);
   const [editingCalories, setEditingCalories] = useState(false);
   const [waterOz, setWaterOz] = useState(64);
+  const [proteinG, setProteinG] = useState(150);
+  const [proteinSet, setProteinSet] = useState(false);
+  const [carbsPct, setCarbsPct] = useState(40);
+  const [fatPct, setFatPct] = useState(30);
+  const [lastAdjusted, setLastAdjusted] = useState<"carbs" | "fat" | null>(null);
 
   // ── Reactive calorie computation ────────────────────────────────────────
   const suggestedCalories = useMemo(() => {
