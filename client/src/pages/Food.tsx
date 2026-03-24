@@ -771,8 +771,6 @@ function GoalsSheet({
     setMode(newMode);
   };
 
-  const activeCalories = customCalories ?? suggestedCalories;
-
   useEffect(() => {
     setCalorieInput(String(activeCalories));
   }, [activeCalories]);
