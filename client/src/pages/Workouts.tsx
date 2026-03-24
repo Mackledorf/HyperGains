@@ -4,15 +4,17 @@
  * then the full programs list at the bottom.
  * (Previously Dashboard.tsx)
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import * as store from "@/lib/storage";
 import { Link, useLocation } from "wouter";
 import AppShell from "@/components/AppShell";
+import MuscleVisualizer from "@/components/MuscleVisualizer";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { getMuscleVolumeInfo } from "@/lib/muscleColors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +39,11 @@ import {
   MoreVertical,
 } from "lucide-react";
 import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
+
+const ALL_MUSCLES = [
+  "chest", "back", "shoulders", "biceps", "triceps",
+  "quads", "hamstrings", "glutes", "calves", "abs", "traps", "forearms",
+];
 
 export default function Workouts() {
   const [, navigate] = useLocation();
@@ -66,6 +73,16 @@ export default function Workouts() {
   const { data: inProgressSession } = useQuery<WorkoutSession | null>({
     queryKey: ["inProgress"],
     queryFn: () => store.getInProgressSession() ?? null,
+  });
+
+  const { data: weeklySets } = useQuery<Record<string, number>>({
+    queryKey: ["weeklySets", activeProgram?.id, activeProgram?.currentWeekNumber],
+    enabled: !!activeProgram,
+    queryFn: () =>
+      store.getActualWeeklySetsPerMuscle(
+        activeProgram!.id,
+        activeProgram?.currentWeekNumber ?? 1
+      ),
   });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
@@ -125,6 +142,14 @@ export default function Workouts() {
   const progressPct = activeProgram
     ? Math.round((currentWeek / activeProgram.durationWeeks) * 100)
     : 0;
+
+  const muscleData = useMemo(
+    () =>
+      Object.fromEntries(
+        ALL_MUSCLES.map((m) => [m, getMuscleVolumeInfo(m, weeklySets?.[m] ?? 0)])
+      ),
+    [weeklySets]
+  );
 
   const isNewTrainingWeek = (() => {
     if (!activeProgram?.isDecentralized || !activeProgram.weekStartedAt) return false;
@@ -268,6 +293,17 @@ export default function Workouts() {
                   )}
                 </AlertDialog>
               </div>
+            </div>
+
+            {/* Muscle volume visualizer */}
+            <div className="rounded-2xl bg-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-bold">Weekly Distribution</h2>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Week {currentWeek}
+                </span>
+              </div>
+              <MuscleVisualizer muscleData={muscleData} />
             </div>
 
             {/* Stats row */}
