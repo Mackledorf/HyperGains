@@ -180,6 +180,7 @@
     @apply font-sans antialiased bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scrollbar-gutter: stable;
   }
 
   /* SF Pro / system font rendering */
