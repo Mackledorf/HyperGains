@@ -187,24 +187,6 @@ function WaterBar({
           <span className="font-semibold text-sm">Water</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Unit toggle */}
-          <button
-            className="relative flex h-6 rounded-full bg-muted overflow-hidden"
-            style={{ width: "56px" }}
-            onClick={() => setUseEmoji(v => !v)}
-            aria-label="Toggle display units"
-          >
-            <div
-              className="absolute top-[2px] h-5 w-[24px] rounded-full bg-sky-400 shadow transition-all duration-200"
-              style={{ left: useEmoji ? "2px" : "30px" }}
-            />
-            <div className="relative w-1/2 h-full flex items-center justify-center z-10">
-              <GlassWater className="w-3 h-3 text-foreground" />
-            </div>
-            <div className="relative w-1/2 h-full flex items-center justify-center z-10">
-              <span className="text-[10px] font-bold text-foreground leading-none">oz</span>
-            </div>
-          </button>
           <span className="text-xs text-muted-foreground tabular-nums">
             {Math.round(consumedOz)} / {targetOz} oz
             {excessCarbs > 0 && (
@@ -222,18 +204,15 @@ function WaterBar({
       </div>
 
       <div className="grid grid-cols-4 gap-1.5">
-        {WATER_AMOUNTS.map(({ oz, label, Icon }) => (
+        {WATER_AMOUNTS.map(({ oz, label }) => (
           <Button
             key={oz}
             size="sm"
             variant="outline"
-            className="flex-1 rounded-xl h-10 text-xs flex flex-col items-center justify-center gap-0.5 px-0"
+            className="flex-1 rounded-xl h-10 text-xs"
             onClick={() => addWater(oz)}
           >
-            {useEmoji
-              ? <Icon className="w-5 h-5 text-sky-300" />
-              : <span className="text-xs font-medium">{label}</span>
-            }
+            {label}
           </Button>
         ))}
       </div>
@@ -842,6 +821,9 @@ function AddFoodSheet({
   const [showAll, setShowAll] = useState(false);
   const [searchError, setSearchError] = useState<'search_unavailable' | null>(null);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
+  const [showRefine, setShowRefine] = useState(false);
+  const [refineBrand, setRefineBrand] = useState("");
+  const [refineItem, setRefineItem] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -855,8 +837,18 @@ function AddFoodSheet({
       setIsSearching(false);
       setShowAll(false);
       setSearchError(null);
+      setShowRefine(false);
+      setRefineBrand("");
+      setRefineItem("");
     }
   }, [open]);
+
+  // Sync refine fields → combined query
+  useEffect(() => {
+    if (!showRefine) return;
+    const combined = [refineBrand.trim(), refineItem.trim()].filter(Boolean).join(" ");
+    setQuery(combined);
+  }, [showRefine, refineBrand, refineItem]);
 
   // Debounced search — shows OFF results early via onPartial, then merges USDA results
   useEffect(() => {
@@ -966,28 +958,55 @@ function AddFoodSheet({
 
         {screen === "search" && (
           <div className="space-y-4">
-            {/* Search bar */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            {/* Search bar / Refine mode */}
+            {showRefine ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Refine Search</p>
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => { setShowRefine(false); setRefineBrand(""); setRefineItem(""); setQuery(""); }}
+                  >
+                    ✕ Clear
+                  </button>
+                </div>
                 <Input
-                  className="pl-9 rounded-xl"
-                  placeholder="Search food or brand…"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
+                  className="rounded-xl"
+                  placeholder="Brand / Restaurant (e.g. In-N-Out)"
+                  value={refineBrand}
+                  onChange={e => setRefineBrand(e.target.value)}
                   autoFocus
                 />
+                <Input
+                  className="rounded-xl"
+                  placeholder="Item name (e.g. Double Double)"
+                  value={refineItem}
+                  onChange={e => setRefineItem(e.target.value)}
+                />
               </div>
-              <Button
-                size="icon"
-                variant="outline"
-                className="rounded-xl flex-shrink-0"
-                aria-label="Scan barcode"
-                onClick={() => setScreen("scanner")}
-              >
-                <Scan className="w-4 h-4" />
-              </Button>
-            </div>
+            ) : (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    className="pl-9 rounded-xl"
+                    placeholder="Search food or brand…"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="rounded-xl flex-shrink-0"
+                  aria-label="Scan barcode"
+                  onClick={() => setScreen("scanner")}
+                >
+                  <Scan className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
 
             {/* Results list with progressive updates and "Show more" */}
             {results.length > 0 && (
@@ -1020,6 +1039,14 @@ function AddFoodSheet({
                     Show {results.length - 8} more results
                   </button>
                 )}
+                {!showRefine && (
+                  <button
+                    className="w-full px-4 py-3 text-xs text-center text-blue-400 hover:text-blue-300 transition-colors"
+                    onClick={() => setShowRefine(true)}
+                  >
+                    Not what you're looking for? Refine search
+                  </button>
+                )}
               </div>
             )}
 
@@ -1032,11 +1059,21 @@ function AddFoodSheet({
             )}
 
             {!isSearching && query.trim().length >= 3 && results.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                {searchError === 'search_unavailable'
-                  ? "Search temporarily unavailable — please wait a moment and try again."
-                  : "No results found. Try a different name."}
-              </p>
+              <div className="text-center py-8 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {searchError === 'search_unavailable'
+                    ? "Search temporarily unavailable — please wait a moment and try again."
+                    : "No results found."}
+                </p>
+                {!showRefine && (
+                  <button
+                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    onClick={() => setShowRefine(true)}
+                  >
+                    Refine search
+                  </button>
+                )}
+              </div>
             )}
 
             {query.trim().length < 3 && (

@@ -281,9 +281,9 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Gender */}
+              {/* Sex */}
               <div className="space-y-2">
-                <span className="text-sm font-medium">Gender</span>
+                <span className="text-sm font-medium">Sex</span>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {GENDERS.map(({ key, label }) => (
                     <button
@@ -375,7 +375,7 @@ export default function Profile() {
                 <span className="text-sm font-medium capitalize">{unitSystem}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Gender</span>
+                <span className="text-xs text-muted-foreground">Sex</span>
                 <span className="text-sm font-medium">
                   {GENDERS.find((g) => g.key === gender)?.label ?? "—"}
                 </span>

@@ -33,6 +33,7 @@ import {
   CalendarCheck,
   CalendarClock,
   Settings,
+  X,
 } from "lucide-react";
 import type { Program, WorkoutSession, ProgramExercise } from "@shared/schema";
 
@@ -119,6 +120,18 @@ export default function Workouts() {
     },
   });
 
+  const cancelWorkoutMutation = useMutation({
+    mutationFn: (sessionId: string) => {
+      store.updateWorkoutSession(sessionId, { status: "cancelled" });
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["inProgress"] });
+      toast({ title: "Workout discarded" });
+    },
+  });
+
   // ── Derived values ─────────────────────────────────────────────────────────
   const completedCount = sessions?.filter((s) => s.status === "completed").length || 0;
   const currentWeek = activeProgram?.currentWeekNumber ?? 1;
@@ -152,6 +165,54 @@ export default function Workouts() {
   return (
     <AppShell>
       <div className="space-y-5 pb-4">
+
+        {/* ── In-progress session banner (always visible) ── */}
+        {inProgressSession && (
+          <div className="rounded-2xl bg-primary/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <Zap className="w-5 h-5 text-primary" />
+              </div>
+              <button
+                className="flex-1 text-left min-w-0"
+                onClick={() => navigate(`/workout/${inProgressSession.id}`)}
+                data-testid="card-resume-workout"
+              >
+                <p className="font-semibold text-sm text-foreground">Resume Workout</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {inProgressSession.dayLabel}{!inProgressSession.isAdHoc && ` — Week ${inProgressSession.weekNumber}`}
+                </p>
+              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                    aria-label="Discard workout"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Discard workout?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      "{inProgressSession.dayLabel}" will be discarded and any logged sets will be lost.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Going</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => cancelWorkoutMutation.mutate(inProgressSession.id)}
+                    >
+                      Discard
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        )}
 
         {/* ── Active program section ── */}
         {activeProgram ? (
@@ -263,29 +324,7 @@ export default function Workouts() {
               </div>
             )}
 
-            {/* Resume in-progress session */}
-            {inProgressSession && (
-              <button
-                className="w-full rounded-2xl bg-primary/10 p-4 text-left transition-all active:scale-[0.98]"
-                onClick={() => navigate(`/workout/${inProgressSession.id}`)}
-                data-testid="card-resume-workout"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-foreground">Resume Workout</p>
-                      <p className="text-xs text-muted-foreground">
-                        {inProgressSession.dayLabel} — Week {inProgressSession.weekNumber}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            )}
+            {/* Resume in-progress session — handled by banner above */}
 
             {/* Start workout */}
             <div className="space-y-2">
