@@ -100,7 +100,11 @@ function App() {
       if (document.visibilityState === "visible") {
         try {
           const payload = await gist.getUserData(activeUserId);
-          if (payload) store.importAll(payload);
+          if (payload) {
+            store.importAll(payload);
+            // Re-evaluate NUX in case it was completed on another device
+            setNuxDone(store.isNuxComplete(activeUserId));
+          }
         } catch {
           // offline — silently ignore
         }
@@ -130,7 +134,11 @@ function App() {
             ) : (
               <NewUserExperience
                 userId={activeUserId}
-                onNuxComplete={() => setNuxDone(true)}
+                onNuxComplete={() => {
+                  setNuxDone(true);
+                  // Flush immediately so other devices get the flag without waiting for debounce
+                  void gist.flushSync(store.exportAll());
+                }}
               />
             )
           ) : (
