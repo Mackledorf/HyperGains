@@ -47,6 +47,7 @@ import {
   ChevronLeft,
   GlassWater,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -710,17 +711,16 @@ function GoalsSheet({
   const [editingCalories, setEditingCalories] = useState(false);
   const [waterOz, setWaterOz] = useState(64);
 
-  // Protein as a direct gram target (5g steps)
-  const [proteinG, setProteinG] = useState(() => {
-    if (weightLbs) return Math.round(weightLbs * 0.9 / 5) * 5;
-    return 150;
-  });
-  const [proteinSet, setProteinSet] = useState(true);
+  // ── Reactive calorie computation ────────────────────────────────────────
+  const suggestedCalories = useMemo(() => {
+    if (mode === "maintenance") return suggestedBase;
+    const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
+    const raw = Math.round((absRate * 3500) / 7);
+    const capped = Math.min(raw, 350);
+    return suggestedBase + (mode === "surplus" ? capped : -capped);
+  }, [mode, suggestedBase, profile?.weeklyRateLbs]);
 
-  // Carbs & fat as % of total calories
-  const [carbsPct, setCarbsPct] = useState(50);
-  const [fatPct, setFatPct] = useState(30);
-  const [lastAdjusted, setLastAdjusted] = useState<"carbs" | "fat" | null>(null);
+  const activeCalories = customCalories ?? suggestedCalories;
 
   useEffect(() => {
     if (!open) return;
@@ -730,23 +730,47 @@ function GoalsSheet({
     setProteinG(g.proteinTargetG);
 
     if (g.calorieTarget > 0) {
+      const bodyGoal = profile?.bodyWeightGoal;
+      const initialMode = bodyGoal === "gain" ? "surplus" : bodyGoal === "lose" ? "deficit" : "maintenance";
+      setMode(initialMode);
+      
+      // If the saved target is significantly different from what we'd suggest for that mode, treat it as custom
+      // We calculate the delta based on the suggestion for THAT mode
+      const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
+      const raw = Math.round((absRate * 3500) / 7);
+      const capped = Math.min(raw, 350);
+      const suggestionForMode = suggestedBase + (initialMode === "surplus" ? capped : initialMode === "deficit" ? -capped : 0);
+      
+      if (Math.abs(g.calorieTarget - suggestionForMode) > 10) {
+         setCustomCalories(g.calorieTarget);
+      }
+
       const cPct = Math.round((g.carbsTargetG * 4 / g.calorieTarget) * 100);
       const fPct = Math.round((g.fatTargetG * 9 / g.calorieTarget) * 100);
       setCarbsPct(cPct);
       setFatPct(fPct);
-      
-      const bodyGoal = profile?.bodyWeightGoal;
-      setMode(bodyGoal === "gain" ? "surplus" : bodyGoal === "lose" ? "deficit" : "maintenance");
-      // If the saved goal matches the suggested base (approx), assume no custom offset yet
-      if (Math.abs(g.calorieTarget - suggestedBase) > 351) {
-         setCustomCalories(g.calorieTarget);
-      }
     }
-  }, [open, profile?.bodyWeightGoal, suggestedBase]);
+  }, [open, profile?.bodyWeightGoal, suggestedBase, profile?.weeklyRateLbs]);
 
-  // ── Reactive calorie computation ────────────────────────────────────────
-  const suggestedCalories = useMemo(() => {
-    if (mode === "maintenance") return suggestedBase;
+  // Handle mode switching with automatic offset adjustment
+  const handleModeChange = (newMode: CalorieMode) => {
+    if (customCalories !== null && mode !== newMode) {
+      const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
+      const offset = Math.min(Math.round((absRate * 3500) / 7), 350);
+      
+      let newCustom = customCalories;
+      // First, "back out" of current mode to maintenance
+      if (mode === "surplus") newCustom -= offset;
+      else if (mode === "deficit") newCustom += offset;
+      
+      // Then, apply new mode offset from maintenance
+      if (newMode === "surplus") newCustom += offset;
+      else if (newMode === "deficit") newCustom -= offset;
+      
+      setCustomCalories(Math.round(newCustom / 50) * 50);
+    }
+    setMode(newMode);
+  };
     const absRate = Math.abs(profile?.weeklyRateLbs ?? 0.5);
     const raw = Math.round((absRate * 3500) / 7);
     const capped = Math.min(raw, 350);
@@ -820,10 +844,21 @@ function GoalsSheet({
               { label: "Surplus",     value: "surplus" },
             ]}
             value={mode}
-            onChange={(v) => { setMode(v); }}
+            onChange={handleModeChange}
           />
 
-          <div className="rounded-2xl bg-muted/30 p-4 space-y-6">
+          <div className="rounded-2xl bg-muted/30 p-4 space-y-6 relative">
+            {customCalories !== null && (
+              <button 
+                type="button" 
+                onClick={() => setCustomCalories(null)}
+                className="absolute top-4 right-4 text-muted-foreground/60 hover:text-primary transition-colors p-1"
+                aria-label="Reset to suggestion"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+
             {/* Calorie target — tappable big number */}
             <div className="flex flex-col items-center text-center">
               {editingCalories ? (
@@ -847,11 +882,7 @@ function GoalsSheet({
                 </button>
               )}
               <p className="text-[10px] text-muted-foreground mt-1.5 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
-              {customCalories !== null ? (
-                <button type="button" onClick={() => setCustomCalories(null)} className="text-[10px] text-muted-foreground/60 underline mt-1">
-                  Reset to suggestion ({suggestedCalories})
-                </button>
-              ) : (
+              {!editingCalories && customCalories === null && (
                 <p className="text-[10px] text-muted-foreground/50 mt-1">Tap to edit</p>
               )}
             </div>
