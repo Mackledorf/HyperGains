@@ -284,6 +284,17 @@ export function getWorkoutSessions(programId: string): WorkoutSession[] {
     );
 }
 
+export function getAllRecentSessions(limit: number = 5): WorkoutSession[] {
+  return getStore<WorkoutSession>(KEYS.sessions)
+    .filter((s) => s.status === "completed")
+    .sort((a, b) => {
+      const bTime = new Date(b.completedAt || b.startedAt).getTime();
+      const aTime = new Date(a.completedAt || a.startedAt).getTime();
+      return bTime - aTime;
+    })
+    .slice(0, limit);
+}
+
 // ══════════════════════════════════════════════════
 // Ad-Hoc Exercises
 // Exercises added on-the-fly during an unplanned (ad-hoc) workout session.
