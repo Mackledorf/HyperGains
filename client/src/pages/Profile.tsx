@@ -186,6 +186,7 @@ export default function Profile() {
   });
 
   const [programToDelete, setProgramToDelete] = useState<Program | null>(null);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
 
   const deleteProgramMutation = useMutation({
     mutationFn: (programId: string) => {
@@ -195,6 +196,7 @@ export default function Profile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["programs"] });
       setProgramToDelete(null);
+      setDeleteConfirmed(false);
       toast({ title: "Program deleted" });
     },
   });
@@ -909,10 +911,11 @@ export default function Profile() {
                         onClick={(e) => {
                           e.preventDefault();
                           setProgramToDelete(program);
+                          setDeleteConfirmed(false);
                         }}
                         aria-label={`Delete ${program.name}`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </button>
                     </div>
                   </div>
@@ -923,20 +926,43 @@ export default function Profile() {
         </section>
       </div>
 
-      <AlertDialog open={!!programToDelete} onOpenChange={(open) => !open && setProgramToDelete(null)}>
+      <AlertDialog open={!!programToDelete} onOpenChange={(open) => {
+        if (!open) {
+          setProgramToDelete(null);
+          setDeleteConfirmed(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Program?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{programToDelete?.name}"? This will permanently remove the program and its planned exercises. Your recorded history will not be affected.
+            <AlertDialogDescription className="space-y-4">
+              <p>
+                Are you sure you want to delete "{programToDelete?.name}"? This will permanently remove the program and its planned exercises. Your recorded history will not be affected.
+              </p>
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="confirm-delete"
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={deleteConfirmed}
+                  onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                />
+                <label
+                  htmlFor="confirm-delete"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  I understand this cannot be undone
+                </label>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!deleteConfirmed || deleteProgramMutation.isPending}
               onClick={() => {
-                if (programToDelete) {
+                if (programToDelete && deleteConfirmed) {
                   deleteProgramMutation.mutate(programToDelete.id);
                 }
               }}

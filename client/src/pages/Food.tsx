@@ -219,7 +219,7 @@ function WaterBar({
   }
 
   return (
-    <div className="rounded-2xl bg-card p-4 space-y-3">
+    <div className="rounded-2xl bg-card p-4 pb-6 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GlassWater className="w-4 h-4 text-sky-400" />
