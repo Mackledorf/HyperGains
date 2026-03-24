@@ -137,6 +137,10 @@ function App() {
               <NewUserExperience
                 userId={activeUserId}
                 onNuxComplete={() => {
+                  // Reset to root route before mounting the authenticated router so
+                  // we don't land on a route that only exists in the unauthenticated
+                  // switch (e.g. #/create-user → 404).
+                  window.history.replaceState(null, "", window.location.pathname + window.location.search + "#/");
                   setNuxDone(true);
                   // Flush immediately so other devices get the flag without waiting for debounce
                   void gist.flushSync(store.exportAll());

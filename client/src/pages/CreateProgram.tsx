@@ -48,7 +48,9 @@ export default function CreateProgram() {
   const [customExName, setCustomExName] = useState("");
   const [customExMuscle, setCustomExMuscle] = useState("");
   const [emphasisByMuscle, setEmphasisByMuscle] = useState<Record<string, MuscleGroupEmphasis["emphasis"]>>({});
-  const [isDecentralized, setIsDecentralized] = useState(false);;
+  const [isDecentralized, setIsDecentralized] = useState(false);
+  const [weekStartDay, setWeekStartDay] = useState(1); // 1 = Monday
+  const [weekStartDaySaved, setWeekStartDaySaved] = useState(true); // starts saved at default
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -116,6 +118,7 @@ export default function CreateProgram() {
         createdAt: new Date().toISOString(),
         currentWeekNumber: 1,
         isDecentralized,
+        weekStartDay: isDecentralized ? weekStartDay : undefined,
         weekStartedAt: new Date().toISOString(),
       });
 
@@ -303,24 +306,64 @@ export default function CreateProgram() {
               </div>
             )}
 
-            <button
-              onClick={() => setIsDecentralized(!isDecentralized)}
-              className={`w-full p-4 rounded-xl text-left flex items-center justify-between transition-all ${
-                isDecentralized ? "bg-primary/10 border border-primary/30" : "bg-card"
-              }`}
+            {/* Centralized / Decentralized toggle */}
+            <div
+              className="w-full rounded-xl overflow-hidden"
+              style={{ boxShadow: isDecentralized ? '0 0 0 1px color-mix(in srgb, var(--color-primary, #6366f1) 30%, transparent)' : undefined }}
             >
-              <div>
-                <p className="text-sm font-semibold">Decentralized program</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {isDecentralized
-                    ? "Train at your own pace — advance weeks manually or on Mondays."
-                    : "Training fills a standard 7-day calendar week."}
-                </p>
-              </div>
-              <div className={`w-10 h-6 rounded-full flex items-center transition-colors flex-shrink-0 ml-3 ${isDecentralized ? "bg-primary" : "bg-muted"}`}>
-                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${isDecentralized ? "translate-x-4" : "translate-x-0"}`} />
-              </div>
-            </button>
+              <button
+                onClick={() => setIsDecentralized(!isDecentralized)}
+                className={`w-full p-4 text-left flex items-center justify-between transition-colors ${
+                  isDecentralized ? "bg-primary/10" : "bg-card"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-semibold">
+                    {isDecentralized ? "Decentralized program" : "Centralized program"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isDecentralized
+                      ? "Train a programmed workout any day of the week, as many times as you want — weeks will advance on a set day of the week."
+                      : "Train programmed workouts in order — the week will auto-advance after all workouts are completed."}
+                  </p>
+                </div>
+                <div className={`w-10 h-6 rounded-full flex items-center transition-colors flex-shrink-0 ml-3 ${isDecentralized ? "bg-primary" : "bg-muted"}`}>
+                  <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-1 ${isDecentralized ? "translate-x-4" : "translate-x-0"}`} />
+                </div>
+              </button>
+
+              {isDecentralized && (
+                <div className="bg-primary/5 border-t border-primary/20 px-4 py-3 flex items-center gap-3">
+                  <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+                    Auto-advance on
+                  </label>
+                  <select
+                    value={weekStartDay}
+                    onChange={(e) => { setWeekStartDay(Number(e.target.value)); setWeekStartDaySaved(false); }}
+                    className="flex-1 h-9 rounded-xl bg-background border border-border text-sm px-3 focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value={0}>Sunday</option>
+                    <option value={1}>Monday</option>
+                    <option value={2}>Tuesday</option>
+                    <option value={3}>Wednesday</option>
+                    <option value={4}>Thursday</option>
+                    <option value={5}>Friday</option>
+                    <option value={6}>Saturday</option>
+                  </select>
+                  <button
+                    onClick={() => setWeekStartDaySaved(true)}
+                    disabled={weekStartDaySaved}
+                    className={`h-9 px-4 rounded-xl text-xs font-semibold transition-colors ${
+                      weekStartDaySaved
+                        ? "bg-muted text-muted-foreground cursor-default"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
+                    }`}
+                  >
+                    Saved
+                  </button>
+                </div>
+              )}
+            </div>
 
             <Button
               onClick={() => setStep(1)}

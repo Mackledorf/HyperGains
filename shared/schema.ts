@@ -22,6 +22,8 @@ export type Program = {
   isDecentralized?: boolean;
   // ISO date string tracking when the current training week started
   weekStartedAt?: string;
+  // Day of week on which the training week auto-advances (0 = Sunday … 6 = Saturday)
+  weekStartDay?: number;
 };
 
 export type ProgramExercise = {
