@@ -90,7 +90,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-lg mx-auto w-full px-5 py-4 pb-20">
+      <main className="flex-1 max-w-lg mx-auto w-full px-5 py-4 pb-20 no-scrollbar">
         {children}
       </main>
 
