@@ -585,6 +585,9 @@ function Step4Macros({
   const carbsG = Math.round((activeCalories * carbsPct) / 100 / 4);
   const splitTotal = proteinPct + carbsPct + fatPct;
 
+  // ── State ─ protein-first gate ──────────────────────────────────────────
+  const [proteinSet, setProteinSet] = useState(false);
+
   // ── Handlers ───────────────────────────────────────────────────────────
   const openEditor = () => { setCalorieInput(String(activeCalories)); setEditingCalories(true); };
   const commitEdit = () => {
@@ -592,9 +595,13 @@ function Step4Macros({
     if (!isNaN(val) && val > 500 && val < 10000) setCustomCalories(roundTo50(val));
     setEditingCalories(false);
   };
+  function snapTo5(val: number, delta: number): number {
+    if (val % 5 !== 0) return delta > 0 ? Math.ceil(val / 5) * 5 : Math.floor(val / 5) * 5;
+    return val + delta;
+  }
   function adjustPct(macro: "carbs" | "fat", delta: number) {
-    if (macro === "carbs") setCarbsPct((p) => Math.max(5, Math.min(90, p + delta)));
-    else setFatPct((p) => Math.max(5, Math.min(90, p + delta)));
+    if (macro === "carbs") setCarbsPct((p) => Math.max(5, Math.min(90, snapTo5(p, delta))));
+    else setFatPct((p) => Math.max(5, Math.min(90, snapTo5(p, delta))));
     setLastAdjusted(macro);
   }
   function autoFillPct(macro: "carbs" | "fat") {
@@ -719,7 +726,16 @@ function Step4Macros({
               onClick={() => setProteinPerLb((p) => Math.round((p + 0.1) * 10) / 10)}
               disabled={proteinPerLb >= PROTEIN_MAX}
             >+</button>
-            <div className="w-14 flex-shrink-0" />
+            <div className="w-14 flex-shrink-0">
+              {!proteinSet && (
+                <button
+                  className="w-full h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 active:scale-95 transition-all"
+                  onClick={() => setProteinSet(true)}
+                >
+                  Set
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -727,7 +743,7 @@ function Step4Macros({
         {macroAdjustRows.map(({ key, label, color, grams, pct }) => {
           const showAuto = splitTotal !== 100 && key !== lastAdjusted;
           return (
-            <div key={key} className="space-y-1.5">
+            <div key={key} className={`space-y-1.5 transition-opacity ${!proteinSet ? "opacity-40 pointer-events-none" : ""}`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold" style={{ color }}>{label}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{grams}g</span>

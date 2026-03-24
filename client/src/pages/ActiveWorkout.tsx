@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   Plus,
   Search,
+  MoreVertical,
 } from "lucide-react";
 import type {
   WorkoutSession,
@@ -52,6 +53,12 @@ export default function ActiveWorkout() {
   const [feedbackExerciseId, setFeedbackExerciseId] = useState<string | null>(null);
   // Show post-session check-in sheet after completing workout
   const [showCheckIn, setShowCheckIn] = useState(false);
+
+  // Menu + cancel state
+  const [showMenu, setShowMenu] = useState(false);
+  const [hideTimer, setHideTimer] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelAcknowledged, setCancelAcknowledged] = useState(false);
 
   // Ad-hoc: add exercise sheet state
   const [showAddExercise, setShowAddExercise] = useState(false);
@@ -259,6 +266,19 @@ export default function ActiveWorkout() {
     },
   });
 
+  const cancelWorkoutMutation = useMutation({
+    mutationFn: () => {
+      store.updateWorkoutSession(sessionId!, { status: "cancelled" });
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["inProgress"] });
+      toast({ title: "Workout cancelled" });
+      navigate("/");
+    },
+  });
+
   const completeWorkoutMutation = useMutation({
     mutationFn: () => {
       const updated = store.updateWorkoutSession(sessionId!, {
@@ -439,11 +459,44 @@ export default function ActiveWorkout() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="tabular-nums font-mono text-sm font-semibold text-foreground">
-              {formatTime(elapsedSeconds)}
-            </span>
+          <div className="flex items-center gap-2">
+            {!hideTimer && (
+              <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="tabular-nums font-mono text-sm font-semibold text-foreground">
+                  {formatTime(elapsedSeconds)}
+                </span>
+              </div>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu((m) => !m)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center bg-card transition-colors active:bg-muted"
+                aria-label="Workout menu"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+                  <div className="absolute right-0 top-10 z-40 w-48 rounded-xl bg-card border border-border shadow-lg py-1 overflow-hidden">
+                    <button
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+                      onClick={() => { setHideTimer((t) => !t); setShowMenu(false); }}
+                    >
+                      {hideTimer ? "Show Timer" : "Hide Timer"}
+                    </button>
+                    <div className="h-px bg-border mx-3" />
+                    <button
+                      className="w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-muted transition-colors"
+                      onClick={() => { setShowMenu(false); setCancelAcknowledged(false); setShowCancelConfirm(true); }}
+                    >
+                      Cancel Workout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -514,6 +567,53 @@ export default function ActiveWorkout() {
             "End Workout"
           )}
         </Button>
+
+        {/* Cancel workout confirmation overlay */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+            <div className="w-full max-w-sm rounded-2xl bg-card p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Cancel Workout?</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    This workout will be permanently deleted and cannot be restored.
+                  </p>
+                </div>
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={cancelAcknowledged}
+                  onChange={(e) => setCancelAcknowledged(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded accent-destructive shrink-0"
+                />
+                <span className="text-xs text-muted-foreground leading-snug">
+                  I understand this workout will be deleted and this cannot be undone.
+                </span>
+              </label>
+              <div className="space-y-2">
+                <Button
+                  variant="destructive"
+                  className="w-full rounded-xl h-10 text-sm font-semibold"
+                  disabled={!cancelAcknowledged || cancelWorkoutMutation.isPending}
+                  onClick={() => cancelWorkoutMutation.mutate()}
+                >
+                  Cancel Workout
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full rounded-xl h-10 text-sm font-semibold"
+                  onClick={() => { setShowCancelConfirm(false); setCancelAcknowledged(false); }}
+                >
+                  Go Back
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* End workout confirmation overlay */}
         {showEndConfirm && (
