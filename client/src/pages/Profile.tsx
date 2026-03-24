@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronRight, Dumbbell, Zap, Scale, Check, Pencil, Ruler, MoreVertical, Trash2 } from "lucide-react";
+import { Dumbbell, Zap, Scale, Check, Pencil, Ruler, Trash2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -185,7 +185,6 @@ export default function Profile() {
   });
 
   const [programToDelete, setProgramToDelete] = useState<Program | null>(null);
-  const [menuProgramId, setMenuProgramId] = useState<string | null>(null);
 
   const deleteProgramMutation = useMutation({
     mutationFn: (programId: string) => {
@@ -865,47 +864,17 @@ export default function Profile() {
                           Set Active
                         </Button>
                       )}
-                      
-                      <div className="relative">
-                        <button
-                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setMenuProgramId(menuProgramId === program.id ? null : program.id);
-                          }}
-                          aria-label="Program options"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {menuProgramId === program.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setMenuProgramId(null)} />
-                            <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl bg-card border border-border/50 shadow-lg overflow-hidden">
-                              <button
-                                className="w-full text-left px-4 py-3 text-sm hover:bg-muted/60 transition-colors flex items-center gap-2"
-                                onClick={() => {
-                                  setMenuProgramId(null);
-                                  navigate(`/program/${program.id}`);
-                                }}
-                              >
-                                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                                Edit / View
-                              </button>
-                              <button
-                                className="w-full text-left px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setMenuProgramId(null);
-                                  setProgramToDelete(program);
-                                }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Delete Program
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
+
+                      <button
+                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setProgramToDelete(program);
+                        }}
+                        aria-label={`Delete ${program.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
