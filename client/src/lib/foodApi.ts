@@ -165,12 +165,26 @@ function scoreOFFResult(
   let score = Math.max(0, 40 - index);
 
   const nameLower = item.name.toLowerCase();
+  const brandLower = (item.brand ?? "").toLowerCase();
+  const combined = `${brandLower} ${nameLower}`.trim();
   const q = query.toLowerCase().trim();
+  const words = q.split(/\s+/).filter(Boolean);
 
-  if (nameLower === q)                    score += 60;
-  else if (nameLower.startsWith(q + " ")) score += 40;
-  else if (nameLower.startsWith(q))       score += 35;
-  else if (nameLower.includes(" " + q))   score += 15;
+  // Whole-query match
+  if (nameLower === q)                      score += 60;
+  else if (nameLower.startsWith(q + " "))   score += 40;
+  else if (nameLower.startsWith(q))         score += 35;
+  else if (nameLower.includes(" " + q))     score += 20;
+  else if (nameLower.includes(q))           score += 10;
+
+  // Word-level match — every query word found in name or brand raises score
+  const matchedWords = words.filter(w =>
+    nameLower.includes(w) || brandLower.includes(w) || combined.includes(w)
+  );
+  score += (matchedWords.length / Math.max(words.length, 1)) * 25;
+
+  // Extra boost when brand word appears in query
+  if (brandLower && words.some(w => brandLower.includes(w))) score += 15;
 
   // Boost products whose language matches the browser language
   if (item._lang && item._lang === preferredLang) score += 25;
@@ -222,7 +236,7 @@ async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSear
     const key = getUsdaKey();
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
       query
-    )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Branded,Survey%20(FNDDS)&pageSize=10`;
+    )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Branded,Survey%20(FNDDS)&pageSize=20`;
     const res = await fetch(url, { signal });
     if (!res.ok) return [];
     const data = await res.json();
@@ -238,6 +252,7 @@ async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSear
       results.push({
         id: `usda_${food.fdcId}`,
         name: food.description,
+        brand: food.brandOwner || food.brandName || undefined,
         servingSizeG,
         servingSizeLabel: sizeLabel,
         caloriesPer100g: round1(calories),
@@ -261,12 +276,18 @@ async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSear
  *    1) Instant: prefix-filtered results from a related cached query
  *    2) Fast:    OFF results re-ranked by locale (~800ms)
  *    3) Full:    OFF + USDA merged (~1.5s)
- *  Results are cached in-memory for 30 minutes. */
+ *  Results are cached in-memory for 30 minutes.
+ *
+ *  When brand + item are provided separately (refine mode), fires three
+ *  queries in parallel (combined, brand-only, item-only) and merges them
+ *  so neither dimension is lost. */
 export async function searchFoods(
   query: string,
   signal?: AbortSignal,
   onPartial?: (results: FoodSearchResult[]) => void,
   onError?: (type: 'search_unavailable') => void,
+  brand?: string,
+  item?: string,
 ): Promise<FoodSearchResult[]> {
   const q = query.trim();
   if (!q) return [];
@@ -280,7 +301,6 @@ export async function searchFoods(
   const { lang, country } = getUserLocale();
 
   // ── 1. Instant prefix-cache results ────────────────────────────────────────
-  // If a related query is cached, filter and display matching items immediately.
   if (onPartial) {
     for (const [key, entry] of Array.from(_cache.entries())) {
       if (Date.now() - entry.at > CACHE_TTL_MS) continue;
@@ -307,9 +327,6 @@ export async function searchFoods(
       return rest as FoodSearchResult;
     }
 
-    // Split into two tiers:
-    //  • preferred: lang matches user locale, or lang is unset (benefit of the doubt)
-    //  • foreign:   lang is explicitly a different language — pushed to the end
     const preferred: OffResultWithMeta[] = [];
     const foreign: OffResultWithMeta[] = [];
     offResults.forEach(item => {
@@ -324,32 +341,33 @@ export async function searchFoods(
         .map(({ item }) => strip(item));
     }
 
-    // Preferred-locale results always come first; foreign-language results appear
-    // only if shown via "Show more" (they fill slots 9+).
     return [...scoreAndSort(preferred), ...scoreAndSort(foreign)];
   }
 
-  function mergeResults(off: FoodSearchResult[], usda: FoodSearchResult[]): FoodSearchResult[] {
+  function mergeResults(...groups: FoodSearchResult[][]): FoodSearchResult[] {
     const seen = new Set<string>();
     const merged: FoodSearchResult[] = [];
-    for (const item of [...off, ...usda]) {
+    for (const item of groups.flat()) {
       const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
       if (!seen.has(key)) { seen.add(key); merged.push(item); }
     }
-    return merged.slice(0, 20);
+    return merged.slice(0, 30);
   }
 
-  // ── 2. Fire both requests independently ────────────────────────────────────
-  // Track whether OFF failed (network/CORS/rate-limit) so we can surface a
-  // meaningful error to the UI instead of silently showing "no results".
-  let offFailed = false;
-  const offFetch = (async (): Promise<OffResultWithMeta[]> => {
+  // ── Decide which queries to fire ────────────────────────────────────────────
+  // Refine mode: brand + item supplied → fire 3 parallel queries and merge.
+  // Normal mode: single query.
+  const brandQ = brand?.trim() ?? "";
+  const itemQ  = item?.trim()  ?? "";
+  const isRefineMode = brandQ.length > 0 && itemQ.length > 0;
+
+  const fetchOFF = async (searchQ: string): Promise<OffResultWithMeta[]> => {
     try {
       const r = await fetch(
         `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
-        `&search_terms=${encodeURIComponent(q)}&json=1` +
+        `&search_terms=${encodeURIComponent(searchQ)}&json=1` +
         `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-        `&page_size=20&sort_by=popularity_key`,
+        `&page_size=30&sort_by=popularity_key`,
         { signal }
       );
       if (!r.ok) return [];
@@ -359,19 +377,73 @@ export async function searchFoods(
         .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
     } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
-      offFailed = true;  // network / CORS / 429 — capture for user feedback
+      return [];
+    }
+  };
+
+  let offFailed = false;
+
+  // ── 2. Fire requests ────────────────────────────────────────────────────────
+  let rerankedOff: FoodSearchResult[] = [];
+
+  if (isRefineMode) {
+    // Fire 3 OFF queries + 3 USDA queries in parallel, then merge
+    const [offCombined, offBrand, offItem, usdaCombined, usdaBrand, usdaItem] =
+      await Promise.all([
+        fetchOFF(q).catch(() => { offFailed = true; return [] as OffResultWithMeta[]; }),
+        fetchOFF(brandQ).catch(() => [] as OffResultWithMeta[]),
+        fetchOFF(itemQ).catch(() => [] as OffResultWithMeta[]),
+        searchUSDA(q, signal).catch(() => [] as FoodSearchResult[]),
+        searchUSDA(brandQ, signal).catch(() => [] as FoodSearchResult[]),
+        searchUSDA(itemQ, signal).catch(() => [] as FoodSearchResult[]),
+      ]);
+
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+    // Re-rank combined OFF query first (most relevant), then supplement with brand/item extras
+    const combinedRanked = rerankOFF(offCombined);
+    const brandRanked    = rerankOFF(offBrand);
+    const itemRanked     = rerankOFF(offItem);
+
+    rerankedOff = mergeResults(combinedRanked, brandRanked, itemRanked);
+    const results = mergeResults(rerankedOff, usdaCombined, usdaBrand, usdaItem);
+
+    if (results.length > 0) setCached(q, results);
+    else if (offFailed) onError?.('search_unavailable');
+
+    onPartial?.(results);
+    return results;
+  }
+
+  // Normal single-query path
+  const offFetch = (async (): Promise<OffResultWithMeta[]> => {
+    try {
+      const r = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
+        `&search_terms=${encodeURIComponent(q)}&json=1` +
+        `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
+        `&page_size=30&sort_by=popularity_key`,
+        { signal }
+      );
+      if (!r.ok) return [];
+      const d = await r.json();
+      return (d.products ?? [])
+        .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
+        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") throw e;
+      offFailed = true;
       return [];
     }
   })();
 
   const usdaFetch = searchUSDA(q, signal);
 
-  // Show OFF results as soon as they arrive, without waiting for USDA
-  let rerankedOff: FoodSearchResult[] = [];
+  // Show OFF results as soon as they arrive
   offFetch.then(off => {
     if (signal?.aborted) return;
     try { rerankedOff = rerankOFF(off); } catch { return; }
-    if (rerankedOff.length > 0) onPartial?.(rerankedOff);  // only if non-empty — don't clear stale results
+    if (rerankedOff.length > 0) onPartial?.(rerankedOff);
   }).catch(() => {});
 
   // ── 3. Wait for both, merge, cache, fire final onPartial ──────────────────
@@ -384,7 +456,6 @@ export async function searchFoods(
   if (results.length > 0) {
     setCached(q, results);
   } else if (offFailed) {
-    // Both sources empty and OFF failed — likely rate-limited or temporarily down
     onError?.('search_unavailable');
   }
   onPartial?.(results);

@@ -843,16 +843,29 @@ function AddFoodSheet({
     }
   }, [open]);
 
-  // Sync refine fields → combined query
+  // Sync refine fields → combined query (used only when one field is blank)
   useEffect(() => {
     if (!showRefine) return;
-    const combined = [refineBrand.trim(), refineItem.trim()].filter(Boolean).join(" ");
+    const brandT = refineBrand.trim();
+    const itemT  = refineItem.trim();
+    // When both fields have content, the search effect handles them directly —
+    // no need to update `query` (avoids double-firing).
+    if (brandT && itemT) return;
+    const combined = [brandT, itemT].filter(Boolean).join(" ");
     setQuery(combined);
   }, [showRefine, refineBrand, refineItem]);
 
-  // Debounced search — shows OFF results early via onPartial, then merges USDA results
+  // Debounced search — shows OFF results early via onPartial, then merges USDA results.
+  // In refine mode (both brand + item filled), fires parallel multi-query search.
   useEffect(() => {
-    const q = query.trim();
+    const brandT = showRefine ? refineBrand.trim() : "";
+    const itemT  = showRefine ? refineItem.trim()  : "";
+    const isRefineMode = brandT.length > 0 && itemT.length > 0;
+
+    const q = isRefineMode
+      ? [brandT, itemT].join(" ")
+      : query.trim();
+
     if (!q || q.length < 3) {
       setResults([]);
       setIsSearching(false);
@@ -869,11 +882,14 @@ function AddFoodSheet({
       const ctrl = abortRef.current;
       setIsSearching(true);
       try {
-        await searchFoods(q, ctrl.signal, (partial) => {
-          if (!ctrl.signal.aborted) setResults(partial);
-        }, (errorType) => {
-          if (!ctrl.signal.aborted) setSearchError(errorType);
-        });
+        await searchFoods(
+          q,
+          ctrl.signal,
+          (partial) => { if (!ctrl.signal.aborted) setResults(partial); },
+          (errorType) => { if (!ctrl.signal.aborted) setSearchError(errorType); },
+          isRefineMode ? brandT : undefined,
+          isRefineMode ? itemT  : undefined,
+        );
       } catch (e) {
         // AbortError = superseded by a newer query, keep showing stale results
         if ((e as Error)?.name !== "AbortError") setResults([]);
@@ -882,7 +898,7 @@ function AddFoodSheet({
       }
     }, 500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query]);
+  }, [query, showRefine, refineBrand, refineItem]);
 
   async function handleBarcode(barcode: string) {
     setScreen("search");
