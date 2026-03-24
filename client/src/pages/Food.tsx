@@ -22,6 +22,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import MacroBar from "@/components/MacroBar";
 import * as store from "@/lib/storage";
 import { searchFoods, lookupBarcode, type FoodSearchResult } from "@/lib/foodApi";
@@ -461,11 +467,13 @@ function fromGrams(grams: number, unit: ServingUnit, servingSizeG: number): numb
 function ServingScreen({
   food,
   today,
+  context,
   onBack,
   onSave,
 }: {
   food: FoodSearchResult;
   today: string;
+  context: AddContext;
   onBack: () => void;
   onSave: (servingG: number, loggedAt: string) => void;
 }) {
@@ -484,9 +492,23 @@ function ServingScreen({
       : []),
   ];
 
+  const isInMeal = context.type === "meal";
+
   const [unit, setUnit] = useState<ServingUnit>("serving");
   const [qty, setQty] = useState<string>("1");
-  const [logTime, setLogTime] = useState(() => isoToTimeInput(new Date().toISOString()));
+
+  // If in a meal, we use the meal's time (passed via buildLoggedAt later if needed,
+  // but for the UI we show the state of logTime).
+  // Actually, for a meal, we should probably just show the meal's current time if we can,
+  // or just lock it to whatever the "loggedAt" value will be.
+  // The store.createFoodEntry will set the mealId.
+  const [logTime, setLogTime] = useState(() => {
+    if (context.type === "meal") {
+      const meal = store.getMeals().find(m => m.id === context.mealId);
+      if (meal) return isoToTimeInput(meal.loggedAt);
+    }
+    return isoToTimeInput(new Date().toISOString());
+  });
 
   function handleUnitChange(newUnit: ServingUnit) {
     const currentG = toGrams(parseFloat(qty) || 1, unit, defaultServingG);
@@ -573,17 +595,29 @@ function ServingScreen({
 
       {/* Log time — lets the user back-fill food logged at an earlier time */}
       <div className="space-y-1.5">
-        <Label htmlFor="log-time">Time</Label>
-        <div className="relative">
-          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            id="log-time"
-            type="time"
-            value={logTime}
-            onChange={(e) => setLogTime(e.target.value)}
-            className="rounded-xl pl-9"
-          />
-        </div>
+        <Label htmlFor="log-time" className={isInMeal ? "opacity-50" : ""}>Time</Label>
+        <TooltipProvider>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <div className="relative">
+                <Clock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${isInMeal ? "opacity-50" : ""}`} />
+                <Input
+                  id="log-time"
+                  type="time"
+                  value={logTime}
+                  disabled={isInMeal}
+                  onChange={(e) => setLogTime(e.target.value)}
+                  className={`rounded-xl pl-9 ${isInMeal ? "bg-muted cursor-not-allowed opacity-50" : ""}`}
+                />
+              </div>
+            </TooltipTrigger>
+            {isInMeal && (
+              <TooltipContent side="top" className="max-w-[200px] text-center">
+                Food time is set to match the meal time
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <Button
@@ -1000,6 +1034,7 @@ function AddFoodSheet({
           <ServingScreen
             food={selectedFood}
             today={today}
+            context={context}
             onBack={() => setScreen("search")}
             onSave={saveFood}
           />

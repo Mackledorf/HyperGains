@@ -70,12 +70,6 @@ function cmToFtIn(cm: number): { ft: number; inches: number } {
 }
 function ftInToCm(ft: number, inches: number) { return Math.round((ft * 12 + inches) * 2.54 * 10) / 10; }
 function calcBmi(weightKg: number, heightCm: number) { return parseFloat((weightKg / Math.pow(heightCm / 100, 2)).toFixed(1)); }
-function bmiCategory(bmi: number) {
-  if (bmi < 18.5) return "Underweight";
-  if (bmi < 25) return "Normal";
-  if (bmi < 30) return "Overweight";
-  return "Obese";
-}
 
 // ── Main component ─────────────────────────────────────────
 
@@ -471,7 +465,7 @@ export default function Profile() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">BMI</span>
                     <span className="text-sm font-medium">
-                      {bmi} <span className="text-xs text-muted-foreground font-normal">({bmiCategory(bmi)})</span>
+                      {bmi}
                     </span>
                   </div>
                 );
