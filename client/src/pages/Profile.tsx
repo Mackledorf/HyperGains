@@ -61,8 +61,8 @@ const RATE_OPTIONS_GAIN = [0.25, 0.5, 1];
 
 // ── Conversion helpers ─────────────────────────────────────
 
-function kgToLbs(kg: number) { return parseFloat((kg * 2.2046).toFixed(1)); }
-function lbsToKg(lbs: number) { return parseFloat((lbs / 2.2046).toFixed(1)); }
+function kgToLbs(kg: number) { return Math.round(kg * 2.20462 * 10) / 10; }
+function lbsToKg(lbs: number) { return Math.round((lbs / 2.20462) * 100) / 100; }
 function roundWeight(kg: number) { return Math.round(kg * 10) / 10; }
 function cmToFtIn(cm: number): { ft: number; inches: number } {
   const totalIn = cm / 2.54;
@@ -253,7 +253,10 @@ export default function Profile() {
     mutationFn: () => {
       const val = parseFloat(weightDisplay);
       if (isNaN(val) || val <= 0) return Promise.resolve();
-      const weightKg = unitSystem === "imperial" ? lbsToKg(val) : val;
+      
+      const roundedVal = Math.round(val * 10) / 10;
+      const weightKg = unitSystem === "imperial" ? lbsToKg(roundedVal) : roundedVal;
+      
       store.addWeightEntry(weightKg, timeOfDay, fed);
       const current = store.getProfile();
       if (current) store.saveProfile({ ...current, weightKg });
