@@ -631,210 +631,289 @@ function ServingScreen({
   );
 }
 
+// ── SegmentedControl ─────────────────────────────────────────────────────────
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex rounded-xl overflow-hidden border border-border text-xs font-semibold">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`flex-1 py-2.5 transition-colors ${
+            value === opt.value
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── GoalsSheet ────────────────────────────────────────────────────────────────
+
+type CalorieMode = "deficit" | "maintenance" | "surplus";
 
 function GoalsSheet({
   open,
   onClose,
   onSaved,
 }: { open: boolean; onClose: () => void; onSaved: () => void }) {
-  const [mode, setMode] = useState<"percent" | "grams">("percent");
+  // ── Derived weight info ──
+  const profile = store.getProfile();
+  const weightKgInput = profile?.weightKg ?? 0;
+  // Use precise conversion
+  const weightLbs = weightKgInput ? Math.round(weightKgInput * 2.20462 * 10) / 10 : null;
+
+  // ── State ───────────────────────────────────────────────────────────────
+  const [mode, setMode] = useState<CalorieMode>("maintenance");
   const [calorieInput, setCalorieInput] = useState("2000");
+  const [editingCalories, setEditingCalories] = useState(false);
   const [waterOz, setWaterOz] = useState(64);
-  const [splits, setSplits] = useState({ carbs: "50", protein: "20", fat: "30" });
-  const [lastChanged, setLastChanged] = useState<"carbs" | "protein" | "fat" | null>(null);
-  const [gramGoals, setGramGoals] = useState({ carbs: 250, protein: 100, fat: 67 });
+
+  // Protein as a direct gram target (5g steps)
+  const [proteinG, setProteinG] = useState(150);
+  const [proteinSet, setProteinSet] = useState(true);
+
+  // Carbs & fat as % of total calories
+  const [carbsPct, setCarbsPct] = useState(50);
+  const [fatPct, setFatPct] = useState(30);
+  const [lastAdjusted, setLastAdjusted] = useState<"carbs" | "fat" | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const g = store.getNutritionGoals();
     setCalorieInput(String(g.calorieTarget));
     setWaterOz(g.waterTargetOz);
+    setProteinG(g.proteinTargetG);
+
     if (g.calorieTarget > 0) {
       const cPct = Math.round((g.carbsTargetG * 4 / g.calorieTarget) * 100);
-      const pPct = Math.round((g.proteinTargetG * 4 / g.calorieTarget) * 100);
       const fPct = Math.round((g.fatTargetG * 9 / g.calorieTarget) * 100);
-      const sum = cPct + pPct + fPct;
-      setSplits(sum >= 95 && sum <= 105
-        ? { carbs: String(cPct), protein: String(pPct), fat: String(fPct) }
-        : { carbs: "50", protein: "20", fat: "30" });
-    } else {
-      setSplits({ carbs: "50", protein: "20", fat: "30" });
+      setCarbsPct(cPct);
+      setFatPct(fPct);
+      
+      const bodyGoal = profile?.bodyWeightGoal;
+      setMode(bodyGoal === "gain" ? "surplus" : bodyGoal === "lose" ? "deficit" : "maintenance");
     }
-    setLastChanged(null);
-    setMode("percent");
-  }, [open]);
+  }, [open, profile?.bodyWeightGoal]);
 
-  const calories = parseFloat(calorieInput) || 0;
-  function parseSplit(v: string) { const n = parseInt(v, 10); return isNaN(n) ? 0 : Math.max(0, Math.min(100, n)); }
-  const splitTotal = parseSplit(splits.carbs) + parseSplit(splits.protein) + parseSplit(splits.fat);
+  const activeCalories = parseInt(calorieInput) || 2000;
 
-  function calcGrams(macro: "carbs" | "protein" | "fat") {
-    return Math.round((calories * parseSplit(splits[macro]) / 100) / (macro === "fat" ? 9 : 4));
+  // ── Macro calculations ──────────────────────────────────────────────────
+  const proteinPct = Math.round((proteinG * 4 / activeCalories) * 100);
+  const proteinPerLbDisplay = weightLbs ? (proteinG / weightLbs).toFixed(2).replace(/\.?0+$/, "") : null;
+  const fatG = Math.round((activeCalories * fatPct) / 100 / 9);
+  const carbsG = Math.round((activeCalories * carbsPct) / 100 / 4);
+  const splitTotal = proteinPct + carbsPct + fatPct;
+
+  // ── Handlers ───────────────────────────────────────────────────────────
+  const commitEdit = () => {
+    const val = parseInt(calorieInput);
+    if (!isNaN(val) && val > 500 && val < 10000) setCalorieInput(String(Math.round(val / 50) * 50));
+    setEditingCalories(false);
+  };
+  function snapTo5(val: number, delta: number): number {
+    if (val % 5 !== 0) return delta > 0 ? Math.ceil(val / 5) * 5 : Math.floor(val / 5) * 5;
+    return val + delta;
   }
-
-  function adjustSplit(macro: "carbs" | "protein" | "fat", delta: number) {
-    setSplits(s => ({ ...s, [macro]: String(Math.max(0, Math.min(100, parseSplit(s[macro]) + delta))) }));
-    setLastChanged(macro);
+  function adjustPct(macro: "carbs" | "fat", delta: number) {
+    if (macro === "carbs") setCarbsPct((p) => Math.max(5, Math.min(90, snapTo5(p, delta))));
+    else setFatPct((p) => Math.max(5, Math.min(90, snapTo5(p, delta))));
+    setLastAdjusted(macro);
   }
-
-  function typeSplit(macro: "carbs" | "protein" | "fat", val: string) {
-    // Allow empty string so user can fully clear the field
-    setSplits(s => ({ ...s, [macro]: val }));
-    setLastChanged(macro);
-  }
-
-  function autoFill(macro: "carbs" | "protein" | "fat") {
-    const others = (["carbs", "protein", "fat"] as const).filter(m => m !== macro);
-    const otherSum = others.reduce((sum, m) => sum + parseSplit(splits[m]), 0);
-    setSplits(s => ({ ...s, [macro]: String(Math.max(0, 100 - otherSum)) }));
-    setLastChanged(macro);
-  }
-
-  function switchToGrams() {
-    setGramGoals({ carbs: calcGrams("carbs"), protein: calcGrams("protein"), fat: calcGrams("fat") });
-    setMode("grams");
+  function autoFillPct(macro: "carbs" | "fat") {
+    const other = macro === "carbs" ? fatPct : carbsPct;
+    const filled = Math.max(5, 100 - proteinPct - other);
+    if (macro === "carbs") setCarbsPct(filled);
+    else setFatPct(filled);
+    setLastAdjusted(macro);
   }
 
   function save() {
-    const base = store.getNutritionGoals();
     store.saveNutritionGoals({
-      ...base,
-      calorieTarget: calories,
+      calorieTarget: activeCalories,
       waterTargetOz: waterOz,
-      ...(mode === "percent"
-        ? { carbsTargetG: calcGrams("carbs"), proteinTargetG: calcGrams("protein"), fatTargetG: calcGrams("fat") }
-        : { carbsTargetG: gramGoals.carbs, proteinTargetG: gramGoals.protein, fatTargetG: gramGoals.fat }
-      ),
+      proteinTargetG: proteinG,
+      carbsTargetG: carbsG,
+      fatTargetG: fatG,
     });
     onSaved();
     onClose();
   }
 
-  const macroConfig: Array<{ macro: "carbs" | "protein" | "fat"; label: string; color: string }> = [
-    { macro: "carbs",   label: "Carbs",   color: MACRO_COLORS.carbs },
-    { macro: "protein", label: "Protein", color: MACRO_COLORS.protein },
-    { macro: "fat",     label: "Fat",     color: MACRO_COLORS.fat },
-  ];
-
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
         <SheetHeader className="mb-5">
           <SheetTitle>Daily Goals</SheetTitle>
         </SheetHeader>
-        <div className="space-y-5">
+        <div className="space-y-6">
 
-          {/* Calories */}
-          <div className="space-y-1.5">
-            <Label htmlFor="goal-calories">Calories (kcal)</Label>
-            <Input
-              id="goal-calories"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={calorieInput}
-              onChange={e => setCalorieInput(e.target.value)}
-              className="rounded-xl"
-            />
-          </div>
+          {/* Deficit / Maintenance / Surplus */}
+          <SegmentedControl
+            options={[
+              { label: "Deficit",     value: "deficit" },
+              { label: "Maintenance", value: "maintenance" },
+              { label: "Surplus",     value: "surplus" },
+            ]}
+            value={mode}
+            onChange={(v) => { setMode(v); }}
+          />
 
-          {/* Mode toggle */}
-          <div className="flex gap-1 p-1 bg-muted rounded-xl">
-            <button
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                mode === "percent" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
-              onClick={() => setMode("percent")}
-            >% Split</button>
-            <button
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                mode === "grams" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-              }`}
-              onClick={switchToGrams}
-            >Custom Grams</button>
-          </div>
+          <div className="rounded-2xl bg-muted/30 p-4 space-y-6">
+            {/* Calorie target — tappable big number */}
+            <div className="flex flex-col items-center text-center">
+              {editingCalories ? (
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={calorieInput}
+                  autoFocus
+                  onChange={(e) => setCalorieInput(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingCalories(false); }}
+                  className="text-5xl font-bold tabular-nums leading-none tracking-tighter w-40 text-center bg-transparent border-b-2 border-primary outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingCalories(true)}
+                  className="text-5xl font-bold tabular-nums leading-none tracking-tighter hover:text-primary transition-colors"
+                >
+                  {activeCalories}
+                </button>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1.5 uppercase tracking-widest font-semibold text-primary/80">kcal / day</p>
+              <p className="text-[10px] text-muted-foreground/50 mt-1">Tap to edit</p>
+            </div>
 
-          {/* Percent split mode */}
-          {mode === "percent" && (
-            <div className="space-y-4">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Total split</span>
-                <span className={splitTotal === 100 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
-                  {splitTotal}%{splitTotal !== 100 && ` (${splitTotal > 100 ? "+" : ""}${splitTotal - 100}%)`}
+            {/* Split total indicator */}
+            <div className="flex justify-between text-xs border-t border-border/50 pt-4">
+              <span className="text-muted-foreground font-medium">Total split</span>
+              <span className={splitTotal === 100 ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                {splitTotal}%{splitTotal !== 100 && ` (${splitTotal > 100 ? "+" : ""}${splitTotal - 100}%)`}
+              </span>
+            </div>
+
+            {/* Protein row — direct gram stepper */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold" style={{ color: MACRO_COLORS.protein }}>
+                  Protein
+                  {proteinPerLbDisplay && (
+                    <span className="ml-1.5 text-muted-foreground/60 font-normal">
+                      ({proteinPerLbDisplay}g / lb)
+                    </span>
+                  )}
                 </span>
+                <span className="text-xs text-muted-foreground tabular-nums">{proteinG}g · {proteinPct}%</span>
               </div>
-
-              {macroConfig.map(({ macro, label, color }) => {
-                const pct = splits[macro];
-                const pctNum = parseSplit(pct);
-                const grams = calcGrams(macro);
-                const showAuto = splitTotal !== 100 && macro !== lastChanged;
-                return (
-                  <div key={macro} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold" style={{ color }}>{label}</span>
-                      <span className="text-xs text-muted-foreground tabular-nums">{grams}g</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-                        onClick={() => adjustSplit(macro, -5)}
-                        disabled={pctNum <= 0}
-                      >−</button>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        max="100"
-                        value={pct}
-                        onChange={e => typeSplit(macro, e.target.value)}
-                        className="flex-1 h-8 rounded-lg bg-muted text-center text-sm font-mono border border-transparent focus:border-primary focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                      <button
-                        className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
-                        onClick={() => adjustSplit(macro, 5)}
-                        disabled={pctNum >= 100}
-                      >+</button>
-                      <div className="w-14 flex-shrink-0">
-                        {showAuto && (
-                          <button
-                            className="w-full h-8 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all"
-                            onClick={() => autoFill(macro)}
-                          >Auto</button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Custom grams mode */}
-          {mode === "grams" && (
-            <div className="space-y-3">
-              {macroConfig.map(({ macro, label, color }) => (
-                <div key={macro} className="space-y-1.5">
-                  <Label htmlFor={`goal-g-${macro}`} style={{ color }}>{label} (g)</Label>
-                  <Input
-                    id={`goal-g-${macro}`}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    value={gramGoals[macro]}
-                    onChange={e => setGramGoals(g => ({ ...g, [macro]: parseFloat(e.target.value) || 0 }))}
-                    className="rounded-xl"
-                  />
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => setProteinG((g) => Math.max(50, g - 5))}
+                  disabled={proteinG <= 50}
+                >−</button>
+                <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
+                  {proteinG}g
                 </div>
-              ))}
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => setProteinG((g) => Math.min(400, g + 5))}
+                  disabled={proteinG >= 400}
+                >+</button>
+                <div className="w-14 flex-shrink-0">
+                  {!proteinSet && (
+                    <button
+                      className="w-full h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 active:scale-95 transition-all"
+                      onClick={() => setProteinSet(true)}
+                    >
+                      Set
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Carbs row — % stepper */}
+            <div className={`space-y-1.5 transition-opacity ${!proteinSet ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold" style={{ color: MACRO_COLORS.carbs }}>Carbs</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{carbsG}g</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct("carbs", -5)}
+                  disabled={carbsPct <= 5}
+                >−</button>
+                <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
+                  {carbsPct}%
+                </div>
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct("carbs", 5)}
+                  disabled={carbsPct >= 90}
+                >+</button>
+                <div className="w-14 flex-shrink-0">
+                  {(splitTotal !== 100 && lastAdjusted !== "carbs") && (
+                    <button
+                      className="w-full h-8 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all"
+                      onClick={() => autoFillPct("carbs")}
+                    >Auto</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Fat row — % stepper */}
+            <div className={`space-y-1.5 transition-opacity ${!proteinSet ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold" style={{ color: MACRO_COLORS.fat }}>Fat</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{fatG}g</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct("fat", -5)}
+                  disabled={fatPct <= 5}
+                >−</button>
+                <div className="flex-1 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-mono font-bold">
+                  {fatPct}%
+                </div>
+                <button
+                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center font-bold text-lg leading-none hover:bg-muted/70 active:scale-95 transition-all disabled:opacity-40"
+                  onClick={() => adjustPct("fat", 5)}
+                  disabled={fatPct >= 90}
+                >+</button>
+                <div className="w-14 flex-shrink-0">
+                  {(splitTotal !== 100 && lastAdjusted !== "fat") && (
+                    <button
+                      className="w-full h-8 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25 active:scale-95 transition-all"
+                      onClick={() => autoFillPct("fat")}
+                    >Auto</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Water */}
           <div className="space-y-1.5">
-            <Label htmlFor="goal-water">Water (oz)</Label>
+            <Label htmlFor="goal-water">Daily Water (oz)</Label>
             <Input
               id="goal-water"
               type="number"
@@ -847,13 +926,13 @@ function GoalsSheet({
           </div>
 
           <Button
-            className="w-full rounded-xl h-11 mt-2"
-            disabled={mode === "percent" && splitTotal !== 100}
+            className="w-full rounded-xl h-12 mt-2"
+            disabled={splitTotal !== 100}
             onClick={save}
           >
             Save Goals
           </Button>
-          {mode === "percent" && splitTotal !== 100 && (
+          {splitTotal !== 100 && (
             <p className="text-center text-xs text-red-400 -mt-2">Percentages must sum to 100%</p>
           )}
         </div>
