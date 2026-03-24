@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Dumbbell, Zap, Scale, Check, Pencil, Ruler, Trash2 } from "lucide-react";
+import { Dumbbell, Zap, Scale, Check, Pencil, Ruler, Trash2, History } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -281,13 +281,23 @@ export default function Profile() {
             <h1 className="text-lg font-bold">{userName}</h1>
             <p className="micro-label mt-0.5">Personal details &amp; goals</p>
           </div>
-          <button
-            onClick={() => setIsEditing((v) => !v)}
-            className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={isEditing ? "Finish editing" : "Edit profile"}
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/history">
+              <button
+                className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="View history"
+              >
+                <History className="w-4 h-4" />
+              </button>
+            </Link>
+            <button
+              onClick={() => setIsEditing((v) => !v)}
+              className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isEditing ? "Finish editing" : "Edit profile"}
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── Section A: Personal Info ── */}
