@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import * as store from "@/lib/storage";
@@ -11,6 +11,8 @@ import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getMuscleTagStyle } from "@/lib/muscleColors";
 import { useToast } from "@/hooks/use-toast";
 import ExerciseFeedbackSheet from "@/components/ExerciseFeedbackSheet";
 import PostSessionCheckInSheet from "@/components/PostSessionCheckInSheet";
@@ -28,6 +30,7 @@ import {
   Plus,
   Search,
   MoreVertical,
+  Pencil,
 } from "lucide-react";
 import type {
   WorkoutSession,
@@ -63,7 +66,11 @@ export default function ActiveWorkout() {
   // Ad-hoc: add exercise sheet state
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [exSearch, setExSearch] = useState("");
-  const [exMuscleFilter, setExMuscleFilter] = useState<string>("All");
+  const [exPickerMuscle, setExPickerMuscle] = useState("");
+  const [exCustomMode, setExCustomMode] = useState(false);
+  const [exCustomName, setExCustomName] = useState("");
+  const [exCustomMuscle, setExCustomMuscle] = useState("");
+  const exSearchRef = useRef<HTMLInputElement>(null);
   const [adHocExercises, setAdHocExercises] = useState<ProgramExercise[]>([]);
 
   // Workout timer
@@ -533,7 +540,7 @@ export default function ActiveWorkout() {
           <Button
             variant="outline"
             className="w-full rounded-xl h-11 text-sm"
-            onClick={() => { setExSearch(""); setExMuscleFilter("All"); setShowAddExercise(true); }}
+            onClick={() => { setExSearch(""); setExPickerMuscle(""); setExCustomMode(false); setExCustomName(""); setExCustomMuscle(""); setShowAddExercise(true); }}
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Exercise
@@ -679,88 +686,185 @@ export default function ActiveWorkout() {
       )}
 
       {/* Add Exercise sheet (ad-hoc only) */}
-      {showAddExercise && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm">
-          <div className="bg-background rounded-t-3xl max-h-[80vh] flex flex-col">
-            {/* Sheet header */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <h2 className="text-base font-bold">Add Exercise</h2>
-              <button
-                className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
-                onClick={() => setShowAddExercise(false)}
-              >
-                <span className="text-sm font-bold leading-none">✕</span>
-              </button>
-            </div>
+      {showAddExercise && (() => {
+        const filteredExercises = (() => {
+          if (exSearch.trim()) {
+            const q = exSearch.toLowerCase();
+            const results: { name: string; muscleGroup: string }[] = [];
+            for (const [mg, exercises] of Object.entries(EXERCISE_DB)) {
+              for (const ex of exercises) {
+                if (ex.toLowerCase().includes(q)) results.push({ name: ex, muscleGroup: mg });
+              }
+            }
+            return results;
+          }
+          if (exPickerMuscle) {
+            return (EXERCISE_DB[exPickerMuscle] || []).map(name => ({ name, muscleGroup: exPickerMuscle }));
+          }
+          return [];
+        })();
 
-            {/* Search */}
-            <div className="px-5 pb-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  value={exSearch}
-                  onChange={(e) => setExSearch(e.target.value)}
-                  placeholder="Search exercises…"
-                  className="pl-9 rounded-xl h-10"
-                />
+        const addExercise = (exerciseName: string, muscleGroup: string) => {
+          const newEx = store.addAdHocExercise(sessionId!, { exerciseName, muscleGroup });
+          setAdHocExercises((prev) => [...prev, newEx]);
+          setExerciseSets((prev) => ({
+            ...prev,
+            [newEx.id]: [
+              { setNumber: 1, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+              { setNumber: 2, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+              { setNumber: 3, weight: "", reps: "", rir: "2", completed: false, skipped: false },
+            ],
+          }));
+          setShowAddExercise(false);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm">
+            <div className="bg-background rounded-t-3xl max-h-[85vh] flex flex-col">
+              {/* Sheet header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h2 className="text-base font-bold">Add Exercise</h2>
+                <button
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center"
+                  onClick={() => setShowAddExercise(false)}
+                >
+                  <span className="text-sm font-bold leading-none">✕</span>
+                </button>
+              </div>
+
+              <div className="rounded-2xl bg-card mx-4 mb-4 overflow-hidden flex flex-col min-h-0">
+                {/* Search */}
+                <div className="p-3 border-b border-border/30">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      ref={exSearchRef}
+                      value={exSearch}
+                      onChange={(e) => { setExSearch(e.target.value); setExPickerMuscle(""); }}
+                      placeholder="Search exercises…"
+                      className="pl-9 rounded-xl bg-muted border-0 h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {!exCustomMode && (
+                  <>
+                    {/* Muscle group chips — only when not searching */}
+                    {!exSearch && (
+                      <div className="p-3 border-b border-border/30">
+                        <div className="flex flex-wrap gap-1.5">
+                          {MUSCLE_GROUPS.map(mg => (
+                            <button
+                              key={mg}
+                              onClick={() => { setExPickerMuscle(mg); setExSearch(""); }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                exPickerMuscle !== mg ? "bg-muted text-muted-foreground active:bg-muted/80" : ""
+                              }`}
+                              style={exPickerMuscle === mg ? getMuscleTagStyle(mg) : undefined}
+                            >
+                              {mg}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Exercise list — shown when search query or muscle chip active */}
+                    {(exSearch || exPickerMuscle) && (
+                      <div className="overflow-y-auto" style={{ maxHeight: "40vh" }}>
+                        {filteredExercises.length > 0 ? (
+                          filteredExercises.map((ex, idx) => (
+                            <button
+                              key={`${ex.muscleGroup}-${ex.name}-${idx}`}
+                              onClick={() => addExercise(ex.name, ex.muscleGroup)}
+                              className="w-full px-4 py-2.5 text-left flex items-center justify-between hover:bg-white/[0.03] active:bg-white/[0.06] transition-colors border-t border-border/20 first:border-0"
+                            >
+                              <span className="text-sm font-medium">{ex.name}</span>
+                              {exSearch && (
+                                <span
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide"
+                                  style={getMuscleTagStyle(ex.muscleGroup)}
+                                >
+                                  {ex.muscleGroup}
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No exercises found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Custom exercise form */}
+                {exCustomMode && (
+                  <div className="p-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Exercise Name</Label>
+                      <Input
+                        placeholder="e.g. Reverse Pec Deck"
+                        value={exCustomName}
+                        onChange={e => setExCustomName(e.target.value)}
+                        className="rounded-xl bg-muted border-0 h-9 text-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Muscle Group</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {MUSCLE_GROUPS.map(mg => (
+                          <button
+                            key={mg}
+                            onClick={() => setExCustomMuscle(mg)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                              exCustomMuscle !== mg ? "bg-muted text-muted-foreground" : ""
+                            }`}
+                            style={exCustomMuscle === mg ? getMuscleTagStyle(mg) : undefined}
+                          >
+                            {mg}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (exCustomName.trim() && exCustomMuscle) {
+                          addExercise(exCustomName.trim(), exCustomMuscle);
+                        }
+                      }}
+                      disabled={!exCustomName.trim() || !exCustomMuscle}
+                      className="w-full rounded-xl h-9 text-sm"
+                    >
+                      Add Custom Exercise
+                    </Button>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="p-3 border-t border-border/30 flex items-center justify-between">
+                  <button
+                    onClick={() => { setExCustomMode(!exCustomMode); setExCustomName(""); setExCustomMuscle(""); }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    {exCustomMode ? "Browse Exercises" : "Custom Exercise"}
+                  </button>
+                  <button
+                    onClick={() => setShowAddExercise(false)}
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
-
-            {/* Muscle group chips */}
-            <div className="px-5 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
-              {["All", ...MUSCLE_GROUPS].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setExMuscleFilter(g)}
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    exMuscleFilter === g
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-
-            {/* Exercise list */}
-            <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-1">
-              {(exMuscleFilter === "All" ? MUSCLE_GROUPS.slice() : [exMuscleFilter as typeof MUSCLE_GROUPS[number]])
-                .flatMap((mg) =>
-                  (EXERCISE_DB[mg] || [])
-                    .filter((ex) =>
-                      exSearch.trim() === "" ||
-                      ex.toLowerCase().includes(exSearch.toLowerCase())
-                    )
-                    .map((ex) => ({ exerciseName: ex, muscleGroup: mg }))
-                )
-                .map(({ exerciseName, muscleGroup }) => (
-                  <button
-                    key={`${muscleGroup}-${exerciseName}`}
-                    className="w-full text-left px-4 py-3 rounded-xl bg-card hover:bg-muted/60 transition-colors"
-                    onClick={() => {
-                      const newEx = store.addAdHocExercise(sessionId!, { exerciseName, muscleGroup });
-                      setAdHocExercises((prev) => [...prev, newEx]);
-                      // Initialize empty sets for the new exercise
-                      setExerciseSets((prev) => ({
-                        ...prev,
-                        [newEx.id]: [
-                          { setNumber: 1, weight: "", reps: "", rir: "2", completed: false, skipped: false },
-                          { setNumber: 2, weight: "", reps: "", rir: "2", completed: false, skipped: false },
-                          { setNumber: 3, weight: "", reps: "", rir: "2", completed: false, skipped: false },
-                        ],
-                      }));
-                      setShowAddExercise(false);
-                    }}
-                  >
-                    <p className="text-sm font-semibold">{exerciseName}</p>
-                    <p className="text-xs text-muted-foreground">{muscleGroup}</p>
-                  </button>
-                ))}
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </AppShell>
   );
 }

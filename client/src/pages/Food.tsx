@@ -60,6 +60,39 @@ function computeMacros(food: FoodSearchResult, servingG: number) {
   };
 }
 
+/**
+ * Returns a human-readable serving amount for a food entry row.
+ * Liquids (detected by "ml" or "fl oz" in servingSizeLabel) are shown as
+ * number-of-servings when a ml denominator can be parsed, otherwise in fl oz.
+ * Solid foods are shown in grams, rounded to a whole number.
+ */
+function formatServingDisplay(servingG: number, servingSizeLabel: string): string {
+  const label = servingSizeLabel ?? "";
+  if (!/\bml\b|fl\.?\s*oz/i.test(label)) {
+    return `${Math.round(servingG)}g`;
+  }
+  // Liquid: try to express as number of default servings using the mL in the label
+  const mlM = label.match(/(\d+(?:\.\d+)?)\s*ml/i);
+  if (mlM) {
+    const denom = parseFloat(mlM[1]);
+    if (denom > 0) {
+      const n = Math.round((servingG / denom) * 10) / 10;
+      if (n > 0) return `${n} srv`;
+    }
+  }
+  // Try fl oz denomination in the label
+  const flozM = label.match(/(\d+(?:\.\d+)?)\s*fl\.?\s*oz/i);
+  if (flozM) {
+    const denomFloz = parseFloat(flozM[1]);
+    if (denomFloz > 0) {
+      const n = Math.round((servingG / (denomFloz * 29.5735)) * 10) / 10;
+      if (n > 0) return `${n} srv`;
+    }
+  }
+  // No usable denomination — fall back to fl oz
+  return `${Math.round((servingG / 29.5735) * 10) / 10} fl oz`;
+}
+
 /** Convert an ISO timestamp to "HH:MM" for <input type="time"> (local time). */
 function isoToTimeInput(iso: string): string {
   const d = new Date(iso);
@@ -231,7 +264,7 @@ function FoodEntryRow({
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{entry.name}</p>
         <p className="text-xs text-muted-foreground">
-          {entry.servingG}g · {Math.round(entry.calories)} kcal
+          {formatServingDisplay(entry.servingG, entry.servingSizeLabel)} · {Math.round(entry.calories)} kcal
         </p>
       </div>
       <div className="flex items-center gap-3 flex-shrink-0 ml-2">
@@ -375,7 +408,7 @@ function StandaloneFoodCard({
           <p className="text-xs text-muted-foreground">{entry.brand}</p>
         )}
         <p className="text-xs text-muted-foreground mt-0.5">
-          {entry.servingG}g · {Math.round(entry.calories)} kcal ·{" "}
+          {formatServingDisplay(entry.servingG, entry.servingSizeLabel)} · {Math.round(entry.calories)} kcal ·{" "}
           P {Math.round(entry.proteinG)}g · C {Math.round(entry.carbsG)}g · F {Math.round(entry.fatG)}g
         </p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">

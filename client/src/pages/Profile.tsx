@@ -52,8 +52,9 @@ const RATE_OPTIONS_GAIN = [0.25, 0.5, 1];
 
 // ── Conversion helpers ─────────────────────────────────────
 
-function kgToLbs(kg: number) { return Math.round(kg * 2.2046 * 10) / 10; }
-function lbsToKg(lbs: number) { return Math.round(lbs / 2.2046 * 10) / 10; }
+function kgToLbs(kg: number) { return parseFloat((kg * 2.2046).toFixed(1)); }
+function lbsToKg(lbs: number) { return parseFloat((lbs / 2.2046).toFixed(1)); }
+function roundWeight(kg: number) { return Math.round(kg * 10) / 10; }
 function cmToFtIn(cm: number): { ft: number; inches: number } {
   const totalIn = cm / 2.54;
   return { ft: Math.floor(totalIn / 12), inches: Math.round(totalIn % 12) };
@@ -128,7 +129,7 @@ export default function Profile() {
     if (!existingProfile?.weightKg) return "";
     return unitSystem === "imperial"
       ? String(kgToLbs(existingProfile.weightKg))
-      : String(existingProfile.weightKg);
+      : String(roundWeight(existingProfile.weightKg));
   });
 
   // Keep weight display in sync when unit system toggles
@@ -141,7 +142,7 @@ export default function Profile() {
       setWeightDisplay(
         unitSystem === "imperial"
           ? String(kgToLbs(existingProfile.weightKg))
-          : String(existingProfile.weightKg)
+          : String(roundWeight(existingProfile.weightKg))
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -537,7 +538,7 @@ export default function Profile() {
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v: number) =>
-                          unitSystem === "imperial" ? `${kgToLbs(v)}` : `${v}`
+                          unitSystem === "imperial" ? `${kgToLbs(v)}` : `${roundWeight(v)}`
                         }
                       />
                       <Tooltip
@@ -548,7 +549,7 @@ export default function Profile() {
                           fontSize: 11,
                         }}
                         formatter={(v: number) => [
-                          `${unitSystem === "imperial" ? kgToLbs(v) : v} ${unitSystem === "imperial" ? "lbs" : "kg"}`,
+                          `${unitSystem === "imperial" ? kgToLbs(v) : roundWeight(v)} ${unitSystem === "imperial" ? "lbs" : "kg"}`,
                           "Weight",
                         ]}
                       />
@@ -603,7 +604,7 @@ export default function Profile() {
                       <span className="text-sm font-semibold tabular-nums">
                         {unitSystem === "imperial"
                           ? `${kgToLbs(entry.weightKg)} lbs`
-                          : `${entry.weightKg} kg`}
+                          : `${roundWeight(entry.weightKg)} kg`}
                       </span>
                     </div>
                   ))}
