@@ -323,7 +323,7 @@ export default function CreateProgram() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {isDecentralized
-                      ? "Train a programmed workout any day of the week, as many times as you want — weeks will advance on a set day of the week."
+                      ? "Train a programmed workout any day of the week, as many times as you want — weeks will auto-advance on a set day of the week."
                       : "Train programmed workouts in order — the week will auto-advance after all workouts are completed."}
                   </p>
                 </div>
