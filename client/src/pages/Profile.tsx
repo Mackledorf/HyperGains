@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Dumbbell, Zap, Scale, Check, Pencil, Ruler, Trash2, History } from "lucide-react";
+import { Dumbbell, Zap, Scale, Check, Pencil, Ruler, Trash2, History, Clock, Timer } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import * as store from "@/lib/storage";
 import { queryClient } from "@/lib/queryClient";
-import type { UserProfile, Program, WeightEntry } from "@shared/schema";
+import type { UserProfile, Program, WeightEntry, FoodEntry } from "@shared/schema";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -70,6 +70,66 @@ function cmToFtIn(cm: number): { ft: number; inches: number } {
 }
 function ftInToCm(ft: number, inches: number) { return Math.round((ft * 12 + inches) * 2.54 * 10) / 10; }
 function calcBmi(weightKg: number, heightCm: number) { return parseFloat((weightKg / Math.pow(heightCm / 100, 2)).toFixed(1)); }
+
+// ── Eating stats helpers ────────────────────────────────────
+
+function isAteEarlierSentinel(loggedAt: string): boolean {
+  const d = new Date(loggedAt);
+  return d.getHours() === 0 && d.getMinutes() === 0;
+}
+
+function minsToAmPm(mins: number): string {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function minsToHhMm(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ""}` : `${m}m`;
+}
+
+function computeEatingStats(
+  entries: FoodEntry[],
+  lookbackDays: number
+): { avgFirstMealMins: number | null; avgWindowMins: number | null } {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const timed = entries.filter(
+    (e) => e.date >= cutoffStr && !isAteEarlierSentinel(e.loggedAt)
+  );
+
+  const byDate = new Map<string, number[]>();
+  for (const e of timed) {
+    const d = new Date(e.loggedAt);
+    const mins = d.getHours() * 60 + d.getMinutes();
+    const arr = byDate.get(e.date) ?? [];
+    arr.push(mins);
+    byDate.set(e.date, arr);
+  }
+
+  if (byDate.size < 3) return { avgFirstMealMins: null, avgWindowMins: null };
+
+  const firstMins: number[] = [];
+  const windowMins: number[] = [];
+
+  for (const dayMins of Array.from(byDate.values())) {
+    dayMins.sort((a: number, b: number) => a - b);
+    firstMins.push(dayMins[0]);
+    if (dayMins.length >= 2) windowMins.push(dayMins[dayMins.length - 1] - dayMins[0]);
+  }
+
+  const avg = (arr: number[]) => Math.round(arr.reduce((s, v) => s + v, 0) / arr.length);
+  return {
+    avgFirstMealMins: avg(firstMins),
+    avgWindowMins: windowMins.length >= 3 ? avg(windowMins) : null,
+  };
+}
 
 // ── Main component ─────────────────────────────────────────
 
@@ -178,6 +238,10 @@ export default function Profile() {
       weight: e.weightKg,
     }));
   }, [filteredHistory]);
+
+  const eatingStats = useMemo(() => {
+    return computeEatingStats(store.getAllFoodEntries(), 30);
+  }, []);
 
   // Programs query
   const { data: programs = [], isLoading: programsLoading } = useQuery<Program[]>({
@@ -844,6 +908,52 @@ export default function Profile() {
             {saveMutation.isPending ? "Saving…" : "Save Profile"}
           </Button>
         )}
+
+        {/* ── Eating Habits ── */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Eating Habits
+          </h2>
+          <div className="rounded-2xl bg-card p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5 text-violet-400/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">First Meal</span>
+                </div>
+                {eatingStats.avgFirstMealMins !== null ? (
+                  <p className="text-lg font-bold tabular-nums text-violet-400">
+                    {minsToAmPm(eatingStats.avgFirstMealMins)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
+                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
+                  </>
+                )}
+              </div>
+              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Timer className="w-3.5 h-3.5 text-violet-400/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">Feeding Window</span>
+                </div>
+                {eatingStats.avgWindowMins !== null ? (
+                  <p className="text-lg font-bold tabular-nums text-violet-400">
+                    {minsToHhMm(eatingStats.avgWindowMins)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
+                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 text-center">
+              Based on last 30 days · excludes "ate earlier" entries
+            </p>
+          </div>
+        </section>
 
         {/* ── Section C: My Programs ── */}
         <section className="space-y-3">

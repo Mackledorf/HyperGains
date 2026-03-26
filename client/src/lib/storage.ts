@@ -1003,6 +1003,10 @@ export function getFoodEntriesForDate(date: string): FoodEntry[] {
   return getStore<FoodEntry>(KEYS.foodEntries).filter((e) => e.date === date);
 }
 
+export function getAllFoodEntries(): FoodEntry[] {
+  return getStore<FoodEntry>(KEYS.foodEntries);
+}
+
 export function createFoodEntry(
   data: Omit<FoodEntry, "id" | "userId">
 ): FoodEntry {
@@ -1102,4 +1106,40 @@ export function addWaterEntry(amountOz: number): WaterEntry {
   setStore(KEYS.waterEntries, entries);
   notifyDataChanged();
   return entry;
+}
+
+/**
+ * Subtract oz from today's water log by removing/trimming the newest entries.
+ * Clamps at zero — if less than `oz` has been logged, removes everything.
+ */
+export function subtractWaterOz(oz: number, date: string): void {
+  if (oz <= 0) return;
+  const all = getStore<WaterEntry>(KEYS.waterEntries);
+
+  // Newest-first within today so we undo the most recent additions
+  const todayDesc = all
+    .filter((e) => e.date === date)
+    .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime());
+
+  const toDelete = new Set<string>();
+  let remaining = oz;
+  let replacement: WaterEntry | null = null;
+
+  for (const entry of todayDesc) {
+    if (remaining <= 0) break;
+    if (entry.amountOz <= remaining + 0.001) {
+      toDelete.add(entry.id);
+      remaining = Math.round((remaining - entry.amountOz) * 1000) / 1000;
+    } else {
+      // Partial removal: shrink this entry rather than deleting it entirely
+      toDelete.add(entry.id);
+      replacement = { ...entry, id: uuid(), amountOz: Math.round((entry.amountOz - remaining) * 10) / 10 };
+      remaining = 0;
+    }
+  }
+
+  const updated = all.filter((e) => !toDelete.has(e.id));
+  if (replacement) updated.push(replacement);
+  setStore(KEYS.waterEntries, updated);
+  notifyDataChanged();
 }

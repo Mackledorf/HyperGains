@@ -51,6 +51,7 @@ import {
   PlusCircle,
   Check,
   X,
+  Info,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -385,12 +386,7 @@ function CalorieSummary({
 
 // ── WaterBar ──────────────────────────────────────────────────────────────────
 
-const WATER_AMOUNTS = [
-  { oz: 8,  label: "+8 oz",  Icon: GlassWater },
-  { oz: 16, label: "+16 oz", Icon: GlassWater },
-  { oz: 32, label: "+32 oz", Icon: GlassWater },
-  { oz: 64, label: "+64 oz", Icon: GlassWater },
-];
+const WATER_AMOUNTS = [8, 16, 32, 64] as const;
 
 function WaterBar({
   goals,
@@ -403,7 +399,6 @@ function WaterBar({
   today: string;
   onRefresh: () => void;
 }) {
-  const [useEmoji, setUseEmoji] = useState(false);
   const waterEntries = store.getWaterEntriesForDate(today);
   const consumedOz = waterEntries.reduce((sum, e) => sum + e.amountOz, 0);
 
@@ -412,27 +407,31 @@ function WaterBar({
   const targetOz = Math.round(goals.waterTargetOz + excessCarbs * 0.12);
 
   const pct = targetOz > 0 ? Math.min(100, (consumedOz / targetOz) * 100) : 0;
+  const isEmpty = consumedOz <= 0;
 
   function addWater(oz: number) {
     store.addWaterEntry(oz);
     onRefresh();
   }
 
+  function removeWater(oz: number) {
+    store.subtractWaterOz(oz, today);
+    onRefresh();
+  }
+
   return (
-    <div className="rounded-2xl bg-card p-4 pb-6 space-y-3">
+    <div className="rounded-2xl bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GlassWater className="w-4 h-4 text-sky-400" />
           <span className="font-semibold text-sm">Water</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {Math.round(consumedOz)} / {targetOz} oz
-            {excessCarbs > 0 && (
-              <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
-            )}
-          </span>
-        </div>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {Math.round(consumedOz)} / {targetOz} oz
+          {excessCarbs > 0 && (
+            <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
+          )}
+        </span>
       </div>
 
       <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -442,16 +441,33 @@ function WaterBar({
         />
       </div>
 
+      {/* Add row */}
       <div className="grid grid-cols-4 gap-1.5">
-        {WATER_AMOUNTS.map(({ oz, label }) => (
+        {WATER_AMOUNTS.map((oz) => (
           <Button
             key={oz}
             size="sm"
             variant="outline"
-            className="flex-1 rounded-xl h-10 text-xs"
+            className="rounded-xl h-10 text-xs font-medium text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:text-sky-300"
             onClick={() => addWater(oz)}
           >
-            {label}
+            +{oz} oz
+          </Button>
+        ))}
+      </div>
+
+      {/* Subtract row */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {WATER_AMOUNTS.map((oz) => (
+          <Button
+            key={oz}
+            size="sm"
+            variant="ghost"
+            disabled={isEmpty}
+            className="rounded-xl h-9 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+            onClick={() => removeWater(oz)}
+          >
+            −{oz} oz
           </Button>
         ))}
       </div>
@@ -696,6 +712,7 @@ function ServingScreen({
 
   const [unit, setUnit] = useState<ServingUnit>("serving");
   const [qty, setQty] = useState<string>("1");
+  const [ateEarlier, setAteEarlier] = useState(false);
 
   // If in a meal, we use the meal's time (passed via buildLoggedAt later if needed,
   // but for the UI we show the state of logTime).
@@ -794,27 +811,83 @@ function ServingScreen({
         ))}
       </div>
 
-      {/* Log time — lets the user back-fill food logged at an earlier time */}
+      {/* Log time */}
       <div className="space-y-1.5">
-        <Label htmlFor="log-time" className={isInMeal ? "opacity-50" : ""}>Time</Label>
+        {/* Label row: "Time" + info icon + "I ate this earlier" checkbox */}
+        <div className="flex items-center gap-1.5">
+          <Label
+            htmlFor="log-time"
+            className={isInMeal || ateEarlier ? "opacity-50" : ""}
+          >
+            Time
+          </Label>
+
+          {/* Info tooltip */}
+          <TooltipProvider>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <span className="cursor-default text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                  <Info className="w-3.5 h-3.5" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[220px] text-center text-xs">
+                You can mark food as eaten earlier in the day. Your exact time won't be logged.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* "I ate this earlier" checkbox — pushed to the right */}
+          <button
+            type="button"
+            disabled={isInMeal}
+            onClick={() => setAteEarlier(v => !v)}
+            className="ml-auto flex items-center gap-1.5 group disabled:pointer-events-none"
+            aria-pressed={ateEarlier}
+          >
+            <span
+              className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                ateEarlier
+                  ? "bg-primary border-primary text-primary-foreground"
+                  : "border-muted-foreground/30 group-hover:border-muted-foreground/60"
+              } ${isInMeal ? "opacity-30" : ""}`}
+            >
+              {ateEarlier && <Check className="w-2.5 h-2.5" />}
+            </span>
+            <span className={`text-xs select-none ${
+              ateEarlier ? "text-foreground" : "text-muted-foreground"
+            } ${isInMeal ? "opacity-30" : ""}`}>
+              I ate this earlier
+            </span>
+          </button>
+        </div>
+
+        {/* Time input — disabled when in-meal or "ate earlier" */}
         <TooltipProvider>
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
               <div className="relative">
-                <Clock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${isInMeal ? "opacity-50" : ""}`} />
+                <Clock
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${
+                    isInMeal || ateEarlier ? "opacity-50" : ""
+                  }`}
+                />
                 <Input
                   id="log-time"
                   type="time"
                   value={logTime}
-                  disabled={isInMeal}
+                  disabled={isInMeal || ateEarlier}
                   onChange={(e) => setLogTime(e.target.value)}
-                  className={`rounded-xl pl-9 ${isInMeal ? "bg-muted cursor-not-allowed opacity-50" : ""}`}
+                  className={`rounded-xl pl-9 ${
+                    isInMeal || ateEarlier ? "bg-muted cursor-not-allowed opacity-50" : ""
+                  }`}
                 />
               </div>
             </TooltipTrigger>
-            {isInMeal && (
+            {(isInMeal || ateEarlier) && (
               <TooltipContent side="top" className="max-w-[200px] text-center">
-                Food time is set to match the meal time
+                {isInMeal
+                  ? "Food time is set to match the meal time"
+                  : "Marked as eaten earlier — exact time not logged"}
               </TooltipContent>
             )}
           </Tooltip>
@@ -823,8 +896,15 @@ function ServingScreen({
 
       <Button
         className="w-full rounded-xl h-11"
-        disabled={servingG <= 0 || !logTime}
-        onClick={() => onSave(servingG, buildLoggedAt(today, logTime))}
+        disabled={servingG <= 0 || (!ateEarlier && !logTime)}
+        onClick={() =>
+          onSave(
+            servingG,
+            ateEarlier
+              ? buildLoggedAt(today, "00:00")
+              : buildLoggedAt(today, logTime)
+          )
+        }
       >
         Add to Log
       </Button>
