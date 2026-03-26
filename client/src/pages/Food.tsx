@@ -32,7 +32,8 @@ import MacroBar from "@/components/MacroBar";
 import * as store from "@/lib/storage";
 import { searchFoods, lookupBarcode, type FoodSearchResult } from "@/lib/foodApi";
 import { MACRO_COLORS } from "@/lib/macroColors";
-import type { FoodEntry, Meal, NutritionGoals } from "@shared/schema";
+import type { FoodEntry, Meal, NutritionGoals, UserProfile } from "@shared/schema";
+import * as gist from "@/lib/gist";
 import {
   UtensilsCrossed,
   Plus,
@@ -49,6 +50,7 @@ import {
   RotateCcw,
   PlusCircle,
   Check,
+  X,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -148,6 +150,12 @@ function ManualEntryScreen({
       servingSizeLabel: servingLabel.trim() || `${sizeG}g`,
       source: "custom",
     }, share);
+
+    // Fire-and-forget Gist sync so the food surfaces in the community library.
+    // Silently ignored if no PAT is configured or the user is offline.
+    if (share) {
+      gist.updateGlobalFoods([food]).catch(() => {});
+    }
 
     onSave(food as FoodSearchResult);
   }
@@ -696,7 +704,8 @@ function ServingScreen({
   // The store.createFoodEntry will set the mealId.
   const [logTime, setLogTime] = useState(() => {
     if (context.type === "meal") {
-      const meal = store.getMeals().find(m => m.id === context.mealId);
+      // getMealsForDate requires the current date — use the today prop passed down
+      const meal = store.getMealsForDate(today).find(m => m.id === context.mealId);
       if (meal) return isoToTimeInput(meal.loggedAt);
     }
     return isoToTimeInput(new Date().toISOString());
@@ -1360,7 +1369,10 @@ function AddFoodSheet({
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, showRefine, refineBrand, refineItem]);
 
-  async function handleBarcode(barcode: string) {
+  // Wrapped in useCallback so BarcodeScanner's useEffect (empty deps) is
+  // never invalidated by parent re-renders (e.g. the setIsSearching call
+  // that fires immediately after detection).
+  const handleBarcode = useCallback(async (barcode: string) => {
     setScreen("search");
     setIsSearching(true);
     setBarcodeFromScanner(barcode);
@@ -1377,7 +1389,9 @@ function AddFoodSheet({
     } finally {
       setIsSearching(false);
     }
-  }
+  }, []);
+
+  const handleScanError = useCallback(() => setScreen("search"), []);
 
   function handleManualEntrySave(food: FoodSearchResult) {
     setSelectedFood(food);
@@ -1418,10 +1432,24 @@ function AddFoodSheet({
 
         {screen === "scanner" && (
           <div className="space-y-4">
-            <BarcodeScanner onDetect={handleBarcode} onError={() => setScreen("search")} />
+            {/* Header row — matches rest of app's sheet header style */}
+            <div className="flex items-center justify-between">
+              <p className="font-semibold">Scan Barcode</p>
+              <button
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Cancel scan"
+                onClick={() => setScreen("search")}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Point camera at a product barcode
+            </p>
+            <BarcodeScanner onDetect={handleBarcode} onError={handleScanError} />
             <Button
-              variant="outline"
-              className="w-full rounded-xl"
+              variant="ghost"
+              className="w-full rounded-2xl h-11 text-muted-foreground"
               onClick={() => setScreen("search")}
             >
               Cancel
