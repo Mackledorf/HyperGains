@@ -33,6 +33,7 @@ import * as store from "@/lib/storage";
 import { searchFoods, lookupBarcode, type FoodSearchResult } from "@/lib/foodApi";
 import { MACRO_COLORS } from "@/lib/macroColors";
 import type { FoodEntry, Meal, NutritionGoals, UserProfile } from "@shared/schema";
+import type { RecentFoodEntry } from "@/lib/storage";
 import * as gist from "@/lib/gist";
 import {
   UtensilsCrossed,
@@ -1526,6 +1527,14 @@ function AddFoodSheet({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Recomputed each time the sheet opens so newly added recents appear immediately
+  const recentFoods = useMemo(() => store.getRecentFoods(), [open]);
+
+  const [activeTab, setActiveTab] = useState<"search" | "my_foods">("search");
+  // My Foods list — refreshed on open and after deletion
+  const [myFoodsVersion, setMyFoodsVersion] = useState(0);
+  const myFoods = useMemo(() => store.getCustomFoods(), [open, myFoodsVersion]);
+
   // Reset on open/close
   useEffect(() => {
     if (!open) {
@@ -1540,6 +1549,7 @@ function AddFoodSheet({
       setRefineBrand("");
       setRefineItem("");
       setBarcodeFromScanner(null);
+      setActiveTab("search");
     }
   }, [open]);
 
@@ -1610,6 +1620,7 @@ function AddFoodSheet({
     try {
       const r = await lookupBarcode(barcode);
       if (r) {
+        store.addRecentFood(r as RecentFoodEntry);
         setSelectedFood(r);
         setScreen("serving");
       } else {
@@ -1681,6 +1692,32 @@ function AddFoodSheet({
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
 
+        {/* Tab bar — only shown on the main search screen */}
+        {screen === "search" && (
+          <div className="flex bg-muted rounded-xl p-1 mb-4">
+            <button
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "search"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setActiveTab("search")}
+            >
+              <Search className="w-3.5 h-3.5" /> Search
+            </button>
+            <button
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "my_foods"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setActiveTab("my_foods")}
+            >
+              <PlusCircle className="w-3.5 h-3.5" /> My Foods
+            </button>
+          </div>
+        )}
+
         {screen === "scanner" && (
           <div className="space-y-4">
             {/* Header row — matches rest of app's sheet header style */}
@@ -1727,7 +1764,65 @@ function AddFoodSheet({
           />
         )}
 
-        {screen === "search" && (
+        {screen === "search" && activeTab === "my_foods" && (
+          <div className="space-y-3">
+            {myFoods.length === 0 ? (
+              <div className="text-center py-10 px-4 space-y-4 rounded-3xl bg-muted/20 border border-dashed border-border/60">
+                <p className="text-sm text-muted-foreground">No custom foods yet.</p>
+                <Button
+                  variant="outline"
+                  className="rounded-2xl h-11 bg-background/50 hover:bg-background border-primary/20 hover:border-primary/40 text-primary font-bold"
+                  onClick={() => { setActiveTab("search"); setScreen("manual_entry"); }}
+                >
+                  <PlusCircle className="w-4 h-4 mr-2" /> Create Custom Food
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden">
+                {myFoods.map((f) => (
+                  <div key={f.id} className="flex items-center px-4 py-3 gap-2">
+                    <button
+                      className="flex-1 text-left min-w-0"
+                      onClick={() => {
+                        setSelectedFood(f as unknown as FoodSearchResult);
+                        setScreen("serving");
+                        setActiveTab("search");
+                      }}
+                    >
+                      <p className="text-sm font-medium leading-snug truncate">{f.name}</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {f.brand && `${f.brand} · `}{f.servingSizeLabel}
+                      </p>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-semibold text-foreground">
+                          {Math.round(f.caloriesPer100g * f.servingSizeG / 100)} kcal
+                        </span>
+                        <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>
+                          C {Math.round(f.carbsPer100g * f.servingSizeG / 100)}g
+                        </span>
+                        <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>
+                          P {Math.round(f.proteinPer100g * f.servingSizeG / 100)}g
+                        </span>
+                      </div>
+                    </button>
+                    <button
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={`Delete ${f.name}`}
+                      onClick={() => {
+                        store.deleteCustomFood(f.id);
+                        setMyFoodsVersion(v => v + 1);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {screen === "search" && activeTab === "search" && (
           <div className="space-y-4">
             {/* Search bar / Refine mode */}
             {showRefine ? (
@@ -1786,7 +1881,7 @@ function AddFoodSheet({
                   <button
                     key={r.id}
                     className="w-full text-left px-4 py-3 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
-                    onClick={() => { setSelectedFood(r); setScreen("serving"); }}
+                    onClick={() => { store.addRecentFood(r as RecentFoodEntry); setSelectedFood(r); setScreen("serving"); }}
                   >
                     <p className="text-sm font-medium leading-snug">{r.name}</p>
                     <p className="text-xs text-muted-foreground mb-1.5">
@@ -1889,9 +1984,42 @@ function AddFoodSheet({
             )}
 
             {query.trim().length < 3 && (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                Type to search, or tap <Scan className="inline w-3.5 h-3.5 mx-1" /> to scan a barcode.
-              </p>
+              <div className="space-y-3">
+                {recentFoods.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-1 mb-2">
+                      Recent
+                    </p>
+                    <div className="divide-y divide-border/40 rounded-2xl bg-muted/30 overflow-hidden">
+                      {recentFoods.slice(0, 8).map((r) => (
+                        <button
+                          key={r.id}
+                          className="w-full text-left px-4 py-3 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors"
+                          onClick={() => {
+                            setSelectedFood(r as FoodSearchResult);
+                            setScreen("serving");
+                          }}
+                        >
+                          <p className="text-sm font-medium leading-snug">{r.name}</p>
+                          <p className="text-xs text-muted-foreground mb-1.5">
+                            {r.brand && `${r.brand} · `}{r.servingSizeLabel}
+                          </p>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xs font-semibold text-foreground">
+                              {Math.round(r.caloriesPer100g * r.servingSizeG / 100)} kcal
+                            </span>
+                            <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
+                            <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-center text-sm text-muted-foreground py-4">
+                  Type to search, or tap <Scan className="inline w-3.5 h-3.5 mx-1" /> to scan a barcode.
+                </p>
+              </div>
             )}
           </div>
         )}

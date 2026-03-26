@@ -114,6 +114,8 @@ const KEYS = {
   get globalFoods()      { return `hg_globalfoods`; },
   // Ad-hoc workout exercises (not tied to a program)
   get adHocExercises()   { return `hg_adhoc_exercises_${_activeUserId}`; },
+  // Food recents
+  get recentFoods()      { return `hg_recentfoods_${_activeUserId}`; },
 };
 
 // ══════════════════════════════════════════════════
@@ -950,6 +952,39 @@ export function migrateFoodDateBuckets(): void {
 
   localStorage.setItem(flagKey, "1");
   if (dirty || mealDirty || waterDirty) notifyDataChanged();
+}
+
+// ══════════════════════════════════════════════════
+// Recent Foods
+// ══════════════════════════════════════════════════
+
+/** Minimal surface of FoodSearchResult persisted for recents — mirrors that type exactly. */
+export interface RecentFoodEntry {
+  id: string;
+  name: string;
+  brand?: string;
+  barcode?: string;
+  servingSizeG: number;
+  servingSizeLabel: string;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  carbsPer100g: number;
+  fatPer100g: number;
+  source: "openfoodfacts" | "usda" | "custom" | "global";
+}
+
+const RECENTS_MAX = 20;
+
+export function getRecentFoods(): RecentFoodEntry[] {
+  return getStore<RecentFoodEntry>(KEYS.recentFoods);
+}
+
+export function addRecentFood(food: RecentFoodEntry): void {
+  const existing = getStore<RecentFoodEntry>(KEYS.recentFoods);
+  // Dedupe by id, then prepend newest
+  const deduped = existing.filter((f) => f.id !== food.id);
+  deduped.unshift(food);
+  setStore(KEYS.recentFoods, deduped.slice(0, RECENTS_MAX));
 }
 
 // ══════════════════════════════════════════════════

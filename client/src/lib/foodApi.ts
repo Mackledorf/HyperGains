@@ -381,18 +381,40 @@ export async function searchFoods(
   const isRefineMode = brandQ.length > 0 && itemQ.length > 0;
 
   const fetchOFF = async (searchQ: string, onFail?: () => void): Promise<OffResultWithMeta[]> => {
+    const OFF_FIELDS = "product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags";
+    const parseHits = (d: Record<string, unknown>): OffResultWithMeta[] =>
+      ((d.hits ?? d.products ?? []) as Record<string, unknown>[])
+        .map((p) => parseOFFProductWithMeta(p))
+        .filter((r): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
+
+    // ── Primary: new Elasticsearch endpoint ──────────────────────────────────
     try {
       const r = await fetch(
         `https://search.openfoodfacts.org/search?q=${encodeURIComponent(searchQ)}` +
-        `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-        `&page_size=30&sort_by=popularity_key`,
+        `&fields=${OFF_FIELDS}&page_size=30&sort_by=popularity_key`,
+        { signal }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const results = parseHits(d as Record<string, unknown>);
+        if (results.length > 0) return results;
+        // Fall through to classic endpoint if ES returned 0 results (index may be stale)
+      }
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") throw e;
+      // swallow and fall through to classic endpoint
+    }
+
+    // ── Fallback: stable classic CGI endpoint ─────────────────────────────────
+    try {
+      const r = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQ)}` +
+        `&json=1&page_size=30&sort_by=popularity&fields=${OFF_FIELDS}`,
         { signal }
       );
       if (!r.ok) { onFail?.(); return []; }
       const d = await r.json();
-      return (d.hits ?? [])
-        .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
-        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
+      return parseHits(d as Record<string, unknown>);
     } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
       onFail?.();
@@ -429,7 +451,7 @@ export async function searchFoods(
     const results = mergeResults(libraryResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
 
     if (results.length > 0) setCached(q, results);
-    else if (offFailed) onError?.('search_unavailable');
+    else if (offFailed && usdaCombined.length === 0 && usdaBrand.length === 0 && usdaItem.length === 0 && libraryResults.length === 0) onError?.('search_unavailable');
     else if (usdaRateLimited) onError?.('rate_limited');
 
     onPartial?.(results);
@@ -456,7 +478,7 @@ export async function searchFoods(
   const results = mergeResults(libraryResults, rerankedOff, usdaResults);
   if (results.length > 0) {
     setCached(q, results);
-  } else if (offFailed) {
+  } else if (offFailed && usdaResults.length === 0 && libraryResults.length === 0) {
     onError?.('search_unavailable');
   } else if (usdaRateLimited) {
     onError?.('rate_limited');
