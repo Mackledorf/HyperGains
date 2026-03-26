@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChartNoAxesCombined } from "lucide-react";
 import type { MuscleVolumeInfo } from "@/lib/muscleColors";
 import { VOLUME_ZONE_COLORS, MUSCLE_FILL_COLORS } from "@/lib/muscleColors";
 import {
@@ -92,13 +92,13 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         >
           {selectedInfo.actualSets}
         </text>
-        {/* sets/wk */}
+        {/* muscle name */}
         <text
           x={x} y={y + 10}
           fontFamily={MONO} fontSize={4.5}
           fill="rgba(255,255,255,0.45)" dominantBaseline="middle" textAnchor="start"
         >
-          SETS/WK
+          {(MUSCLE_DISPLAY_NAMES[selected] ?? selected).toUpperCase()}
         </text>
         {/* zone label */}
         <text
@@ -143,6 +143,18 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Accumulate Fatigue toggle — small square at top-left */}
+        <button
+          onClick={() => setShowFatigue(!showFatigue)}
+          className={`absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+            showFatigue
+              ? "bg-orange-500/20 border-orange-500/40 text-orange-400"
+              : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground"
+          }`}
+          aria-label="Toggle accumulated fatigue view"
+        >
+          <ChartNoAxesCombined className="w-4 h-4" />
+        </button>
         {/* FRONT VIEW */}
         <div
           className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
@@ -231,33 +243,8 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {view === "front" ? "Front" : "Back"} · tap a muscle for details
       </p>
 
-      {/* Accumulate Fatigue toggle */}
-      <button
-        onClick={() => setShowFatigue(!showFatigue)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors ${
-          showFatigue
-            ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
-            : "bg-muted/30 border-border/40 text-muted-foreground"
-        }`}
-      >
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-colors ${
-              showFatigue ? "border-orange-400 bg-orange-400" : "border-muted-foreground/50"
-            }`}
-          >
-            {showFatigue && <div className="w-1.5 h-1.5 rounded-full bg-background" />}
-          </div>
-          <span className="text-xs font-semibold">Accumulate Fatigue</span>
-        </div>
-        <span className="text-[10px] uppercase tracking-wide opacity-70">
-          {showFatigue ? "Volume colors shown" : "Hover to preview"}
-        </span>
-      </button>
-
-      {/* Volume zone legend — only shown in fatigue mode */}
-      {showFatigue && (
-        <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-3">
+      {/* Volume zone legend */}
+      <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Volume Landmarks
@@ -266,7 +253,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
               sets / week
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+          <div className="grid grid-cols-3 gap-x-3 gap-y-2">
             {[
               { id: "none", label: "No Volume", color: VOLUME_ZONE_COLORS.none },
               { id: "warning", label: "Under/Overtrained", color: VOLUME_ZONE_COLORS.warning },
@@ -285,8 +272,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

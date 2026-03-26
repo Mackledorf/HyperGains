@@ -12,7 +12,7 @@ import AppShell from "@/components/AppShell";
 import MacroBar from "@/components/MacroBar";
 import { MACRO_COLORS } from "@/lib/macroColors";
 import * as store from "@/lib/storage";
-import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp } from "lucide-react";
+import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp, TrendingDown, Minus, Flame, Activity } from "lucide-react";
 
 export default function Dashboard() {
   const today = store.getFoodDate();
@@ -34,6 +34,56 @@ export default function Dashboard() {
   }, [foodEntries]);
 
   const calRemaining = Math.max(0, goals.calorieTarget - totals.calories);
+
+  const weightHistory = useMemo(() => store.getWeightHistory(), []);
+  const profile = useMemo(() => store.getProfile(), []);
+  const unitSystem = profile?.unitSystem ?? "imperial";
+  const allFoodEntries = useMemo(() => store.getAllFoodEntries(), []);
+  const recentSessions = useMemo(() => store.getAllRecentSessions(50), []);
+
+  const weightTrend = useMemo((): "up" | "down" | "stable" | null => {
+    if (weightHistory.length < 2) return null;
+    const latest = weightHistory[0].weightKg;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const oldEntry = weightHistory.find((e) => new Date(e.recordedAt) <= sevenDaysAgo);
+    const prev = oldEntry?.weightKg ?? weightHistory[1].weightKg;
+    const diff = latest - prev;
+    if (diff > 0.4) return "up";
+    if (diff < -0.4) return "down";
+    return "stable";
+  }, [weightHistory]);
+
+  const avgWeeklyKcal = useMemo(() => {
+    const byDate = new Map<string, number>();
+    for (const e of allFoodEntries) {
+      byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.calories);
+    }
+    const activeDays = Array.from(byDate.entries()).filter(([, c]) => c > 0);
+    if (activeDays.length === 0) return null;
+    const getMonday = (d: Date) => {
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const m = new Date(d);
+      m.setDate(diff);
+      return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(m.getDate()).padStart(2, "0")}`;
+    };
+    const byWeek = new Map<string, number[]>();
+    for (const [dateStr, cals] of activeDays) {
+      const wk = getMonday(new Date(dateStr + "T12:00:00"));
+      const arr = byWeek.get(wk) ?? [];
+      arr.push(cals);
+      byWeek.set(wk, arr);
+    }
+    const totals = Array.from(byWeek.values()).map((w) => w.reduce((s, c) => s + c, 0));
+    return Math.round(totals.reduce((s, t) => s + t, 0) / totals.length);
+  }, [allFoodEntries]);
+
+  const sessionsThisWeek = useMemo(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return recentSessions.filter(
+      (s) => s.status === "completed" && s.completedAt && new Date(s.completedAt) >= sevenDaysAgo
+    ).length;
+  }, [recentSessions]);
 
   const hasWeighedToday = useMemo(() => {
     const history = store.getWeightHistory();
@@ -111,6 +161,96 @@ export default function Dashboard() {
           </div>
         </Link>
 
+        {/* ── Quick Overview ── */}
+        <div className="-mx-5 bg-gradient-to-b from-primary/8 to-transparent px-5 pt-1 pb-5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-3">
+            Quick Overview
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Weight block */}
+            <Link
+              href="/stats"
+              className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Weight
+                </span>
+                {weightTrend === "up" && <TrendingUp className="w-3.5 h-3.5 text-orange-400" />}
+                {weightTrend === "down" && <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />}
+                {weightTrend === "stable" && <Minus className="w-3.5 h-3.5 text-muted-foreground" />}
+              </div>
+              {weightHistory.length > 0 ? (
+                <p className="text-2xl font-bold tabular-nums leading-none">
+                  {unitSystem === "imperial"
+                    ? Math.round(weightHistory[0].weightKg * 2.20462 * 10) / 10
+                    : Math.round(weightHistory[0].weightKg * 10) / 10}
+                  <span className="text-xs font-medium text-muted-foreground ml-1">
+                    {unitSystem === "imperial" ? "lbs" : "kg"}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-2xl font-bold text-muted-foreground/30">—</p>
+              )}
+              <div className="flex items-center gap-1 mt-2">
+                <span className="text-[10px] text-muted-foreground/60">Tap to view log</span>
+                <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
+              </div>
+            </Link>
+
+            {/* Avg Weekly Calories block */}
+            <Link
+              href="/stats"
+              className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Avg Weekly Cal
+                </span>
+                <Flame className="w-3.5 h-3.5 text-orange-400/70" />
+              </div>
+              {avgWeeklyKcal !== null ? (
+                <p className="text-2xl font-bold tabular-nums leading-none">
+                  {avgWeeklyKcal.toLocaleString()}
+                  <span className="text-xs font-medium text-muted-foreground ml-1">kcal</span>
+                </p>
+              ) : (
+                <p className="text-2xl font-bold text-muted-foreground/30">—</p>
+              )}
+              <div className="flex items-center gap-1 mt-2">
+                <span className="text-[10px] text-muted-foreground/60">Tap to view eating</span>
+                <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
+              </div>
+            </Link>
+
+            {/* Training Log jump — full width */}
+            <Link
+              href="/stats"
+              className="col-span-2 rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Activity className="w-[18px] h-[18px] text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Training Log</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activeProgram ? activeProgram.name : "No active program"}
+                      {sessionsThisWeek > 0 && (
+                        <span className="ml-2 text-primary font-semibold">
+                          · {sessionsThisWeek} this week
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+              </div>
+            </Link>
+          </div>
+        </div>
+
         {/* Lift card */}
         <Link href="/lifts" className="block">
           <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
@@ -161,9 +301,9 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {/* Weight nudge */}
+        {/* Weight nudge — kept for later re-use
         {!hasWeighedToday && (
-          <Link href="/profile" className="block">
+          <Link href="/stats" className="block">
             <div className="rounded-2xl bg-card p-4 active:scale-[0.99] transition-transform cursor-pointer">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Have you weighed yourself today?</span>
@@ -172,6 +312,7 @@ export default function Dashboard() {
             </div>
           </Link>
         )}
+        */}
       </div>
     </AppShell>
   );

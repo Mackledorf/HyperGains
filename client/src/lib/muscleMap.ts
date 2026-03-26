@@ -188,18 +188,18 @@ export const REAR_GAPS =
 // Muscles visible in both views (shoulders, triceps, forearms, calves) share one anchor.
 export const MUSCLE_LABEL_ANCHORS: Record<string, { x: number; y: number }> = {
   // ── Front-only ──────────────────────────────────────────────
-  chest:      { x: 104, y: 52  },
-  biceps:     { x: 104, y: 62  },
-  abs:        { x: 104, y: 81  },
-  quads:      { x: 104, y: 108 },
+  chest:      { x: 112, y: 37  },
+  biceps:     { x: 112, y: 47  },
+  abs:        { x: 112, y: 65  },
+  quads:      { x: 112, y: 79  },
   // ── Back-only ───────────────────────────────────────────────
-  traps:      { x: 104, y: 30  },
-  back:       { x: 104, y: 57  },
-  glutes:     { x: 104, y: 87  },
-  hamstrings: { x: 104, y: 108 },
+  traps:      { x: 112, y: 33  },
+  back:       { x: 112, y: 52  },
+  glutes:     { x: 112, y: 68  },
+  hamstrings: { x: 112, y: 82  },
   // ── Both views ──────────────────────────────────────────────
-  shoulders:  { x: 104, y: 36  },
-  triceps:    { x: 104, y: 66  },
-  forearms:   { x: 104, y: 77  },
-  calves:     { x: 104, y: 132 },
+  shoulders:  { x: 112, y: 35  },
+  triceps:    { x: 112, y: 48  },
+  forearms:   { x: 112, y: 55  },
+  calves:     { x: 112, y: 110 },
 };
