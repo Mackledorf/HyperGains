@@ -936,6 +936,40 @@ export function saveCustomFood(
   return food;
 }
 
+/**
+ * Save a prepared/custom food, deduplicating by name+brand.
+ * If a custom food with the same name and brand already exists, its macros are
+ * updated in-place instead of creating a duplicate entry.
+ */
+export function upsertCustomFood(
+  data: Omit<CustomFood, "id" | "userId" | "createdAt">
+): CustomFood {
+  const foods = getStore<CustomFood>(KEYS.customFoods);
+  const nameLower = data.name.trim().toLowerCase();
+  const brand = (data.brand ?? "").trim().toLowerCase();
+  const existing = foods.find(
+    (f) =>
+      f.name.trim().toLowerCase() === nameLower &&
+      (f.brand ?? "").trim().toLowerCase() === brand
+  );
+  if (existing) {
+    const updated: CustomFood = { ...existing, ...data };
+    setStore(KEYS.customFoods, foods.map((f) => (f.id === existing.id ? updated : f)));
+    notifyDataChanged();
+    return updated;
+  }
+  const food: CustomFood = {
+    ...data,
+    id: uuid(),
+    userId: _activeUserId,
+    createdAt: new Date().toISOString(),
+  };
+  foods.push(food);
+  setStore(KEYS.customFoods, foods);
+  notifyDataChanged();
+  return food;
+}
+
 export function deleteCustomFood(id: string): void {
   setStore(
     KEYS.customFoods,

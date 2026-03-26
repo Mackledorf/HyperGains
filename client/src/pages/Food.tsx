@@ -65,6 +65,14 @@ type MacroOverrides = {
   fatPer100g: number;
 };
 
+/** Per-serving values typed by the user in the "Prepared food" panel. */
+type PreparedServingInputs = {
+  calories: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string): string {
@@ -432,57 +440,58 @@ function WaterBar({
   }
 
   return (
-    <div className="rounded-2xl bg-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <GlassWater className="w-4 h-4 text-sky-400" />
-          <span className="font-semibold text-sm">Water</span>
+    <div className="rounded-2xl bg-card px-3 py-2.5 flex items-center gap-2.5">
+      {/* Icon + label */}
+      <GlassWater className="w-4 h-4 text-sky-400 flex-shrink-0" />
+      <span className="font-semibold text-xs text-sky-400/90 flex-shrink-0">Water</span>
+
+      {/* Progress bar + amount */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-sky-400 rounded-full transition-all"
+            style={{ width: `${pct}%` }}
+          />
         </div>
-        <button
-          onClick={() => setSubtractMode((m) => !m)}
-          aria-label="Toggle subtract mode"
-          className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
-            subtractMode
-              ? "bg-red-500/25 text-red-400"
-              : "bg-red-500/10 text-red-400/50 hover:bg-red-500/20 hover:text-red-400"
-          }`}
-        >
-          <Minus className="w-3 h-3" />
-        </button>
+        <span className="text-[10px] tabular-nums text-muted-foreground whitespace-nowrap flex-shrink-0">
+          {Math.round(consumedOz)}
+          <span className="text-muted-foreground/50"> / {targetOz} oz</span>
+          {excessCarbs > 0 && (
+            <span className="text-sky-400 ml-0.5">·+{Math.round(excessCarbs * 0.12)}</span>
+          )}
+        </span>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground tabular-nums">
-        {Math.round(consumedOz)} / {targetOz} oz
-        {excessCarbs > 0 && (
-          <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
-        )}
-      </p>
-
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full bg-sky-400 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Quick-add buttons */}
+      <div className="flex items-center gap-1 flex-shrink-0">
         {WATER_AMOUNTS.map((oz) => (
-          <Button
+          <button
             key={oz}
-            size="sm"
-            variant="outline"
             disabled={subtractMode && isEmpty}
-            className={`rounded-xl h-10 text-xs font-medium transition-colors ${
+            className={`h-7 px-1.5 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-30 ${
               subtractMode
-                ? "text-red-400 border-red-400/30 hover:border-red-400/60 hover:text-red-300 disabled:opacity-30"
-                : "text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:text-sky-300"
+                ? "text-red-400 border-red-400/30 hover:border-red-400/60 hover:bg-red-400/10"
+                : "text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:bg-sky-400/10"
             }`}
             onClick={() => subtractMode ? removeWater(oz) : addWater(oz)}
           >
-            {subtractMode ? `−${oz} oz` : `+${oz} oz`}
-          </Button>
+            {subtractMode ? `−${oz}` : `+${oz}`}
+          </button>
         ))}
       </div>
+
+      {/* Subtract toggle */}
+      <button
+        onClick={() => setSubtractMode((m) => !m)}
+        aria-label="Toggle subtract mode"
+        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
+          subtractMode
+            ? "bg-red-500/25 text-red-400"
+            : "bg-red-500/10 text-red-400/50 hover:bg-red-500/20 hover:text-red-400"
+        }`}
+      >
+        <Minus className="w-3 h-3" />
+      </button>
     </div>
   );
 }
@@ -726,7 +735,7 @@ function ServingScreen({
   const [qty, setQty] = useState<string>("1");
   const [ateEarlier, setAteEarlier] = useState(false);
   const [showPreparedOverride, setShowPreparedOverride] = useState(false);
-  const [overrides, setOverrides] = useState<MacroOverrides | null>(null);
+  const [prepServingInputs, setPrepServingInputs] = useState<PreparedServingInputs | null>(null);
 
   // If in a meal, we use the meal's time (passed via buildLoggedAt later if needed,
   // but for the UI we show the state of logTime).
@@ -757,6 +766,18 @@ function ServingScreen({
   const servingG = !isNaN(parsedQty) && parsedQty > 0
     ? toGrams(parsedQty, unit, defaultServingG)
     : 0;
+
+  // Derive per-100g overrides from the per-serving inputs the user typed
+  const overrides: MacroOverrides | null =
+    prepServingInputs && defaultServingG > 0
+      ? {
+          caloriesPer100g: (parseFloat(prepServingInputs.calories) || 0) * 100 / defaultServingG,
+          proteinPer100g:  (parseFloat(prepServingInputs.proteinG) || 0) * 100 / defaultServingG,
+          carbsPer100g:    (parseFloat(prepServingInputs.carbsG) || 0) * 100 / defaultServingG,
+          fatPer100g:      (parseFloat(prepServingInputs.fatG) || 0) * 100 / defaultServingG,
+        }
+      : null;
+
   const effectiveFood = overrides ? { ...food, ...overrides } : food;
   const macros = servingG > 0
     ? computeMacros(effectiveFood, servingG)
@@ -765,14 +786,16 @@ function ServingScreen({
   function togglePreparedOverride() {
     if (showPreparedOverride) {
       setShowPreparedOverride(false);
-      setOverrides(null);
+      setPrepServingInputs(null);
     } else {
       setShowPreparedOverride(true);
-      setOverrides({
-        caloriesPer100g: food.caloriesPer100g,
-        proteinPer100g: food.proteinPer100g,
-        carbsPer100g: food.carbsPer100g,
-        fatPer100g: food.fatPer100g,
+      // Initialize inputs from food's raw macros × canonical serving size
+      const sG = defaultServingG;
+      setPrepServingInputs({
+        calories: String(Math.round(food.caloriesPer100g * sG / 100 * 10) / 10),
+        proteinG: String(Math.round(food.proteinPer100g  * sG / 100 * 10) / 10),
+        carbsG:   String(Math.round(food.carbsPer100g    * sG / 100 * 10) / 10),
+        fatG:     String(Math.round(food.fatPer100g      * sG / 100 * 10) / 10),
       });
     }
   }
@@ -857,29 +880,24 @@ function ServingScreen({
             : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
         </button>
 
-        {showPreparedOverride && overrides && (
+        {showPreparedOverride && prepServingInputs && (
           <div className="px-4 pb-4 pt-1 grid grid-cols-2 gap-3 border-t border-border/60">
             {([
-              { key: "caloriesPer100g" as keyof MacroOverrides, label: "Calories",       unit: "kcal" },
-              { key: "proteinPer100g" as keyof MacroOverrides, label: "Protein",         unit: "g" },
-              { key: "carbsPer100g"   as keyof MacroOverrides, label: "Carbs",           unit: "g" },
-              { key: "fatPer100g"     as keyof MacroOverrides, label: "Fat",             unit: "g" },
-            ] as { key: keyof MacroOverrides; label: string; unit: string }[]).map(({ key, label, unit: u }) => (
+              { key: "calories" as keyof PreparedServingInputs, label: "Calories", unit: "kcal" },
+              { key: "proteinG" as keyof PreparedServingInputs, label: "Protein",  unit: "g" },
+              { key: "carbsG"   as keyof PreparedServingInputs, label: "Carbs",    unit: "g" },
+              { key: "fatG"     as keyof PreparedServingInputs, label: "Fat",      unit: "g" },
+            ] as { key: keyof PreparedServingInputs; label: string; unit: string }[]).map(({ key, label, unit: u }) => (
               <div key={key} className="space-y-1">
-                <Label className="text-xs">{label} <span className="text-muted-foreground font-normal">per 100g ({u})</span></Label>
+                <Label className="text-xs">{label} <span className="text-muted-foreground font-normal">per serving ({u})</span></Label>
                 <Input
                   type="number"
                   inputMode="decimal"
                   min="0"
                   step="any"
-                  value={overrides[key]}
+                  value={prepServingInputs[key]}
                   onChange={e => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val) && val >= 0) {
-                      setOverrides(prev => prev ? { ...prev, [key]: val } : prev);
-                    } else if (e.target.value === "") {
-                      setOverrides(prev => prev ? { ...prev, [key]: 0 } : prev);
-                    }
+                    setPrepServingInputs(prev => prev ? { ...prev, [key]: e.target.value } : prev);
                   }}
                   className="rounded-xl h-9"
                 />
@@ -892,7 +910,7 @@ function ServingScreen({
       {/* Log time */}
       <div className="space-y-1.5">
         {/* Label row: "Time" + info icon + "I ate this earlier" checkbox */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Label
             htmlFor="log-time"
             className={isInMeal || ateEarlier ? "opacity-50" : ""}
@@ -1561,10 +1579,29 @@ function AddFoodSheet({
     if (!selectedFood) return;
     const effectiveFood = overrides ? { ...selectedFood, ...overrides } : selectedFood;
     const macros = computeMacros(effectiveFood, servingG);
+
+    // If the user entered prepared macros, permanently save this version to the food library
+    let customFoodId: string | null =
+      selectedFood.source === "custom" ? selectedFood.id : null;
+    if (overrides) {
+      const preparedFood = store.upsertCustomFood({
+        name: `${selectedFood.name} (prepared)`,
+        brand: selectedFood.brand,
+        servingSizeG: selectedFood.servingSizeG || 100,
+        servingSizeLabel: selectedFood.servingSizeLabel || "1 serving",
+        caloriesPer100g: overrides.caloriesPer100g,
+        proteinPer100g: overrides.proteinPer100g,
+        carbsPer100g: overrides.carbsPer100g,
+        fatPer100g: overrides.fatPer100g,
+        source: "custom",
+      });
+      customFoodId = preparedFood.id;
+    }
+
     store.createFoodEntry({
       mealId: context.type === "meal" ? context.mealId : null,
-      customFoodId: selectedFood.source === "custom" ? selectedFood.id : null,
-      name: selectedFood.name,
+      customFoodId,
+      name: overrides ? `${selectedFood.name} (prepared)` : selectedFood.name,
       brand: selectedFood.brand,
       servingG,
       servingSizeLabel: selectedFood.servingSizeLabel,
@@ -1927,6 +1964,14 @@ export default function Food() {
           </div>
         </div>
 
+        {/* Water strip */}
+        <WaterBar
+          goals={goals}
+          carbsConsumedG={totals.carbsG}
+          today={today}
+          onRefresh={refresh}
+        />
+
         {/* Log items */}
         {logItems.length === 0 ? (
           <div className="rounded-2xl bg-card p-8 text-center">
@@ -1964,13 +2009,6 @@ export default function Food() {
           </div>
         )}
 
-        {/* Water bar */}
-        <WaterBar
-          goals={goals}
-          carbsConsumedG={totals.carbsG}
-          today={today}
-          onRefresh={refresh}
-        />
       </div>
 
       {/* Sheets */}
