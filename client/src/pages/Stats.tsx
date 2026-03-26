@@ -608,9 +608,157 @@ export default function Stats() {
             )}
           </div>
           <div className="rounded-2xl bg-card p-4">
-            <MuscleVisualizer muscleData={muscleData} />
+            <MuscleVisualizer 
+              muscleData={muscleData} 
+              calYear={calYear}
+              calMonth={calMonth}
+              calDays={new Map<string, VolumeDayInfo>()}
+              onCalMonthChange={(y, m) => {
+                setCalYear(y);
+                setCalMonth(m);
+              }}
+            />
           </div>
         </div>
+
+
+        {/* ══════════════════════════════════════════════════ */}
+        {/* ── Eating Habits Section ── */}
+        {/* ══════════════════════════════════════════════════ */}
+        <section id="eating" ref={eatingRef} className="space-y-3 scroll-mt-16">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Eating Habits
+          </h2>
+
+          {/* Avg weekly calories headline */}
+          <div className="rounded-2xl bg-card p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Avg Weekly Intake</p>
+                {weeklyCalStats.avgWeekly !== null ? (
+                  <p className="text-3xl font-bold tabular-nums mt-0.5">
+                    {weeklyCalStats.avgWeekly.toLocaleString()}
+                    <span className="text-sm font-medium text-muted-foreground ml-1.5">
+                      kcal / wk
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-2xl font-bold text-muted-foreground/30 mt-0.5">—</p>
+                )}
+                <p className="text-[10px] text-muted-foreground/50 mt-1">
+                  Excludes days with no food logged
+                </p>
+              </div>
+              <Flame className="w-8 h-8 text-orange-400/40" />
+            </div>
+
+            {/* Weekly calorie bar chart */}
+            {weeklyCalStats.recentWeeks.length > 1 && (
+              <ResponsiveContainer width="100%" height={130}>
+                <BarChart
+                  data={weeklyCalStats.recentWeeks}
+                  margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                    formatter={(v: number) => [v.toLocaleString() + " kcal", "Weekly Total"]}
+                  />
+                  <Bar
+                    dataKey="total"
+                    fill="hsl(var(--primary))"
+                    radius={[4, 4, 0, 0]}
+                    opacity={0.8}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Avg macros */}
+          {avgDailyMacros && (
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl bg-card p-3 text-center">
+                <p className="stat-value text-xl text-blue-400">{avgDailyMacros.protein}g</p>
+                <p className="micro-label mt-1">Avg Protein</p>
+              </div>
+              <div className="rounded-2xl bg-card p-3 text-center">
+                <p className="stat-value text-xl text-amber-400">{avgDailyMacros.carbs}g</p>
+                <p className="micro-label mt-1">Avg Carbs</p>
+              </div>
+              <div className="rounded-2xl bg-card p-3 text-center">
+                <p className="stat-value text-xl text-rose-400">{avgDailyMacros.fat}g</p>
+                <p className="micro-label mt-1">Avg Fat</p>
+              </div>
+            </div>
+          )}
+
+          {/* Meal timing stats */}
+          <div className="rounded-2xl bg-card p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5 text-violet-400/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">
+                    First Meal
+                  </span>
+                </div>
+                {eatingStats.avgFirstMealMins !== null ? (
+                  <p className="text-lg font-bold tabular-nums text-violet-400">
+                    {minsToAmPm(eatingStats.avgFirstMealMins)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
+                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
+                  </>
+                )}
+              </div>
+              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Timer className="w-3.5 h-3.5 text-violet-400/70" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">
+                    Feeding Window
+                  </span>
+                </div>
+                {eatingStats.avgWindowMins !== null ? (
+                  <p className="text-lg font-bold tabular-nums text-violet-400">
+                    {minsToHhMm(eatingStats.avgWindowMins)}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
+                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 text-center">
+              Based on last 30 days · excludes "ate earlier" entries
+            </p>
+          </div>
+        </section>
 
 
         {/* ══════════════════════════════════════════════════ */}
@@ -814,144 +962,6 @@ export default function Stats() {
         </section>
 
         {/* ══════════════════════════════════════════════════ */}
-        {/* ── Eating Habits Section ── */}
-        {/* ══════════════════════════════════════════════════ */}
-        <section id="eating" ref={eatingRef} className="space-y-3 scroll-mt-16">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Eating Habits
-          </h2>
-
-          {/* Avg weekly calories headline */}
-          <div className="rounded-2xl bg-card p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Avg Weekly Intake</p>
-                {weeklyCalStats.avgWeekly !== null ? (
-                  <p className="text-3xl font-bold tabular-nums mt-0.5">
-                    {weeklyCalStats.avgWeekly.toLocaleString()}
-                    <span className="text-sm font-medium text-muted-foreground ml-1.5">
-                      kcal / wk
-                    </span>
-                  </p>
-                ) : (
-                  <p className="text-2xl font-bold text-muted-foreground/30 mt-0.5">—</p>
-                )}
-                <p className="text-[10px] text-muted-foreground/50 mt-1">
-                  Excludes days with no food logged
-                </p>
-              </div>
-              <Flame className="w-8 h-8 text-orange-400/40" />
-            </div>
-
-            {/* Weekly calorie bar chart */}
-            {weeklyCalStats.recentWeeks.length > 1 && (
-              <ResponsiveContainer width="100%" height={130}>
-                <BarChart
-                  data={weeklyCalStats.recentWeeks}
-                  margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                    formatter={(v: number) => [v.toLocaleString() + " kcal", "Weekly Total"]}
-                  />
-                  <Bar
-                    dataKey="total"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                    opacity={0.8}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Avg macros */}
-          {avgDailyMacros && (
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl bg-card p-3 text-center">
-                <p className="stat-value text-xl text-blue-400">{avgDailyMacros.protein}g</p>
-                <p className="micro-label mt-1">Avg Protein</p>
-              </div>
-              <div className="rounded-2xl bg-card p-3 text-center">
-                <p className="stat-value text-xl text-amber-400">{avgDailyMacros.carbs}g</p>
-                <p className="micro-label mt-1">Avg Carbs</p>
-              </div>
-              <div className="rounded-2xl bg-card p-3 text-center">
-                <p className="stat-value text-xl text-rose-400">{avgDailyMacros.fat}g</p>
-                <p className="micro-label mt-1">Avg Fat</p>
-              </div>
-            </div>
-          )}
-
-          {/* Meal timing stats */}
-          <div className="rounded-2xl bg-card p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5 text-violet-400/70" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider">
-                    First Meal
-                  </span>
-                </div>
-                {eatingStats.avgFirstMealMins !== null ? (
-                  <p className="text-lg font-bold tabular-nums text-violet-400">
-                    {minsToAmPm(eatingStats.avgFirstMealMins)}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
-                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
-                  </>
-                )}
-              </div>
-              <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Timer className="w-3.5 h-3.5 text-violet-400/70" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider">
-                    Feeding Window
-                  </span>
-                </div>
-                {eatingStats.avgWindowMins !== null ? (
-                  <p className="text-lg font-bold tabular-nums text-violet-400">
-                    {minsToHhMm(eatingStats.avgWindowMins)}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-lg font-bold text-muted-foreground/30">—</p>
-                    <p className="text-[10px] text-muted-foreground/50">Need 3+ days</p>
-                  </>
-                )}
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground/50 text-center">
-              Based on last 30 days · excludes "ate earlier" entries
-            </p>
-          </div>
-        </section>
-
-        {/* ══════════════════════════════════════════════════ */}
         {/* ── Training Log Section ── */}
         {/* ══════════════════════════════════════════════════ */}
         <section ref={trainingRef} className="space-y-4 scroll-mt-16">
@@ -983,58 +993,6 @@ export default function Stats() {
               </div>
             </div>
           )}
-
-          {/* Training Calendar */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold">Calendar</h3>
-              <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
-                <button
-                  onClick={() => setCalendarMode("feeling")}
-                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
-                    calendarMode === "feeling"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Feeling
-                </button>
-                <button
-                  onClick={() => setCalendarMode("volume")}
-                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
-                    calendarMode === "volume"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Volume
-                </button>
-              </div>
-            </div>
-            <div className="rounded-2xl bg-card p-4">
-              {calendarMode === "feeling" ? (
-                <CalendarView
-                  year={calYear}
-                  month={calMonth}
-                  sessions={calendarSessions}
-                  onMonthChange={(y, m) => {
-                    setCalYear(y);
-                    setCalMonth(m);
-                  }}
-                />
-              ) : (
-                <VolumeCalendarView
-                  year={calYear}
-                  month={calMonth}
-                  days={new Map<string, VolumeDayInfo>()}
-                  onMonthChange={(y, m) => {
-                    setCalYear(y);
-                    setCalMonth(m);
-                  }}
-                />
-              )}
-            </div>
-          </div>
 
           {/* Session list */}
           <div>

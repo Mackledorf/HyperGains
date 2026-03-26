@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { VOLUME_ZONE_COLORS } from "@/lib/muscleColors";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -39,11 +40,11 @@ export interface VolumeDayInfo {
 }
 
 export const VOLUME_STATUS_COLORS: Record<VolumeStatus, string> = {
-  undertrained: "#64748b",  // slate  — below MV
-  maintaining:  "#ca8a04",  // amber  — at MV
-  growing:      "#16a34a",  // green  — MEV → start of MAV
-  emphasizing:  "#2563eb",  // blue   — within MAV (optimal)
-  overreaching: "#dc2626",  // red    — above MRV
+  undertrained: VOLUME_ZONE_COLORS.warning, // slate  — below MV
+  maintaining:  VOLUME_ZONE_COLORS.mv,      // amber  — at MV
+  growing:      VOLUME_ZONE_COLORS.mev,     // green  — MEV → start of MAV
+  emphasizing:  VOLUME_ZONE_COLORS.mav,     // blue   — within MAV (optimal)
+  overreaching: VOLUME_ZONE_COLORS.warning, // red    — above MRV
 };
 
 export const VOLUME_STATUS_LABELS: Record<VolumeStatus, string> = {
