@@ -881,7 +881,10 @@ export function getFoodDate(now: Date = new Date()): string {
   if (adjusted.getHours() < 3) {
     adjusted.setDate(adjusted.getDate() - 1);
   }
-  return adjusted.toISOString().split("T")[0];
+  const y = adjusted.getFullYear();
+  const m = String(adjusted.getMonth() + 1).padStart(2, "0");
+  const d = String(adjusted.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 // ══════════════════════════════════════════════════

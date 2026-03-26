@@ -1015,7 +1015,7 @@ function ServingScreen({
         <TooltipProvider>
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
-              <div className="relative">
+              <div className="relative w-full">
                 <Clock
                   className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none ${
                     isInMeal || ateEarlier ? "opacity-50" : ""
@@ -1676,7 +1676,7 @@ function AddFoodSheet({
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <SheetHeader className="mb-4">
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
@@ -1979,7 +1979,7 @@ function EditFoodSheet({
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <SheetHeader className="mb-4">
           <SheetTitle>Edit Entry</SheetTitle>
         </SheetHeader>
