@@ -588,10 +588,10 @@ export default function Stats() {
           </div>
           <Link href="/settings">
             <button
-              className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2.5 rounded-2xl border border-border text-muted-foreground hover:text-foreground transition-all active:scale-95"
               aria-label="Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-5 h-5" />
             </button>
           </Link>
         </div>

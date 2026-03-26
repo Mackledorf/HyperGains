@@ -1,8 +1,19 @@
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Home, UtensilsCrossed, Pill, BarChart2 } from "lucide-react";
+import { Dumbbell, Home, UtensilsCrossed, Pill, BarChart2, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HG_EVENTS } from "@/lib/storage";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+
+  const handleLogout = () => {
+    window.dispatchEvent(new CustomEvent(HG_EVENTS.LOGOUT));
+  };
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
@@ -39,6 +50,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               HyperGains
             </span>
           </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Log out</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
