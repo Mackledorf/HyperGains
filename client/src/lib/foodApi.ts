@@ -95,14 +95,15 @@ export async function lookupBarcode(
   barcode: string
 ): Promise<FoodSearchResult | null> {
   try {
-    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(
+    const url = `https://search.openfoodfacts.org/search?code=${encodeURIComponent(
       barcode
-    )}.json?fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code`;
+    )}&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code&page_size=1`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.status !== 1 || !data.product) return null;
-    return parseOFFProduct(data.product as Record<string, unknown>);
+    const hit = (data.hits ?? [])[0];
+    if (!hit) return null;
+    return parseOFFProduct(hit as Record<string, unknown>);
   } catch {
     return null;
   }
@@ -382,14 +383,14 @@ export async function searchFoods(
   const fetchOFF = async (searchQ: string, onFail?: () => void): Promise<OffResultWithMeta[]> => {
     try {
       const r = await fetch(
-        `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(searchQ)}` +
+        `https://search.openfoodfacts.org/search?q=${encodeURIComponent(searchQ)}` +
         `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
         `&page_size=30&sort_by=popularity_key`,
         { signal }
       );
       if (!r.ok) { onFail?.(); return []; }
       const d = await r.json();
-      return (d.products ?? [])
+      return (d.hits ?? [])
         .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
         .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
     } catch (e) {
