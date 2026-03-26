@@ -12,7 +12,7 @@ import AppShell from "@/components/AppShell";
 import MacroBar from "@/components/MacroBar";
 import { MACRO_COLORS } from "@/lib/macroColors";
 import * as store from "@/lib/storage";
-import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp, TrendingDown, Minus, Flame, NotebookText } from "lucide-react";
+import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp, TrendingDown, Minus, Flame, NotebookText, Scale } from "lucide-react";
 
 export default function Dashboard() {
   const today = store.getFoodDate();
@@ -169,16 +169,19 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             {/* Weight block */}
             <Link
-              href="/stats#weight"
+              href="/#/stats#weight"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Weight
                 </span>
-                {weightTrend === "up" && <TrendingUp className="w-3.5 h-3.5 text-orange-400" />}
-                {weightTrend === "down" && <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />}
-                {weightTrend === "stable" && <Minus className="w-3.5 h-3.5 text-muted-foreground" />}
+                <div className="flex items-center gap-1.5">
+                  {weightTrend === "up" && <TrendingUp className="w-3.5 h-3.5 text-orange-400" />}
+                  {weightTrend === "down" && <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />}
+                  {weightTrend === "stable" && <Minus className="w-3.5 h-3.5 text-muted-foreground" />}
+                  <Scale className="w-3.5 h-3.5 text-blue-400/70" />
+                </div>
               </div>
               {weightHistory.length > 0 ? (
                 <p className="text-2xl font-bold tabular-nums leading-none">
@@ -200,7 +203,7 @@ export default function Dashboard() {
 
             {/* Avg Weekly Calories block */}
             <Link
-              href="/stats#eating"
+              href="/#/stats#eating"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">

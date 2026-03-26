@@ -143,17 +143,17 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Accumulate Fatigue toggle — small square at top-left */}
+        {/* Accumulate Fatigue toggle — increased size for better access */}
         <button
           onClick={() => setShowFatigue(!showFatigue)}
-          className={`absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+          className={`absolute top-3 left-3 z-10 w-11 h-11 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
             showFatigue
-              ? "bg-orange-500/20 border-orange-500/40 text-orange-400"
-              : "bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground"
+              ? "bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.1)]"
+              : "bg-background/60 backdrop-blur-sm border-border/40 text-muted-foreground hover:text-foreground"
           }`}
           aria-label="Toggle accumulated fatigue view"
         >
-          <ChartNoAxesCombined className="w-4 h-4" />
+          <ChartNoAxesCombined className="w-5 h-5" />
         </button>
         {/* FRONT VIEW */}
         <div
@@ -244,33 +244,46 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       </p>
 
       {/* Volume zone legend */}
-      <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-3">
+      <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Volume Landmarks
             </p>
-            <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-tighter">
+            <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest bg-muted/30 px-2 py-0.5 rounded-full">
               sets / week
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-x-3 gap-y-2">
-            {[
-              { id: "none", label: "No Volume", color: VOLUME_ZONE_COLORS.none },
-              { id: "warning", label: "Under/Overtrained", color: VOLUME_ZONE_COLORS.warning },
-              { id: "mv", label: "Maintaining", color: VOLUME_ZONE_COLORS.mv },
-              { id: "mev", label: "Growing", color: VOLUME_ZONE_COLORS.mev },
-              { id: "mav", label: "Emphasizing", color: VOLUME_ZONE_COLORS.mav },
-            ].map(({ id, label, color }) => (
-              <div key={id} className="flex items-center gap-2.5">
+          
+          <div className="relative pt-1 pb-6 px-1.5">
+            {/* The Track Line */}
+            <div className="h-1 w-full rounded-full bg-muted/40 absolute top-2.5 left-0" />
+            
+            {/* Markers Container */}
+            <div className="relative h-4 flex items-center">
+              {[
+                { id: "none", color: VOLUME_ZONE_COLORS.none, left: "0%", label: "None" },
+                { id: "warning", color: VOLUME_ZONE_COLORS.warning, left: "25%", label: "Warning" },
+                { id: "mv", color: VOLUME_ZONE_COLORS.mv, left: "50%", label: "Maintain" },
+                { id: "mev", color: VOLUME_ZONE_COLORS.mev, left: "75%", label: "Growth" },
+                { id: "mav", color: VOLUME_ZONE_COLORS.mav, left: "100%", label: "Focus" },
+              ].map(({ id, color, left, label }) => (
                 <div
-                  className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-xs font-medium text-foreground/80 leading-tight">
-                  {label}
-                </span>
-              </div>
-            ))}
+                  key={id}
+                  className="absolute flex flex-col items-center group"
+                  style={{ left }}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full border-[1.5px] border-card shadow-sm -translate-x-1/2" 
+                    style={{ backgroundColor: color }}
+                  />
+                  <span 
+                    className="mt-2.5 text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 whitespace-nowrap -translate-x-1/2"
+                  >
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
       </div>
     </div>
