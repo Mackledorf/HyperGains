@@ -169,7 +169,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             {/* Weight block */}
             <Link
-              href="/#/stats#weight"
+              href="/stats"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">
@@ -203,7 +203,7 @@ export default function Dashboard() {
 
             {/* Avg Weekly Calories block */}
             <Link
-              href="/#/stats#eating"
+              href="/stats"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">

@@ -146,7 +146,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {/* Accumulate Fatigue toggle — positioned closer to the edge */}
         <button
           onClick={() => setShowFatigue(!showFatigue)}
-          className={`absolute top-2 left-2 z-10 w-12 h-12 flex items-center justify-center rounded-2xl border transition-all active:scale-90 ${
+          className={`absolute top-0 left-0 z-10 w-12 h-12 flex items-center justify-center rounded-2xl border transition-all active:scale-90 ${
             showFatigue
               ? "bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.1)]"
               : "bg-background/60 backdrop-blur-sm border-border/40 text-muted-foreground hover:text-foreground"

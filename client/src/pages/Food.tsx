@@ -451,30 +451,22 @@ function WaterBar({
       <GlassWater className="w-4 h-4 text-sky-400 flex-shrink-0" />
       <span className="font-semibold text-xs text-sky-400/90 flex-shrink-0">Water</span>
 
-      {/* Progress bar + amount */}
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <div className="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-sky-400 rounded-full transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-[10px] tabular-nums text-muted-foreground whitespace-nowrap flex-shrink-0">
-          {Math.round(consumedOz)}
-          <span className="text-muted-foreground/50"> / {targetOz} oz</span>
-          {excessCarbs > 0 && (
-            <span className="text-sky-400 ml-0.5">·+{Math.round(excessCarbs * 0.12)}</span>
-          )}
-        </span>
-      </div>
+      {/* Amount */}
+      <span className="text-[10px] tabular-nums text-muted-foreground whitespace-nowrap flex-shrink-0">
+        {Math.round(consumedOz)}
+        <span className="text-muted-foreground/50"> / {targetOz} oz</span>
+        {excessCarbs > 0 && (
+          <span className="text-sky-400 ml-0.5">·+{Math.round(excessCarbs * 0.12)}</span>
+        )}
+      </span>
 
       {/* Quick-add buttons */}
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
         {WATER_AMOUNTS.map((oz) => (
           <button
             key={oz}
             disabled={subtractMode && isEmpty}
-            className={`h-7 px-1.5 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-30 ${
+            className={`h-7 w-9 rounded-lg text-[10px] font-semibold border transition-colors disabled:opacity-30 ${
               subtractMode
                 ? "text-red-400 border-red-400/30 hover:border-red-400/60 hover:bg-red-400/10"
                 : "text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:bg-sky-400/10"
@@ -582,17 +574,21 @@ function MealCard({
             <p className="font-semibold text-sm">{meal.name}</p>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3 h-3 shrink-0" />
-              <input
-                type="time"
-                value={isoToTimeInput(meal.loggedAt)}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  if (e.target.value) onUpdateTime(meal.id, applyTimeToIso(meal.loggedAt, e.target.value));
-                }}
-                className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
-              />
+              {isAteEarlierSentinel(meal.loggedAt) ? (
+                <span className="italic text-muted-foreground/60">No time recorded</span>
+              ) : (
+                <input
+                  type="time"
+                  value={isoToTimeInput(meal.loggedAt)}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    if (e.target.value) onUpdateTime(meal.id, applyTimeToIso(meal.loggedAt, e.target.value));
+                  }}
+                  className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
+                />
+              )}
               <span>· {Math.round(mealTotals.calories)} kcal</span>
             </div>
           </div>
