@@ -616,7 +616,7 @@ export default function Stats() {
         {/* ══════════════════════════════════════════════════ */}
         {/* ── Weight Section ── */}
         {/* ══════════════════════════════════════════════════ */}
-        <section ref={weightRef} className="space-y-3 scroll-mt-16">
+        <section id="weight" ref={weightRef} className="space-y-3 scroll-mt-16">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Weight
           </h2>
@@ -816,7 +816,7 @@ export default function Stats() {
         {/* ══════════════════════════════════════════════════ */}
         {/* ── Eating Habits Section ── */}
         {/* ══════════════════════════════════════════════════ */}
-        <section ref={eatingRef} className="space-y-3 scroll-mt-16">
+        <section id="eating" ref={eatingRef} className="space-y-3 scroll-mt-16">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Eating Habits
           </h2>

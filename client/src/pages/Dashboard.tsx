@@ -12,7 +12,7 @@ import AppShell from "@/components/AppShell";
 import MacroBar from "@/components/MacroBar";
 import { MACRO_COLORS } from "@/lib/macroColors";
 import * as store from "@/lib/storage";
-import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp, TrendingDown, Minus, Flame, Activity } from "lucide-react";
+import { UtensilsCrossed, Dumbbell, Pill, ChevronRight, Zap, TrendingUp, TrendingDown, Minus, Flame, NotebookText } from "lucide-react";
 
 export default function Dashboard() {
   const today = store.getFoodDate();
@@ -74,8 +74,8 @@ export default function Dashboard() {
       arr.push(cals);
       byWeek.set(wk, arr);
     }
-    const totals = Array.from(byWeek.values()).map((w) => w.reduce((s, c) => s + c, 0));
-    return Math.round(totals.reduce((s, t) => s + t, 0) / totals.length);
+    const weeklyTotals = Array.from(byWeek.values()).map((w) => w.reduce((s, c) => s + c, 0));
+    return Math.round(weeklyTotals.reduce((s, t) => s + t, 0) / weeklyTotals.length);
   }, [allFoodEntries]);
 
   const sessionsThisWeek = useMemo(() => {
@@ -169,7 +169,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             {/* Weight block */}
             <Link
-              href="/stats"
+              href="/stats#weight"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">
@@ -193,14 +193,14 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-muted-foreground/30">—</p>
               )}
               <div className="flex items-center gap-1 mt-2">
-                <span className="text-[10px] text-muted-foreground/60">Tap to view log</span>
+                <span className="text-[10px] text-muted-foreground/60 tracking-tight">Update your weight</span>
                 <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
               </div>
             </Link>
 
             {/* Avg Weekly Calories block */}
             <Link
-              href="/stats"
+              href="/stats#eating"
               className="rounded-2xl bg-card/90 backdrop-blur border border-border/50 p-4 text-left active:scale-[0.97] transition-transform hover:border-primary/30 block"
             >
               <div className="flex items-center justify-between mb-2">
@@ -218,7 +218,7 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-muted-foreground/30">—</p>
               )}
               <div className="flex items-center gap-1 mt-2">
-                <span className="text-[10px] text-muted-foreground/60">Tap to view eating</span>
+                <span className="text-[10px] text-muted-foreground/60 tracking-tight">View your weekly habits</span>
                 <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
               </div>
             </Link>
@@ -231,12 +231,12 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Activity className="w-[18px] h-[18px] text-primary" />
+                    <NotebookText className="w-[18px] h-[18px] text-primary" />
                   </div>
                   <div>
                     <p className="text-sm font-bold">Training Log</p>
                     <p className="text-xs text-muted-foreground">
-                      {activeProgram ? activeProgram.name : "No active program"}
+                      {activeProgram ? activeProgram.name : "View stats"}
                       {sessionsThisWeek > 0 && (
                         <span className="ml-2 text-primary font-semibold">
                           · {sessionsThisWeek} this week
