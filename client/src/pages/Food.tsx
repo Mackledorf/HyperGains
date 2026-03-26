@@ -1803,6 +1803,9 @@ function AddFoodSheet({
                         <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>
                           P {Math.round(f.proteinPer100g * f.servingSizeG / 100)}g
                         </span>
+                        <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>
+                          F {Math.round(f.fatPer100g * f.servingSizeG / 100)}g
+                        </span>
                       </div>
                     </button>
                     <button
@@ -2010,6 +2013,7 @@ function AddFoodSheet({
                             </span>
                             <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
                             <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
+                            <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>Fat {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
                           </div>
                         </button>
                       ))}

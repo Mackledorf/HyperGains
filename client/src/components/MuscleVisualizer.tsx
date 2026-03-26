@@ -278,12 +278,15 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             </span>
           </div>
           
-          <div className="relative px-1.5">
-            {/* Track line — runs between the centers of the first and last dots */}
-            <div className="absolute top-[5px] left-[12px] right-[12px] h-px rounded-full bg-muted/40" />
+          <div className="relative">
+            {/* Track line — spans from center of first column to center of last column */}
+            <div
+              className="absolute top-[5px] h-px rounded-full bg-muted/40"
+              style={{ left: "calc(100% / 12)", right: "calc(100% / 12)" }}
+            />
 
-            {/* Markers row */}
-            <div className="relative flex justify-between items-start">
+            {/* Markers row — equal-width columns so dot centers are evenly spaced */}
+            <div className="relative flex items-start">
               {[
                 { id: "none",         color: VOLUME_ZONE_COLORS.none,         label: "None" },
                 { id: "warning",      color: VOLUME_ZONE_COLORS.warning,      label: "Under-\ntraining" },
@@ -292,7 +295,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
                 { id: "mav",          color: VOLUME_ZONE_COLORS.mav,          label: "Emphasizing" },
                 { id: "overtraining", color: VOLUME_ZONE_COLORS.overtraining, label: "Over-\ntraining" },
               ].map(({ id, color, label }) => (
-                <div key={id} className="flex flex-col items-center gap-2.5">
+                <div key={id} className="flex-1 flex flex-col items-center gap-2.5">
                   <div
                     className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: color }}
