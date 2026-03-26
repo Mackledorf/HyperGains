@@ -278,32 +278,26 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             </span>
           </div>
           
-          <div className="relative pt-1 pb-6 px-1.5">
-            {/* The Track Line */}
-            <div className="h-1 w-full rounded-full bg-muted/40 absolute top-2.5 left-0" />
-            
-            {/* Markers Container */}
-            <div className="relative h-4 flex items-center">
+          <div className="relative px-1.5">
+            {/* Track line — runs between the centers of the first and last dots */}
+            <div className="absolute top-[5px] left-[12px] right-[12px] h-px rounded-full bg-muted/40" />
+
+            {/* Markers row */}
+            <div className="relative flex justify-between items-start">
               {[
-                { id: "none",        color: VOLUME_ZONE_COLORS.none,        left: "0%",   label: "None" },
-                { id: "warning",     color: VOLUME_ZONE_COLORS.warning,     left: "20%",  label: "Undertraining" },
-                { id: "mv",          color: VOLUME_ZONE_COLORS.mv,          left: "40%",  label: "Maintaining" },
-                { id: "mev",         color: VOLUME_ZONE_COLORS.mev,         left: "60%",  label: "Growing" },
-                { id: "mav",         color: VOLUME_ZONE_COLORS.mav,         left: "80%",  label: "Emphasizing" },
-                { id: "overtraining",color: VOLUME_ZONE_COLORS.overtraining,left: "100%", label: "Overtraining" },
-              ].map(({ id, color, left, label }) => (
-                <div
-                  key={id}
-                  className="absolute flex flex-col items-center group"
-                  style={{ left }}
-                >
-                  <div 
-                    className="w-3 h-3 rounded-full border-[1.5px] border-card shadow-sm -translate-x-1/2" 
+                { id: "none",         color: VOLUME_ZONE_COLORS.none,         label: "None" },
+                { id: "warning",      color: VOLUME_ZONE_COLORS.warning,      label: "Under-\ntraining" },
+                { id: "mv",           color: VOLUME_ZONE_COLORS.mv,           label: "Maintaining" },
+                { id: "mev",          color: VOLUME_ZONE_COLORS.mev,          label: "Growing" },
+                { id: "mav",          color: VOLUME_ZONE_COLORS.mav,          label: "Emphasizing" },
+                { id: "overtraining", color: VOLUME_ZONE_COLORS.overtraining, label: "Over-\ntraining" },
+              ].map(({ id, color, label }) => (
+                <div key={id} className="flex flex-col items-center gap-2.5">
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: color }}
                   />
-                  <span 
-                    className="mt-2.5 text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 whitespace-nowrap -translate-x-1/2"
-                  >
+                  <span className="text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight">
                     {label}
                   </span>
                 </div>
