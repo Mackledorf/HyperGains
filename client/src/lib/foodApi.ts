@@ -233,13 +233,14 @@ function usdaMacro(nutrients: UsdaNutrient[], id: number, fallbackName: string):
   );
 }
 
-async function searchUSDA(query: string, signal?: AbortSignal): Promise<FoodSearchResult[]> {
+async function searchUSDA(query: string, signal?: AbortSignal, onRateLimit?: () => void): Promise<FoodSearchResult[]> {
   try {
     const key = getUsdaKey();
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
       query
     )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Branded,Survey%20(FNDDS)&pageSize=20`;
     const res = await fetch(url, { signal });
+    if (res.status === 429) { onRateLimit?.(); return []; }
     if (!res.ok) return [];
     const data = await res.json();
     const results: FoodSearchResult[] = [];
@@ -287,7 +288,7 @@ export async function searchFoods(
   query: string,
   signal?: AbortSignal,
   onPartial?: (results: FoodSearchResult[]) => void,
-  onError?: (type: 'search_unavailable') => void,
+  onError?: (type: 'search_unavailable' | 'rate_limited') => void,
   brand?: string,
   item?: string,
 ): Promise<FoodSearchResult[]> {
@@ -378,27 +379,28 @@ export async function searchFoods(
   const itemQ  = item?.trim()  ?? "";
   const isRefineMode = brandQ.length > 0 && itemQ.length > 0;
 
-  const fetchOFF = async (searchQ: string): Promise<OffResultWithMeta[]> => {
+  const fetchOFF = async (searchQ: string, onFail?: () => void): Promise<OffResultWithMeta[]> => {
     try {
       const r = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
-        `&search_terms=${encodeURIComponent(searchQ)}&json=1` +
+        `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(searchQ)}` +
         `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
         `&page_size=30&sort_by=popularity_key`,
         { signal }
       );
-      if (!r.ok) return [];
+      if (!r.ok) { onFail?.(); return []; }
       const d = await r.json();
       return (d.products ?? [])
         .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
         .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
     } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
+      onFail?.();
       return [];
     }
   };
 
   let offFailed = false;
+  let usdaRateLimited = false;
 
   // ── 2. Fire requests ────────────────────────────────────────────────────────
   let rerankedOff: FoodSearchResult[] = [];
@@ -407,10 +409,10 @@ export async function searchFoods(
     // Fire 3 OFF queries + 3 USDA queries in parallel, then merge
     const [offCombined, offBrand, offItem, usdaCombined, usdaBrand, usdaItem] =
       await Promise.all([
-        fetchOFF(q).catch(() => { offFailed = true; return [] as OffResultWithMeta[]; }),
+        fetchOFF(q, () => { offFailed = true; }).catch(() => [] as OffResultWithMeta[]),
         fetchOFF(brandQ).catch(() => [] as OffResultWithMeta[]),
         fetchOFF(itemQ).catch(() => [] as OffResultWithMeta[]),
-        searchUSDA(q, signal).catch(() => [] as FoodSearchResult[]),
+        searchUSDA(q, signal, () => { usdaRateLimited = true; }).catch(() => [] as FoodSearchResult[]),
         searchUSDA(brandQ, signal).catch(() => [] as FoodSearchResult[]),
         searchUSDA(itemQ, signal).catch(() => [] as FoodSearchResult[]),
       ]);
@@ -427,34 +429,15 @@ export async function searchFoods(
 
     if (results.length > 0) setCached(q, results);
     else if (offFailed) onError?.('search_unavailable');
+    else if (usdaRateLimited) onError?.('rate_limited');
 
     onPartial?.(results);
     return results;
   }
 
   // Normal single-query path
-  const offFetch = (async (): Promise<OffResultWithMeta[]> => {
-    try {
-      const r = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?action=process` +
-        `&search_terms=${encodeURIComponent(q)}&json=1` +
-        `&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags` +
-        `&page_size=30&sort_by=popularity_key`,
-        { signal }
-      );
-      if (!r.ok) return [];
-      const d = await r.json();
-      return (d.products ?? [])
-        .map((p: Record<string, unknown>) => parseOFFProductWithMeta(p))
-        .filter((r: OffResultWithMeta | null): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
-    } catch (e) {
-      if ((e as Error)?.name === "AbortError") throw e;
-      offFailed = true;
-      return [];
-    }
-  })();
-
-  const usdaFetch = searchUSDA(q, signal);
+  const offFetch = fetchOFF(q, () => { offFailed = true; });
+  const usdaFetch = searchUSDA(q, signal, () => { usdaRateLimited = true; });
 
   // Show OFF results as soon as they arrive
   offFetch.then(off => {
@@ -474,6 +457,8 @@ export async function searchFoods(
     setCached(q, results);
   } else if (offFailed) {
     onError?.('search_unavailable');
+  } else if (usdaRateLimited) {
+    onError?.('rate_limited');
   }
   onPartial?.(results);
   return results;

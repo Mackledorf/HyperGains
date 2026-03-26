@@ -48,11 +48,11 @@ export const VOLUME_STATUS_COLORS: Record<VolumeStatus, string> = {
 };
 
 export const VOLUME_STATUS_LABELS: Record<VolumeStatus, string> = {
-  undertrained: "Under MV",
+  undertrained: "Undertraining",
   maintaining:  "Maintaining",
   growing:      "Growing",
   emphasizing:  "Emphasizing",
-  overreaching: "Overreaching",
+  overreaching: "Overtraining",
 };
 
 interface Props {

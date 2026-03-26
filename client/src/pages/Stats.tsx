@@ -579,7 +579,7 @@ export default function Stats() {
 
   return (
     <AppShell>
-      <div className="space-y-6 pb-4">
+      <div className="space-y-6 pb-4 overflow-x-hidden">
         {/* ── Page Header ── */}
         <div className="flex items-center justify-between">
           <div>
@@ -607,17 +607,8 @@ export default function Stats() {
               </span>
             )}
           </div>
-          <div className="rounded-2xl bg-card p-4">
-            <MuscleVisualizer 
-              muscleData={muscleData} 
-              calYear={calYear}
-              calMonth={calMonth}
-              calDays={new Map<string, VolumeDayInfo>()}
-              onCalMonthChange={(y, m) => {
-                setCalYear(y);
-                setCalMonth(m);
-              }}
-            />
+          <div className="rounded-2xl bg-card p-4 overflow-hidden">
+            <MuscleVisualizer muscleData={muscleData} />
           </div>
         </div>
 
@@ -993,6 +984,58 @@ export default function Stats() {
               </div>
             </div>
           )}
+
+          {/* Training Calendar */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold">Calendar</h3>
+              <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+                <button
+                  onClick={() => setCalendarMode("feeling")}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                    calendarMode === "feeling"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Feeling
+                </button>
+                <button
+                  onClick={() => setCalendarMode("volume")}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                    calendarMode === "volume"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Volume
+                </button>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-card p-4">
+              {calendarMode === "feeling" ? (
+                <CalendarView
+                  year={calYear}
+                  month={calMonth}
+                  sessions={calendarSessions}
+                  onMonthChange={(y, m) => {
+                    setCalYear(y);
+                    setCalMonth(m);
+                  }}
+                />
+              ) : (
+                <VolumeCalendarView
+                  year={calYear}
+                  month={calMonth}
+                  days={new Map<string, VolumeDayInfo>()}
+                  onMonthChange={(y, m) => {
+                    setCalYear(y);
+                    setCalMonth(m);
+                  }}
+                />
+              )}
+            </div>
+          </div>
 
           {/* Session list */}
           <div>

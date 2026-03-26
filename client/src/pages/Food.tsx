@@ -1517,7 +1517,7 @@ function AddFoodSheet({
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [searchError, setSearchError] = useState<'search_unavailable' | null>(null);
+  const [searchError, setSearchError] = useState<'search_unavailable' | 'rate_limited' | null>(null);
   const [selectedFood, setSelectedFood] = useState<FoodSearchResult | null>(null);
   const [showRefine, setShowRefine] = useState(false);
   const [refineBrand, setRefineBrand] = useState("");
@@ -1863,7 +1863,9 @@ function AddFoodSheet({
                   <p className="text-sm font-medium text-muted-foreground">
                     {searchError === 'search_unavailable'
                       ? "Search temporarily unavailable — try again in a bit."
-                      : "We couldn't find that food."}
+                      : searchError === 'rate_limited'
+                        ? "USDA rate-limited — add a personal API key in Settings for better coverage."
+                        : "We couldn't find that food."}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2.5">
