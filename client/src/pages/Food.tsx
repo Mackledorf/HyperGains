@@ -56,6 +56,15 @@ import {
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
+// ── types ─────────────────────────────────────────────────────────────────────
+
+type MacroOverrides = {
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  carbsPer100g: number;
+  fatPer100g: number;
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string): string {
@@ -694,7 +703,7 @@ function ServingScreen({
   today: string;
   context: AddContext;
   onBack: () => void;
-  onSave: (servingG: number, loggedAt: string) => void;
+  onSave: (servingG: number, loggedAt: string, overrides?: MacroOverrides) => void;
 }) {
   const defaultServingG = food.servingSizeG || 100;
   const isLiquid = /\bml\b|fl\.?\s*oz/i.test(food.servingSizeLabel ?? "");
@@ -716,6 +725,8 @@ function ServingScreen({
   const [unit, setUnit] = useState<ServingUnit>("serving");
   const [qty, setQty] = useState<string>("1");
   const [ateEarlier, setAteEarlier] = useState(false);
+  const [showPreparedOverride, setShowPreparedOverride] = useState(false);
+  const [overrides, setOverrides] = useState<MacroOverrides | null>(null);
 
   // If in a meal, we use the meal's time (passed via buildLoggedAt later if needed,
   // but for the UI we show the state of logTime).
@@ -746,9 +757,25 @@ function ServingScreen({
   const servingG = !isNaN(parsedQty) && parsedQty > 0
     ? toGrams(parsedQty, unit, defaultServingG)
     : 0;
+  const effectiveFood = overrides ? { ...food, ...overrides } : food;
   const macros = servingG > 0
-    ? computeMacros(food, servingG)
+    ? computeMacros(effectiveFood, servingG)
     : { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+
+  function togglePreparedOverride() {
+    if (showPreparedOverride) {
+      setShowPreparedOverride(false);
+      setOverrides(null);
+    } else {
+      setShowPreparedOverride(true);
+      setOverrides({
+        caloriesPer100g: food.caloriesPer100g,
+        proteinPer100g: food.proteinPer100g,
+        carbsPer100g: food.carbsPer100g,
+        fatPer100g: food.fatPer100g,
+      });
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -812,6 +839,54 @@ function ServingScreen({
             <p className="font-bold text-sm tabular-nums" style={color ? { color } : undefined}>{value}<span className="font-normal opacity-80">{u}</span></p>
           </div>
         ))}
+      </div>
+
+      {/* Prepared food macro override */}
+      <div className="rounded-2xl border border-border/60 overflow-hidden">
+        <button
+          type="button"
+          onClick={togglePreparedOverride}
+          className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+        >
+          <UtensilsCrossed className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="flex-1 text-sm text-muted-foreground">
+            Preparing this food? Update its macros.
+          </span>
+          {showPreparedOverride
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+        </button>
+
+        {showPreparedOverride && overrides && (
+          <div className="px-4 pb-4 pt-1 grid grid-cols-2 gap-3 border-t border-border/60">
+            {([
+              { key: "caloriesPer100g" as keyof MacroOverrides, label: "Calories",       unit: "kcal" },
+              { key: "proteinPer100g" as keyof MacroOverrides, label: "Protein",         unit: "g" },
+              { key: "carbsPer100g"   as keyof MacroOverrides, label: "Carbs",           unit: "g" },
+              { key: "fatPer100g"     as keyof MacroOverrides, label: "Fat",             unit: "g" },
+            ] as { key: keyof MacroOverrides; label: string; unit: string }[]).map(({ key, label, unit: u }) => (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs">{label} <span className="text-muted-foreground font-normal">per 100g ({u})</span></Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={overrides[key]}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0) {
+                      setOverrides(prev => prev ? { ...prev, [key]: val } : prev);
+                    } else if (e.target.value === "") {
+                      setOverrides(prev => prev ? { ...prev, [key]: 0 } : prev);
+                    }
+                  }}
+                  className="rounded-xl h-9"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Log time */}
@@ -905,7 +980,8 @@ function ServingScreen({
             servingG,
             ateEarlier
               ? buildLoggedAt(today, "00:00")
-              : buildLoggedAt(today, logTime)
+              : buildLoggedAt(today, logTime),
+            overrides ?? undefined
           )
         }
       >
@@ -1481,9 +1557,10 @@ function AddFoodSheet({
     setScreen("serving");
   }
 
-  function saveFood(servingG: number, loggedAt: string) {
+  function saveFood(servingG: number, loggedAt: string, overrides?: MacroOverrides) {
     if (!selectedFood) return;
-    const macros = computeMacros(selectedFood, servingG);
+    const effectiveFood = overrides ? { ...selectedFood, ...overrides } : selectedFood;
+    const macros = computeMacros(effectiveFood, servingG);
     store.createFoodEntry({
       mealId: context.type === "meal" ? context.mealId : null,
       customFoodId: selectedFood.source === "custom" ? selectedFood.id : null,

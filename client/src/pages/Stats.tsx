@@ -596,6 +596,22 @@ export default function Stats() {
           </Link>
         </div>
 
+        {/* ── Muscle Visualizer ── */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold">Weekly Volume</h2>
+            {activeProgram && (
+              <span className="text-xs text-muted-foreground">
+                Week {activeProgram.currentWeekNumber ?? 1} of{" "}
+                {activeProgram.durationWeeks}
+              </span>
+            )}
+          </div>
+          <div className="rounded-2xl bg-card p-4">
+            <MuscleVisualizer muscleData={muscleData} />
+          </div>
+        </div>
+
         {/* ── Hero Visualizer ── */}
         {/* Breaks out of page padding to stretch full screen width */}
         <div className="-mx-5 bg-gradient-to-b from-primary/8 to-transparent px-5 pt-1 pb-6">
@@ -1067,22 +1083,6 @@ export default function Stats() {
               </div>
             </div>
           )}
-
-          {/* Muscle volume visualizer */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold">Weekly Volume</h3>
-              {activeProgram && (
-                <span className="text-xs text-muted-foreground">
-                  Week {activeProgram.currentWeekNumber ?? 1} of{" "}
-                  {activeProgram.durationWeeks}
-                </span>
-              )}
-            </div>
-            <div className="rounded-2xl bg-card p-4">
-              <MuscleVisualizer muscleData={muscleData} />
-            </div>
-          </div>
 
           {/* Training Calendar */}
           <div>

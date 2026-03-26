@@ -80,31 +80,31 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {/* Tick line from body edge to text */}
         <line
           x1={90} y1={y} x2={x - 3} y2={y}
-          stroke={col} strokeWidth={0.35} opacity={0.4}
+          stroke={col} strokeWidth={0.5} opacity={0.4}
         />
         {/* Anchor dot */}
-        <circle cx={90} cy={y} r={0.9} fill={col} opacity={0.45} />
+        <circle cx={90} cy={y} r={1.2} fill={col} opacity={0.45} />
         {/* Sets count */}
         <text
           x={x} y={y}
-          fontFamily={MONO} fontSize={8} fontWeight="700"
+          fontFamily={MONO} fontSize={11} fontWeight="700"
           fill={col} dominantBaseline="middle" textAnchor="start"
         >
           {selectedInfo.actualSets}
         </text>
         {/* sets/wk */}
         <text
-          x={x} y={y + 7.5}
-          fontFamily={MONO} fontSize={3.2}
-          fill="rgba(255,255,255,0.35)" dominantBaseline="middle" textAnchor="start"
+          x={x} y={y + 10}
+          fontFamily={MONO} fontSize={4.5}
+          fill="rgba(255,255,255,0.45)" dominantBaseline="middle" textAnchor="start"
         >
           SETS/WK
         </text>
         {/* zone label */}
         <text
-          x={x} y={y + 13}
-          fontFamily={MONO} fontSize={3.2}
-          fill="rgba(255,255,255,0.25)" dominantBaseline="middle" textAnchor="start"
+          x={x} y={y + 17}
+          fontFamily={MONO} fontSize={4.5}
+          fill="rgba(255,255,255,0.35)" dominantBaseline="middle" textAnchor="start"
         >
           {selectedInfo.zoneLabel.toUpperCase()}
         </text>
@@ -139,7 +139,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* Swipeable container */}
       <div
         className="relative overflow-hidden"
-        style={{ height: 320 }}
+        style={{ height: 420 }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -148,7 +148,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
           style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
         >
-          <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Front muscle map">
+          <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Front muscle map">
             <defs>
               {/* clipRule="evenodd" mirrors the outline's fillRule so fills are clipped inside the body silhouette */}
               <clipPath id="front-body-clip">
@@ -171,7 +171,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
           style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
         >
-          <svg viewBox="0 0 144 144" className="w-full h-full" aria-label="Back muscle map">
+          <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Back muscle map">
             <defs>
               <clipPath id="back-body-clip">
                 <path d={BACK_OUTLINE} clipRule="evenodd" />
