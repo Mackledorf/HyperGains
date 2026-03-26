@@ -94,7 +94,7 @@ export default function BarcodeScanner({ onDetect, onError }: Props) {
   return (
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-black"
-      style={{ aspectRatio: "16/10" }}
+      style={{ aspectRatio: "4/3" }}
     >
       {/* The actual camera feed — we own this element, no library injection */}
       <video
@@ -108,19 +108,21 @@ export default function BarcodeScanner({ onDetect, onError }: Props) {
       {/* Aiming overlay */}
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3">
         <svg
-          viewBox="0 0 260 100"
-          width="260"
-          height="100"
+          viewBox="0 0 280 140"
+          width="280"
+          height="140"
           className="overflow-visible"
           aria-hidden="true"
         >
+          {/* Blue filled scanning rectangle */}
+          <rect x="0" y="0" width="280" height="140" rx="4" ry="4" fill="rgba(59,130,246,0.15)" stroke="rgba(59,130,246,0.9)" strokeWidth="2" />
           {/* Corner brackets */}
-          <path d="M 36 0 L 0 0 L 0 36"        fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 224 0 L 260 0 L 260 36"    fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 36 100 L 0 100 L 0 64"     fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M 224 100 L 260 100 L 260 64" fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 40 0 L 0 0 L 0 40"         fill="none" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 240 0 L 280 0 L 280 40"     fill="none" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 40 140 L 0 140 L 0 100"     fill="none" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 240 140 L 280 140 L 280 100" fill="none" stroke="#3b82f6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
           {/* Dashed centre scan-guide line */}
-          <line x1="0" y1="50" x2="260" y2="50" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeOpacity="0.35" strokeDasharray="8 5" />
+          <line x1="0" y1="70" x2="280" y2="70" stroke="#3b82f6" strokeWidth="1.5" strokeOpacity="0.45" strokeDasharray="8 5" />
         </svg>
         <p className="text-xs text-white/60">Align barcode in frame</p>
       </div>
