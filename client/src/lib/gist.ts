@@ -4,6 +4,7 @@
  * One master private Gist holds all users' data as separate files.
  */
 import type { UserDataPayload } from "@/lib/storage";
+import type { CustomFood } from "@shared/schema";
 
 const PAT = import.meta.env.VITE_GITHUB_PAT as string;
 const GIST_DESCRIPTION = "hypergains-data";
@@ -99,6 +100,45 @@ async function getMasterGistId(): Promise<string> {
 
 function userFilename(userId: string): string {
   return `user_${userId}.json`;
+}
+
+const GLOBAL_FOODS_FILENAME = "global_foods.json";
+
+/** Returns the set of community-shared foods. */
+export async function getGlobalFoods(): Promise<CustomFood[]> {
+  try {
+    const gistId = await getMasterGistId();
+    const raw = (await ghApi("GET", `/gists/${gistId}`)) as GistItem;
+    const file = raw?.files?.[GLOBAL_FOODS_FILENAME];
+    if (!file?.content) return [];
+    return JSON.parse(file.content) as CustomFood[];
+  } catch {
+    return [];
+  }
+}
+
+/** 
+ * Merges a list of custom foods into the global shared library.
+ * Using a simple merge strategy: existing IDs are overwritten.
+ */
+export async function updateGlobalFoods(foods: CustomFood[]): Promise<void> {
+  const gistId = await getMasterGistId();
+  const existing = await getGlobalFoods();
+  
+  // Create a map by ID for merging
+  const map = new Map<string, CustomFood>();
+  existing.forEach(f => map.set(f.id, f));
+  foods.forEach(f => map.set(f.id, f));
+
+  const updated = Array.from(map.values());
+
+  await ghApi("PATCH", `/gists/${gistId}`, {
+    files: {
+      [GLOBAL_FOODS_FILENAME]: {
+        content: JSON.stringify(updated, null, 2),
+      },
+    },
+  });
 }
 
 /** Returns the parsed payload for this userId, or null if not found. */

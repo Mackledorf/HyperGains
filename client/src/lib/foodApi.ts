@@ -23,8 +23,10 @@ export interface FoodSearchResult {
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
-  source: "openfoodfacts" | "usda" | "custom";
+  source: "openfoodfacts" | "usda" | "custom" | "global";
 }
+
+import * as store from "@/lib/storage";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -300,21 +302,36 @@ export async function searchFoods(
 
   const { lang, country } = getUserLocale();
 
-  // ── 1. Instant prefix-cache results ────────────────────────────────────────
+  // ── 1. Library Search (Personal + Global) ──────────────────────────────────
+  const localLibrary = store.getCustomFoods() as FoodSearchResult[];
+  const globalLibrary = store.getGlobalFoods() as FoodSearchResult[];
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  
+  const libraryResults = [...localLibrary, ...globalLibrary].filter(r =>
+    words.every(w =>
+      r.name.toLowerCase().includes(w) ||
+      (r.brand?.toLowerCase() ?? "").includes(w)
+    )
+  );
+
+  if (onPartial && libraryResults.length > 0) {
+    onPartial(libraryResults);
+  }
+
+  // ── 2. Instant prefix-cache results ────────────────────────────────────────
   if (onPartial) {
     for (const [key, entry] of Array.from(_cache.entries())) {
       if (Date.now() - entry.at > CACHE_TTL_MS) continue;
       const ql = q.toLowerCase();
       const kl = key.toLowerCase();
       if (ql.startsWith(kl) || kl.startsWith(ql)) {
-        const words = ql.split(/\s+/).filter(Boolean);
         const filtered = entry.results.filter((r: FoodSearchResult) =>
           words.every(w =>
             r.name.toLowerCase().includes(w) ||
             (r.brand?.toLowerCase() ?? "").includes(w)
           )
         );
-        if (filtered.length > 0) { onPartial(filtered); break; }
+        if (filtered.length > 0) { onPartial([...libraryResults, ...filtered]); break; }
       }
     }
   }
@@ -406,7 +423,7 @@ export async function searchFoods(
     const itemRanked     = rerankOFF(offItem);
 
     rerankedOff = mergeResults(combinedRanked, brandRanked, itemRanked);
-    const results = mergeResults(rerankedOff, usdaCombined, usdaBrand, usdaItem);
+    const results = mergeResults(libraryResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
 
     if (results.length > 0) setCached(q, results);
     else if (offFailed) onError?.('search_unavailable');
@@ -443,7 +460,7 @@ export async function searchFoods(
   offFetch.then(off => {
     if (signal?.aborted) return;
     try { rerankedOff = rerankOFF(off); } catch { return; }
-    if (rerankedOff.length > 0) onPartial?.(rerankedOff);
+    if (rerankedOff.length > 0) onPartial?.(mergeResults(libraryResults, rerankedOff));
   }).catch(() => {});
 
   // ── 3. Wait for both, merge, cache, fire final onPartial ──────────────────
@@ -452,7 +469,7 @@ export async function searchFoods(
     try { rerankedOff = rerankOFF(offRaw); } catch { rerankedOff = []; }
   }
 
-  const results = mergeResults(rerankedOff, usdaResults);
+  const results = mergeResults(libraryResults, rerankedOff, usdaResults);
   if (results.length > 0) {
     setCached(q, results);
   } else if (offFailed) {

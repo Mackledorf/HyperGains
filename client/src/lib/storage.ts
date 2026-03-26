@@ -111,6 +111,7 @@ const KEYS = {
   get foodEntries()    { return `hg_foodentries_${_activeUserId}`; },
   get nutritionGoals()   { return `hg_nutrigoals_${_activeUserId}`; },
   get waterEntries()     { return `hg_water_${_activeUserId}`; },
+  get globalFoods()      { return `hg_globalfoods`; },
   // Ad-hoc workout exercises (not tied to a program)
   get adHocExercises()   { return `hg_adhoc_exercises_${_activeUserId}`; },
 };
@@ -893,8 +894,17 @@ export function getCustomFoods(): CustomFood[] {
   );
 }
 
+export function getGlobalFoods(): CustomFood[] {
+  return getStore<CustomFood>(KEYS.globalFoods);
+}
+
+export function saveGlobalFoods(foods: CustomFood[]): void {
+  setStore(KEYS.globalFoods, foods);
+}
+
 export function saveCustomFood(
-  data: Omit<CustomFood, "id" | "userId" | "createdAt">
+  data: Omit<CustomFood, "id" | "userId" | "createdAt">,
+  share: boolean = false
 ): CustomFood {
   const foods = getStore<CustomFood>(KEYS.customFoods);
   // Avoid duplicates by barcode
@@ -911,6 +921,18 @@ export function saveCustomFood(
   foods.push(food);
   setStore(KEYS.customFoods, foods);
   notifyDataChanged();
+
+  if (share) {
+    // Add to local global cache immediately
+    const globalFoods = getGlobalFoods();
+    globalFoods.push({ ...food, isGlobal: true, contributorId: _activeUserId });
+    saveGlobalFoods(globalFoods);
+    
+    // Trigger async push to Gist (logic to be handled by caller or a new sync trigger)
+    // For now, we'll assume the caller in the UI handles the gist.updateGlobalFoods call
+    // or we can add a specific event if needed.
+  }
+
   return food;
 }
 

@@ -164,7 +164,9 @@ export type CustomFood = {
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
-  source: "openfoodfacts" | "usda" | "custom";
+  source: "openfoodfacts" | "usda" | "custom" | "global";
+  isGlobal?: boolean;
+  contributorId?: string;
   createdAt: string;
 };
 

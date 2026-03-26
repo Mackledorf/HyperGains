@@ -47,6 +47,8 @@ import {
   GlassWater,
   Clock,
   RotateCcw,
+  PlusCircle,
+  Check,
 } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -97,6 +99,196 @@ function formatServingDisplay(servingG: number, servingSizeLabel: string): strin
   }
   // No usable denomination — fall back to fl oz
   return `${Math.round((servingG / 29.5735) * 10) / 10} fl oz`;
+}
+
+function ManualEntryScreen({
+  initialName = "",
+  initialBarcode = "",
+  onBack,
+  onSave,
+}: {
+  initialName?: string;
+  initialBarcode?: string;
+  onBack: () => void;
+  onSave: (food: FoodSearchResult) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [brand, setBrand] = useState("");
+  const [barcode, setBarcode] = useState(initialBarcode);
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [servingSizeG, setServingSizeG] = useState("100");
+  const [servingLabel, setServingLabel] = useState("100g");
+  const [share, setShare] = useState(true);
+
+  const canSave = name.trim().length > 0 && calories.length > 0;
+
+  function handleSave() {
+    if (!canSave) return;
+
+    const kcal = parseFloat(calories) || 0;
+    const p = parseFloat(protein) || 0;
+    const c = parseFloat(carbs) || 0;
+    const f = parseFloat(fat) || 0;
+    const sizeG = parseFloat(servingSizeG) || 100;
+
+    // Normalize to 100g
+    const m = 100 / sizeG;
+    const food = store.saveCustomFood({
+      name: name.trim(),
+      brand: brand.trim() || undefined,
+      barcode: barcode.trim() || undefined,
+      caloriesPer100g: Math.round(kcal * m * 10) / 10,
+      proteinPer100g: Math.round(p * m * 10) / 10,
+      carbsPer100g: Math.round(c * m * 10) / 10,
+      fatPer100g: Math.round(f * m * 10) / 10,
+      servingSizeG: sizeG,
+      servingSizeLabel: servingLabel.trim() || `${sizeG}g`,
+      source: "custom",
+    }, share);
+
+    onSave(food as FoodSearchResult);
+  }
+
+  return (
+    <div className="space-y-6 pb-4">
+      <div className="flex items-center gap-2 -ml-1">
+        <Button variant="ghost" size="icon" className="rounded-full" onClick={onBack}>
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <h3 className="font-bold text-lg">Create Custom Food</h3>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 space-y-1.5">
+            <Label>Food Name</Label>
+            <Input
+              placeholder="e.g. Greek Yogurt"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="rounded-xl h-11"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Brand (Optional)</Label>
+            <Input
+              placeholder="e.g. Fage"
+              value={brand}
+              onChange={e => setBrand(e.target.value)}
+              className="rounded-xl h-11"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Barcode (Optional)</Label>
+            <Input
+              placeholder="Scan or type..."
+              value={barcode}
+              onChange={e => setBarcode(e.target.value)}
+              className="rounded-xl h-11 text-xs font-mono"
+            />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-muted/40 space-y-4 border border-border/50">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Nutrition Info</p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Serving Weight (g)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={servingSizeG}
+                onChange={e => setServingSizeG(e.target.value)}
+                className="rounded-xl h-10 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Label (e.g. "1 cup")</Label>
+              <Input
+                placeholder="100g"
+                value={servingLabel}
+                onChange={e => setServingLabel(e.target.value)}
+                className="rounded-xl h-10"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-1 border-t border-border/20">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Calories (kcal)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={calories}
+                onChange={e => setCalories(e.target.value)}
+                className="rounded-xl h-10 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5" style={{ color: MACRO_COLORS.protein }}>
+              <Label className="text-xs opacity-80">Protein (g)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={protein}
+                onChange={e => setProtein(e.target.value)}
+                className="rounded-xl h-10 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5" style={{ color: MACRO_COLORS.carbs }}>
+              <Label className="text-xs opacity-80">Carbs (g)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={carbs}
+                onChange={e => setCarbs(e.target.value)}
+                className="rounded-xl h-10 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5" style={{ color: MACRO_COLORS.fat }}>
+              <Label className="text-xs opacity-80">Fat (g)</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={fat}
+                onChange={e => setFat(e.target.value)}
+                className="rounded-xl h-10 font-mono"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-1 py-1">
+          <button
+            onClick={() => setShare(!share)}
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+              share ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/30'
+            }`}
+          >
+            {share && <Check className="w-3.5 h-3.5" />}
+          </button>
+          <div 
+            className="flex-1 cursor-pointer" 
+            onClick={() => setShare(!share)}
+          >
+            <p className="text-sm font-medium">Share with community</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Help others by adding this food to the global library.</p>
+          </div>
+        </div>
+
+        <Button
+          className="w-full rounded-2xl h-12 text-base font-bold"
+          disabled={!canSave}
+          onClick={handleSave}
+        >
+          Create & Select Food
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /** Convert an ISO timestamp to "HH:MM" for <input type="time"> (local time). */
@@ -1080,7 +1272,7 @@ function AddFoodSheet({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [screen, setScreen] = useState<"search" | "serving" | "scanner">("search");
+  const [screen, setScreen] = useState<"search" | "serving" | "scanner" | "manual_entry">("search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -1090,6 +1282,7 @@ function AddFoodSheet({
   const [showRefine, setShowRefine] = useState(false);
   const [refineBrand, setRefineBrand] = useState("");
   const [refineItem, setRefineItem] = useState("");
+  const [barcodeFromScanner, setBarcodeFromScanner] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -1106,6 +1299,7 @@ function AddFoodSheet({
       setShowRefine(false);
       setRefineBrand("");
       setRefineItem("");
+      setBarcodeFromScanner(null);
     }
   }, [open]);
 
@@ -1169,6 +1363,7 @@ function AddFoodSheet({
   async function handleBarcode(barcode: string) {
     setScreen("search");
     setIsSearching(true);
+    setBarcodeFromScanner(barcode);
     try {
       const r = await lookupBarcode(barcode);
       if (r) {
@@ -1184,12 +1379,17 @@ function AddFoodSheet({
     }
   }
 
+  function handleManualEntrySave(food: FoodSearchResult) {
+    setSelectedFood(food);
+    setScreen("serving");
+  }
+
   function saveFood(servingG: number, loggedAt: string) {
     if (!selectedFood) return;
     const macros = computeMacros(selectedFood, servingG);
     store.createFoodEntry({
       mealId: context.type === "meal" ? context.mealId : null,
-      customFoodId: null,
+      customFoodId: selectedFood.source === "custom" ? selectedFood.id : null,
       name: selectedFood.name,
       brand: selectedFood.brand,
       servingG,
@@ -1236,6 +1436,15 @@ function AddFoodSheet({
             context={context}
             onBack={() => setScreen("search")}
             onSave={saveFood}
+          />
+        )}
+
+        {screen === "manual_entry" && (
+          <ManualEntryScreen
+            initialName={query}
+            initialBarcode={barcodeFromScanner || ""}
+            onBack={() => setScreen("search")}
+            onSave={handleManualEntrySave}
           />
         )}
 
@@ -1311,9 +1520,36 @@ function AddFoodSheet({
                       <span className="text-xs" style={{ color: MACRO_COLORS.carbs }}>Carbs {Math.round(r.carbsPer100g * r.servingSizeG / 100)}g</span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.protein }}>Protein {Math.round(r.proteinPer100g * r.servingSizeG / 100)}g</span>
                       <span className="text-xs" style={{ color: MACRO_COLORS.fat }}>Fat {Math.round(r.fatPer100g * r.servingSizeG / 100)}g</span>
+                      {r.source === "custom" && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/10 text-[10px] text-blue-400 font-bold ml-auto border border-blue-500/20">
+                          LIBRARY
+                        </div>
+                      )}
+                      {r.source === "global" && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-[10px] text-amber-400 font-bold ml-auto border border-amber-500/20">
+                          GLOBAL
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}
+                <button
+                  className="w-full text-left px-4 py-4 hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors border-t border-border/40 group bg-primary/5"
+                  onClick={() => setScreen("manual_entry")}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+                        <PlusCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-primary">Can't find it?</p>
+                        <p className="text-xs text-muted-foreground/80">Create "{query || 'New Food'}" manually</p>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-primary/60 group-hover:text-primary transition-colors">START →</div>
+                  </div>
+                </button>
                 {!showAll && results.length > 8 && (
                   <button
                     className="w-full px-4 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors text-center"
@@ -1342,20 +1578,32 @@ function AddFoodSheet({
             )}
 
             {!isSearching && query.trim().length >= 3 && results.length === 0 && (
-              <div className="text-center py-8 space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {searchError === 'search_unavailable'
-                    ? "Search temporarily unavailable — please wait a moment and try again."
-                    : "No results found."}
-                </p>
-                {!showRefine && (
-                  <button
-                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                    onClick={() => setShowRefine(true)}
+              <div className="text-center py-10 px-4 space-y-5 rounded-3xl bg-muted/20 border border-dashed border-border/60">
+                <div className="space-y-1.5">
+                  <UtensilsCrossed className="w-10 h-10 text-muted-foreground/30 mx-auto mb-1" />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {searchError === 'search_unavailable'
+                      ? "Search temporarily unavailable — try again in a bit."
+                      : "We couldn't find that food."}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  <Button 
+                    variant="outline"
+                    className="rounded-2xl h-12 bg-background/50 hover:bg-background border-primary/20 hover:border-primary/40 text-primary font-bold"
+                    onClick={() => setScreen("manual_entry")}
                   >
-                    Refine search
-                  </button>
-                )}
+                    <PlusCircle className="w-4 h-4 mr-2" /> Create Custom Food
+                  </Button>
+                  {!showRefine && (
+                    <button
+                      className="text-xs font-semibold text-muted-foreground/60 hover:text-primary transition-colors py-1"
+                      onClick={() => setShowRefine(true)}
+                    >
+                      Wait, let me refine search
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
