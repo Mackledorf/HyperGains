@@ -279,10 +279,10 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           </div>
           
           <div className="relative px-1.5">
-            {/* Track line — vertically centered on the dot row (top label box = h-8 = 32px, gap = 6px, dot half = 6px → 44px) */}
-            <div className="absolute top-[44px] left-[12px] right-[12px] h-px rounded-full bg-muted/40" />
+            {/* Track line — runs between the centers of the first and last dots */}
+            <div className="absolute top-[5px] left-[12px] right-[12px] h-px rounded-full bg-muted/40" />
 
-            {/* Markers row — labels alternate above (even) / below (odd) so adjacent labels never collide */}
+            {/* Markers row */}
             <div className="relative flex justify-between items-start">
               {[
                 { id: "none",         color: VOLUME_ZONE_COLORS.none,         label: "None" },
@@ -291,27 +291,17 @@ export default function MuscleVisualizer({ muscleData }: Props) {
                 { id: "mev",          color: VOLUME_ZONE_COLORS.mev,          label: "Growing" },
                 { id: "mav",          color: VOLUME_ZONE_COLORS.mav,          label: "Emphasizing" },
                 { id: "overtraining", color: VOLUME_ZONE_COLORS.overtraining, label: "Over-\ntraining" },
-              ].map(({ id, color, label }, i) => {
-                const above = i % 2 === 0;
-                const labelEl = (
-                  <span className="text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight max-w-[42px]">
+              ].map(({ id, color, label }) => (
+                <div key={id} className="flex flex-col items-center gap-2.5">
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight">
                     {label}
                   </span>
-                );
-                return (
-                  <div key={id} className="flex flex-col items-center gap-1.5">
-                    {/* top slot — fixed height so all dots sit on the same baseline */}
-                    <div className="h-8 flex items-end justify-center">
-                      {above ? labelEl : null}
-                    </div>
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    {/* bottom slot */}
-                    <div className="h-8 flex items-start justify-center">
-                      {!above ? labelEl : null}
-                    </div>
-                  </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
       </div>
