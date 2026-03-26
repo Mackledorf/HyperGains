@@ -296,6 +296,28 @@ export function getAllRecentSessions(limit: number = 5): WorkoutSession[] {
     .slice(0, limit);
 }
 
+export function getAllCompletedSessions(): WorkoutSession[] {
+  return getStore<WorkoutSession>(KEYS.sessions)
+    .filter((s) => s.status === "completed")
+    .sort((a, b) => {
+      const bTime = new Date(b.completedAt || b.startedAt).getTime();
+      const aTime = new Date(a.completedAt || a.startedAt).getTime();
+      return bTime - aTime;
+    });
+}
+
+export function deleteSession(id: string): void {
+  setStore(
+    KEYS.sessions,
+    getStore<WorkoutSession>(KEYS.sessions).filter((s) => s.id !== id)
+  );
+  setStore(
+    KEYS.setLogs,
+    getStore<SetLog>(KEYS.setLogs).filter((l) => l.sessionId !== id)
+  );
+  notifyDataChanged();
+}
+
 // ══════════════════════════════════════════════════
 // Ad-Hoc Exercises
 // Exercises added on-the-fly during an unplanned (ad-hoc) workout session.
@@ -885,6 +907,49 @@ export function getFoodDate(now: Date = new Date()): string {
   const m = String(adjusted.getMonth() + 1).padStart(2, "0");
   const d = String(adjusted.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/** One-time migration: re-buckets FoodEntry, Meal, and WaterEntry records whose
+ *  `date` field was incorrectly written by the UTC-date bug in getFoodDate().
+ *  Guarded by a per-user localStorage flag so it only runs once. */
+export function migrateFoodDateBuckets(): void {
+  if (!_activeUserId) return;
+  const flagKey = `hg_migration_fooddate_v1_${_activeUserId}`;
+  if (localStorage.getItem(flagKey)) return;
+
+  let dirty = false;
+
+  const entries = getStore<FoodEntry>(KEYS.foodEntries);
+  const fixedEntries = entries.map(e => {
+    const correct = getFoodDate(new Date(e.loggedAt));
+    if (e.date === correct) return e;
+    dirty = true;
+    return { ...e, date: correct };
+  });
+  if (dirty) setStore(KEYS.foodEntries, fixedEntries);
+
+  let mealDirty = false;
+  const meals = getStore<Meal>(KEYS.meals);
+  const fixedMeals = meals.map(m => {
+    const correct = getFoodDate(new Date(m.loggedAt));
+    if (m.date === correct) return m;
+    mealDirty = true;
+    return { ...m, date: correct };
+  });
+  if (mealDirty) setStore(KEYS.meals, fixedMeals);
+
+  let waterDirty = false;
+  const water = getStore<WaterEntry>(KEYS.waterEntries);
+  const fixedWater = water.map(w => {
+    const correct = getFoodDate(new Date(w.loggedAt));
+    if (w.date === correct) return w;
+    waterDirty = true;
+    return { ...w, date: correct };
+  });
+  if (waterDirty) setStore(KEYS.waterEntries, fixedWater);
+
+  localStorage.setItem(flagKey, "1");
+  if (dirty || mealDirty || waterDirty) notifyDataChanged();
 }
 
 // ══════════════════════════════════════════════════

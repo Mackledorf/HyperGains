@@ -207,18 +207,18 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           <ChartNoAxesCombined className="w-6 h-6" />
         </button>
 
-        {/* Normal panel group — slides out upward when fatigue mode is active */}
+        {/* Normal panel group — hidden instantly when fatigue mode is active */}
         <div
-          className="absolute inset-0 transition-transform duration-300 ease-in-out"
-          style={{ transform: showFatigue ? "translateY(-100%)" : "translateY(0%)" }}
+          className="absolute inset-0"
+          style={{ display: showFatigue ? "none" : "block" }}
         >
           {renderBodyPanels(false)}
         </div>
 
-        {/* Fatigue panel group — slides in from below when fatigue mode is active */}
+        {/* Fatigue panel group — shown instantly when fatigue mode is active */}
         <div
-          className="absolute inset-0 transition-transform duration-300 ease-in-out"
-          style={{ transform: showFatigue ? "translateY(0%)" : "translateY(100%)" }}
+          className="absolute inset-0"
+          style={{ display: showFatigue ? "block" : "none" }}
         >
           {renderBodyPanels(true)}
         </div>
@@ -285,11 +285,12 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             {/* Markers Container */}
             <div className="relative h-4 flex items-center">
               {[
-                { id: "none", color: VOLUME_ZONE_COLORS.none, left: "0%", label: "None" },
-                { id: "warning", color: VOLUME_ZONE_COLORS.warning, left: "25%", label: "Warning" },
-                { id: "mv", color: VOLUME_ZONE_COLORS.mv, left: "50%", label: "Maintain" },
-                { id: "mev", color: VOLUME_ZONE_COLORS.mev, left: "75%", label: "Growth" },
-                { id: "mav", color: VOLUME_ZONE_COLORS.mav, left: "100%", label: "Focus" },
+                { id: "none",        color: VOLUME_ZONE_COLORS.none,        left: "0%",   label: "None" },
+                { id: "warning",     color: VOLUME_ZONE_COLORS.warning,     left: "20%",  label: "Undertraining" },
+                { id: "mv",          color: VOLUME_ZONE_COLORS.mv,          left: "40%",  label: "Maintaining" },
+                { id: "mev",         color: VOLUME_ZONE_COLORS.mev,         left: "60%",  label: "Growing" },
+                { id: "mav",         color: VOLUME_ZONE_COLORS.mav,         left: "80%",  label: "Emphasizing" },
+                { id: "overtraining",color: VOLUME_ZONE_COLORS.overtraining,left: "100%", label: "Overtraining" },
               ].map(({ id, color, left, label }) => (
                 <div
                   key={id}

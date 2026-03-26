@@ -272,7 +272,7 @@ function buildCalendarSessionMap(
 
 // ── SessionCard ─────────────────────────────────────────────
 
-function SessionCard({ session }: { session: WorkoutSession }) {
+function SessionCard({ session, onDelete }: { session: WorkoutSession; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: logs } = useQuery<SetLog[]>({
@@ -322,8 +322,17 @@ function SessionCard({ session }: { session: WorkoutSession }) {
               )}
             </div>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-[hsl(var(--set-complete-bg))] flex items-center justify-center">
-            <Check className="w-3.5 h-3.5 text-[hsl(var(--set-complete-text))]" />
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[hsl(var(--set-complete-bg))] flex items-center justify-center">
+              <Check className="w-3.5 h-3.5 text-[hsl(var(--set-complete-text))]" />
+            </div>
+            <button
+              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              aria-label="Delete session"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -398,9 +407,8 @@ export default function Stats() {
   });
 
   const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useQuery<WorkoutSession[]>({
-    queryKey: ["sessions", activeProgram?.id],
-    enabled: !!activeProgram,
-    queryFn: () => store.getWorkoutSessions(activeProgram!.id),
+    queryKey: ["sessions", "all"],
+    queryFn: () => store.getAllCompletedSessions(),
   });
 
   const { data: weeklySets } = useQuery<Record<string, number>>({
@@ -444,6 +452,7 @@ export default function Stats() {
 
   const [programToDelete, setProgramToDelete] = useState<Program | null>(null);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<WorkoutSession | null>(null);
 
   // ── Derived: weight ───────────────────────────────────────
 
@@ -562,6 +571,19 @@ export default function Stats() {
       setProgramToDelete(null);
       setDeleteConfirmed(false);
       toast({ title: "Program deleted" });
+    },
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => {
+      store.deleteSession(sessionId);
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["sessions", "month"] });
+      setSessionToDelete(null);
+      toast({ title: "Session deleted" });
     },
   });
 
@@ -1059,7 +1081,7 @@ export default function Stats() {
             ) : (
               <div className="space-y-2">
                 {completedSessions.map((session) => (
-                  <SessionCard key={session.id} session={session} />
+                  <SessionCard key={session.id} session={session} onDelete={() => setSessionToDelete(session)} />
                 ))}
               </div>
             )}
@@ -1162,6 +1184,33 @@ export default function Stats() {
           )}
         </section>
       </div>
+
+      {/* Delete session dialog */}
+      <AlertDialog
+        open={!!sessionToDelete}
+        onOpenChange={(open) => { if (!open) setSessionToDelete(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this session and all logged sets. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteSessionMutation.isPending}
+              onClick={() => {
+                if (sessionToDelete) deleteSessionMutation.mutate(sessionToDelete.id);
+              }}
+            >
+              {deleteSessionMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete program dialog */}
       <AlertDialog

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { getVolumeLandmarks } from "./volumeLandmarks";
 
-export type VolumeZone = "none" | "mv" | "mev" | "mav" | "warning";
+export type VolumeZone = "none" | "warning" | "mv" | "mev" | "mav" | "overtraining";
 
 export interface MuscleVolumeInfo {
   actualSets: number;
@@ -11,25 +11,28 @@ export interface MuscleVolumeInfo {
 }
 
 // Colors per volume zone (highlighter palette):
-//   none      → gray-500      (no volume)
-//   warning   → pink-500      (undertrained <MV or overtrained >MAV)
-//   mv        → amber-400     (maintaining muscle)
-//   mev       → lime-400      (growing)
-//   mav       → blue-400      (emphasizing)
+//   none         → gray-500      (no volume)
+//   warning      → rose-500      (undertraining <MV)
+//   mv           → amber-400     (maintaining muscle)
+//   mev          → lime-400      (growing)
+//   mav          → sky-400       (emphasizing)
+//   overtraining → red-500       (above MRV)
 export const VOLUME_ZONE_COLORS: Record<VolumeZone, string> = {
   none: "#6b7280",          // gray-500
   warning: "#f43f5e",       // rose-500
   mv: "#fbbf24",            // amber-400
-  mev: "#a3e635",           // lime-400 
+  mev: "#a3e635",           // lime-400
   mav: "#38bdf8",           // sky-400
+  overtraining: "#ef4444",  // red-500
 };
 
 const ZONE_LABELS: Record<VolumeZone, string> = {
   none: "No Volume",
+  warning: "Undertraining",
   mv: "Maintaining",
   mev: "Growing",
   mav: "Emphasizing",
-  warning: "Under/Overtrained",
+  overtraining: "Overtraining",
 };
 
 /**
@@ -99,7 +102,7 @@ export function getMuscleVolumeInfo(
   } else if (actualSets <= lm.mavHigh) {
     zone = "mav";
   } else {
-    zone = "warning"; // Overtrained
+    zone = "overtraining";
   }
 
   return {

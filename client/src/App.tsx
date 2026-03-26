@@ -54,6 +54,7 @@ function App() {
     const valid = store.getUserById(stored);
     if (valid) {
       store.setActiveUser(stored);
+      store.migrateFoodDateBuckets();
       return stored;
     }
     sessionStorage.removeItem(SESSION_KEY);
@@ -72,6 +73,7 @@ function App() {
 
   const handleAuthenticated = (userId: string) => {
     store.setActiveUser(userId);
+    store.migrateFoodDateBuckets();
     sessionStorage.setItem(SESSION_KEY, userId);
     setActiveUserId(userId);
   };
