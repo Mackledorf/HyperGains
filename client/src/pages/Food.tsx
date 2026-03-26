@@ -41,6 +41,7 @@ import {
   Scan,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Trash2,
   Settings2,
   Search,
@@ -77,6 +78,11 @@ type PreparedServingInputs = {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function isAteEarlierSentinel(iso: string): boolean {
+  const d = new Date(iso);
+  return d.getHours() === 0 && d.getMinutes() === 0;
 }
 
 function computeMacros(food: FoodSearchResult, servingG: number) {
@@ -501,28 +507,33 @@ function WaterBar({
 function FoodEntryRow({
   entry,
   onDelete,
-}: { entry: FoodEntry; onDelete: () => void }) {
+  onEdit,
+}: { entry: FoodEntry; onDelete: () => void; onEdit: () => void }) {
   return (
-    <div className="flex items-center justify-between py-2.5 px-1 group">
-      <div className="min-w-0">
+    <div
+      className="flex items-center justify-between py-2.5 px-1 cursor-pointer active:bg-white/[0.03] group"
+      onClick={onEdit}
+    >
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{entry.name}</p>
         <p className="text-xs text-muted-foreground">
           {formatServingDisplay(entry.servingG, entry.servingSizeLabel)} · {Math.round(entry.calories)} kcal
         </p>
       </div>
-      <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
         <div className="text-right hidden sm:block">
           <p className="text-xs text-muted-foreground tabular-nums">
             Carbs {Math.round(entry.carbsG)}g · Protein {Math.round(entry.proteinG)}g · Fat {Math.round(entry.fatG)}g
           </p>
         </div>
         <button
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
           aria-label="Delete food"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+        <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
       </div>
     </div>
   );
@@ -537,6 +548,7 @@ function MealCard({
   onDeleteMeal,
   onAddFood,
   onUpdateTime,
+  onEditEntry,
 }: {
   meal: Meal;
   entries: FoodEntry[];
@@ -544,6 +556,7 @@ function MealCard({
   onDeleteMeal: (id: string) => void;
   onAddFood: (mealId: string, mealName: string) => void;
   onUpdateTime: (mealId: string, loggedAt: string) => void;
+  onEditEntry: (entry: FoodEntry) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -608,6 +621,7 @@ function MealCard({
                   key={e.id}
                   entry={e}
                   onDelete={() => onDeleteEntry(e.id)}
+                  onEdit={() => onEditEntry(e)}
                 />
               ))}
             </div>
@@ -642,10 +656,15 @@ function StandaloneFoodCard({
   entry,
   onDelete,
   onUpdateTime,
-}: { entry: FoodEntry; onDelete: () => void; onUpdateTime: (entryId: string, loggedAt: string) => void }) {
+  onEdit,
+}: { entry: FoodEntry; onDelete: () => void; onUpdateTime: (entryId: string, loggedAt: string) => void; onEdit: () => void }) {
+  const noTime = isAteEarlierSentinel(entry.loggedAt);
   return (
-    <div className="rounded-2xl bg-card p-4 flex items-center justify-between group">
-      <div className="min-w-0">
+    <div
+      className="rounded-2xl bg-card p-4 flex items-center gap-3 cursor-pointer active:bg-white/[0.03] group"
+      onClick={onEdit}
+    >
+      <div className="min-w-0 flex-1">
         <p className="font-semibold text-sm">{entry.name}</p>
         {entry.brand && (
           <p className="text-xs text-muted-foreground">{entry.brand}</p>
@@ -656,23 +675,31 @@ function StandaloneFoodCard({
         </p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
           <Clock className="w-3 h-3 shrink-0" />
-          <input
-            type="time"
-            value={isoToTimeInput(entry.loggedAt)}
-            onChange={(e) => {
-              if (e.target.value) onUpdateTime(entry.id, applyTimeToIso(entry.loggedAt, e.target.value));
-            }}
-            className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
-          />
+          {noTime ? (
+            <span className="italic opacity-50">No Time</span>
+          ) : (
+            <input
+              type="time"
+              value={isoToTimeInput(entry.loggedAt)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                if (e.target.value) onUpdateTime(entry.id, applyTimeToIso(entry.loggedAt, e.target.value));
+              }}
+              className="appearance-none bg-transparent text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:text-foreground focus:outline-none tabular-nums [&::-webkit-date-and-time-value]:text-left"
+            />
+          )}
         </div>
       </div>
-      <button
-        onClick={onDelete}
-        className="ml-3 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-        aria-label="Delete food"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          aria-label="Delete food"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+      </div>
     </div>
   );
 }
@@ -707,12 +734,20 @@ function ServingScreen({
   context,
   onBack,
   onSave,
+  initialQtyG,
+  initialLoggedAt,
+  saveLabel = "Add to Log",
+  hideBack = false,
 }: {
   food: FoodSearchResult;
   today: string;
   context: AddContext;
   onBack: () => void;
   onSave: (servingG: number, loggedAt: string, overrides?: MacroOverrides) => void;
+  initialQtyG?: number;
+  initialLoggedAt?: string;
+  saveLabel?: string;
+  hideBack?: boolean;
 }) {
   const defaultServingG = food.servingSizeG || 100;
   const isLiquid = /\bml\b|fl\.?\s*oz/i.test(food.servingSizeLabel ?? "");
@@ -731,9 +766,27 @@ function ServingScreen({
 
   const isInMeal = context.type === "meal";
 
-  const [unit, setUnit] = useState<ServingUnit>("serving");
-  const [qty, setQty] = useState<string>("1");
-  const [ateEarlier, setAteEarlier] = useState(false);
+  const [unit, setUnit] = useState<ServingUnit>(() => {
+    if (initialQtyG && defaultServingG > 0) {
+      const inServings = initialQtyG / defaultServingG;
+      if (Math.abs(Math.round(inServings * 100) / 100 - inServings) < 0.01) return "serving";
+      return "g";
+    }
+    return "serving";
+  });
+  const [qty, setQty] = useState<string>(() => {
+    if (initialQtyG && defaultServingG > 0) {
+      const inServings = initialQtyG / defaultServingG;
+      if (Math.abs(Math.round(inServings * 100) / 100 - inServings) < 0.01) {
+        return String(Math.round(inServings * 100) / 100);
+      }
+      return String(Math.round(initialQtyG * 10) / 10);
+    }
+    return "1";
+  });
+  const [ateEarlier, setAteEarlier] = useState(() =>
+    initialLoggedAt !== undefined ? isAteEarlierSentinel(initialLoggedAt) : false
+  );
   const [showPreparedOverride, setShowPreparedOverride] = useState(false);
   const [prepServingInputs, setPrepServingInputs] = useState<PreparedServingInputs | null>(null);
 
@@ -743,6 +796,7 @@ function ServingScreen({
   // or just lock it to whatever the "loggedAt" value will be.
   // The store.createFoodEntry will set the mealId.
   const [logTime, setLogTime] = useState(() => {
+    if (initialLoggedAt !== undefined) return isoToTimeInput(initialLoggedAt);
     if (context.type === "meal") {
       // getMealsForDate requires the current date — use the today prop passed down
       const meal = store.getMealsForDate(today).find(m => m.id === context.mealId);
@@ -802,12 +856,14 @@ function ServingScreen({
 
   return (
     <div className="space-y-5">
-      <button
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        onClick={onBack}
-      >
-        <ChevronLeft className="w-4 h-4" /> Back
-      </button>
+      {!hideBack && (
+        <button
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={onBack}
+        >
+          <ChevronLeft className="w-4 h-4" /> Back
+        </button>
+      )}
 
       <div>
         <p className="font-semibold">{food.name}</p>
@@ -908,36 +964,38 @@ function ServingScreen({
       </div>
 
       {/* Log time */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {/* Label row: "Time" + info icon + "I ate this earlier" checkbox */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Label
-            htmlFor="log-time"
-            className={isInMeal || ateEarlier ? "opacity-50" : ""}
-          >
-            Time
-          </Label>
+        <div className="flex items-center justify-between gap-2 overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Label
+              htmlFor="log-time"
+              className={`shrink-0 ${isInMeal || ateEarlier ? "opacity-50" : ""}`}
+            >
+              Time
+            </Label>
 
-          {/* Info tooltip */}
-          <TooltipProvider>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <span className="cursor-default text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                  <Info className="w-3.5 h-3.5" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[220px] text-center text-xs">
-                You can mark food as eaten earlier in the day. Your exact time won't be logged.
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            {/* Info tooltip */}
+            <TooltipProvider>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <span className="cursor-default text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0">
+                    <Info className="w-3.5 h-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px] text-center text-xs">
+                  You can mark food as eaten earlier in the day. Your exact time won't be logged.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
-          {/* "I ate this earlier" checkbox — pushed to the right */}
+          {/* "I ate this earlier" checkbox — pushed to the right, flex-shrink to prevent clipping */}
           <button
             type="button"
             disabled={isInMeal}
             onClick={() => setAteEarlier(v => !v)}
-            className="ml-auto flex items-center gap-1.5 group disabled:pointer-events-none"
+            className="flex items-center gap-1.5 group disabled:pointer-events-none shrink ml-auto overflow-hidden text-left"
             aria-pressed={ateEarlier}
           >
             <span
@@ -949,7 +1007,7 @@ function ServingScreen({
             >
               {ateEarlier && <Check className="w-2.5 h-2.5" />}
             </span>
-            <span className={`text-xs select-none ${
+            <span className={`text-[11px] leading-tight select-none transition-colors truncate ${
               ateEarlier ? "text-foreground" : "text-muted-foreground"
             } ${isInMeal ? "opacity-30" : ""}`}>
               I ate this earlier
@@ -1003,7 +1061,7 @@ function ServingScreen({
           )
         }
       >
-        Add to Log
+        {saveLabel}
       </Button>
     </div>
   );
@@ -1844,6 +1902,108 @@ function AddFoodSheet({
   );
 }
 
+// ── EditFoodSheet ─────────────────────────────────────────────────────────────
+
+function EditFoodSheet({
+  entry,
+  today,
+  open,
+  onClose,
+  onSaved,
+}: {
+  entry: FoodEntry | null;
+  today: string;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  // Reconstruct a FoodSearchResult-like object from the logged entry so
+  // ServingScreen can display and edit it properly.
+  const food: FoodSearchResult | null = useMemo(() => {
+    if (!entry) return null;
+    // Prefer the linked custom food record for accurate per-100g values
+    if (entry.customFoodId) {
+      const customs = store.getCustomFoods();
+      const cf = customs.find(f => f.id === entry.customFoodId);
+      if (cf) return cf as unknown as FoodSearchResult;
+    }
+    // Back-calculate per-100g from the values stored on the entry
+    const sG = entry.servingG > 0 ? entry.servingG : 100;
+    const factor = 100 / sG;
+    return {
+      id: entry.id,
+      name: entry.name,
+      brand: entry.brand,
+      caloriesPer100g: Math.round(entry.calories * factor * 10) / 10,
+      proteinPer100g:  Math.round(entry.proteinG * factor * 10) / 10,
+      carbsPer100g:    Math.round(entry.carbsG   * factor * 10) / 10,
+      fatPer100g:      Math.round(entry.fatG     * factor * 10) / 10,
+      servingSizeG: sG,
+      servingSizeLabel: entry.servingSizeLabel || `${Math.round(sG)}g`,
+      source: "custom" as const,
+    };
+  }, [entry]);
+
+  function handleSave(servingG: number, loggedAt: string, overrides?: MacroOverrides) {
+    if (!entry || !food) return;
+    const effectiveFood = overrides ? { ...food, ...overrides } : food;
+    const macros = computeMacros(effectiveFood, servingG);
+
+    let customFoodId: string | null | undefined = entry.customFoodId;
+    if (overrides) {
+      const baseName = entry.name.replace(/ \(prepared\)$/, "");
+      const preparedFood = store.upsertCustomFood({
+        name: `${baseName} (prepared)`,
+        brand: entry.brand,
+        servingSizeG: food.servingSizeG || 100,
+        servingSizeLabel: food.servingSizeLabel || "1 serving",
+        caloriesPer100g: overrides.caloriesPer100g,
+        proteinPer100g:  overrides.proteinPer100g,
+        carbsPer100g:    overrides.carbsPer100g,
+        fatPer100g:      overrides.fatPer100g,
+        source: "custom",
+      });
+      customFoodId = preparedFood.id;
+    }
+
+    store.updateFoodEntry(entry.id, {
+      servingG,
+      calories: macros.calories,
+      proteinG: macros.proteinG,
+      carbsG:   macros.carbsG,
+      fatG:     macros.fatG,
+      loggedAt,
+      ...(customFoodId !== undefined ? { customFoodId } : {}),
+    });
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
+        <SheetHeader className="mb-4">
+          <SheetTitle>Edit Entry</SheetTitle>
+        </SheetHeader>
+        {food && entry && (
+          <ServingScreen
+            key={entry.id}
+            food={food}
+            today={today}
+            context={{ type: "standalone" }}
+            onBack={onClose}
+            onSave={handleSave}
+            initialQtyG={entry.servingG}
+            initialLoggedAt={entry.loggedAt}
+            saveLabel="Save Changes"
+            hideBack
+          />
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ── Main Food page ────────────────────────────────────────────────────────────
 
 export default function Food() {
@@ -1871,6 +2031,7 @@ export default function Food() {
   const [addOpen, setAddOpen] = useState(false);
   const [addContext, setAddContext] = useState<AddContext>({ type: "standalone" });
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<FoodEntry | null>(null);
 
   function openAddStandalone() {
     setAddContext({ type: "standalone" });
@@ -1994,6 +2155,7 @@ export default function Food() {
                     onDeleteMeal={handleDeleteMeal}
                     onAddFood={openAddToMeal}
                     onUpdateTime={handleUpdateMealTime}
+                    onEditEntry={setEditEntry}
                   />
                 );
               }
@@ -2003,6 +2165,7 @@ export default function Food() {
                   entry={item.entry}
                   onDelete={() => handleDeleteEntry(item.entry.id)}
                   onUpdateTime={handleUpdateEntryTime}
+                  onEdit={() => setEditEntry(item.entry)}
                 />
               );
             })}
@@ -2022,6 +2185,13 @@ export default function Food() {
       <GoalsSheet
         open={goalsOpen}
         onClose={() => setGoalsOpen(false)}
+        onSaved={refresh}
+      />
+      <EditFoodSheet
+        entry={editEntry}
+        today={today}
+        open={editEntry !== null}
+        onClose={() => setEditEntry(null)}
         onSaved={refresh}
       />
     </AppShell>

@@ -79,11 +79,11 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       <g aria-hidden="true">
         {/* Tick line from body edge to text */}
         <line
-          x1={90} y1={y} x2={x - 3} y2={y}
+          x1={86} y1={y} x2={x - 3} y2={y}
           stroke={col} strokeWidth={0.5} opacity={0.4}
         />
         {/* Anchor dot */}
-        <circle cx={90} cy={y} r={1.2} fill={col} opacity={0.45} />
+        <circle cx={86} cy={y} r={1.2} fill={col} opacity={0.45} />
         {/* Sets count */}
         <text
           x={x} y={y}
@@ -143,10 +143,10 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Accumulate Fatigue toggle — increased size for better access */}
+        {/* Accumulate Fatigue toggle — positioned closer to the edge */}
         <button
           onClick={() => setShowFatigue(!showFatigue)}
-          className={`absolute top-3 left-3 z-10 w-12 h-12 flex items-center justify-center rounded-2xl border-2 transition-all active:scale-90 ${
+          className={`absolute top-2 left-2 z-10 w-12 h-12 flex items-center justify-center rounded-2xl border transition-all active:scale-90 ${
             showFatigue
               ? "bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.1)]"
               : "bg-background/60 backdrop-blur-sm border-border/40 text-muted-foreground hover:text-foreground"
