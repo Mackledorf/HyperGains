@@ -181,3 +181,25 @@ export const FRONT_GAPS =
 export const REAR_GAPS =
   "M89.06,55.33c.45-.7,1.43-1.63,1.79-2.29.79-1.45,1.05-2.71,2.25-4.04l-1.88-1.03c-1.35-.74-2.43-1.72-3.38-3.07-1.01,2.31-2.4,4.33-4.03,6.27.06,2.64-.83,2.79-.37,5l1.25-1.17c2.09-1.96,3.69,1.39,4.37.34Z " +
   "M59.1,54.85l1.28,1.05c.39-1.78-.44-2.29-.41-4.74-1.55-1.87-2.87-3.82-3.95-6.06-.73.93-1.55,1.9-2.54,2.45l-2.6,1.45c1.29,1.23,1.3,2.77,2.25,3.98l1.78,2.28c.86,1.1,2.17-2.1,4.2-.42Z";
+
+// Right-side annotation anchor positions (SVG viewBox 0 0 144 144).
+// Body right edge is approx x=92-100 depending on muscle height.
+// Text starts at x=104; tick originates at x=90.
+// Muscles visible in both views (shoulders, triceps, forearms, calves) share one anchor.
+export const MUSCLE_LABEL_ANCHORS: Record<string, { x: number; y: number }> = {
+  // ── Front-only ──────────────────────────────────────────────
+  chest:      { x: 104, y: 52  },
+  biceps:     { x: 104, y: 62  },
+  abs:        { x: 104, y: 81  },
+  quads:      { x: 104, y: 108 },
+  // ── Back-only ───────────────────────────────────────────────
+  traps:      { x: 104, y: 30  },
+  back:       { x: 104, y: 57  },
+  glutes:     { x: 104, y: 87  },
+  hamstrings: { x: 104, y: 108 },
+  // ── Both views ──────────────────────────────────────────────
+  shoulders:  { x: 104, y: 36  },
+  triceps:    { x: 104, y: 66  },
+  forearms:   { x: 104, y: 77  },
+  calves:     { x: 104, y: 132 },
+};

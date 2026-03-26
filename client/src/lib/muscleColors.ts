@@ -10,18 +10,18 @@ export interface MuscleVolumeInfo {
   zoneLabel: string;
 }
 
-// Colors per volume zone (user-specified):
-//   none      → gray       (no volume)
-//   mv        → yellow     (maintaining muscle)
-//   mev       → green      (growing)
-//   mav       → blue       (emphasizing)
-//   warning   → red        (undertrained <MV or overtrained >MAV)
+// Colors per volume zone (highlighter palette):
+//   none      → gray          (no volume)
+//   mv        → amber-400     (maintaining muscle)
+//   mev       → lime-400      (growing)
+//   mav       → riso mid-blue (emphasizing — slightly aqua, not purple)
+//   warning   → fuchsia       (undertrained <MV or overtrained >MAV)
 export const VOLUME_ZONE_COLORS: Record<VolumeZone, string> = {
   none: "#4b5563",          // gray-600
-  mv: "#ca8a04",            // yellow-600
-  mev: "#16a34a",           // green-600
-  mav: "#2563eb",           // blue-600
-  warning: "#f92672",       // brandRed
+  mv: "#fbbf24",            // amber-400 — vibrant orange-yellow
+  mev: "#a3e635",           // lime-400  — bright lime green
+  mav: "#29abe2",           // riso mid-blue — slightly aqua
+  warning: "#f92672",       // fuchsia   — keep original
 };
 
 const ZONE_LABELS: Record<VolumeZone, string> = {

@@ -37,6 +37,7 @@ import * as gist from "@/lib/gist";
 import {
   UtensilsCrossed,
   Plus,
+  Minus,
   Scan,
   ChevronDown,
   ChevronUp,
@@ -399,6 +400,8 @@ function WaterBar({
   today: string;
   onRefresh: () => void;
 }) {
+  const [subtractMode, setSubtractMode] = useState(false);
+
   const waterEntries = store.getWaterEntriesForDate(today);
   const consumedOz = waterEntries.reduce((sum, e) => sum + e.amountOz, 0);
 
@@ -426,12 +429,25 @@ function WaterBar({
           <GlassWater className="w-4 h-4 text-sky-400" />
           <span className="font-semibold text-sm">Water</span>
         </div>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {Math.round(consumedOz)} / {targetOz} oz
-          {excessCarbs > 0 && (
-            <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
-          )}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSubtractMode((m) => !m)}
+            aria-label="Toggle subtract mode"
+            className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+              subtractMode
+                ? "bg-red-500/25 text-red-400"
+                : "bg-red-500/10 text-red-400/50 hover:bg-red-500/20 hover:text-red-400"
+            }`}
+          >
+            <Minus className="w-3 h-3" />
+          </button>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {Math.round(consumedOz)} / {targetOz} oz
+            {excessCarbs > 0 && (
+              <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
+            )}
+          </span>
+        </div>
       </div>
 
       <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -441,33 +457,21 @@ function WaterBar({
         />
       </div>
 
-      {/* Add row */}
       <div className="grid grid-cols-4 gap-1.5">
         {WATER_AMOUNTS.map((oz) => (
           <Button
             key={oz}
             size="sm"
             variant="outline"
-            className="rounded-xl h-10 text-xs font-medium text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:text-sky-300"
-            onClick={() => addWater(oz)}
+            disabled={subtractMode && isEmpty}
+            className={`rounded-xl h-10 text-xs font-medium transition-colors ${
+              subtractMode
+                ? "text-red-400 border-red-400/30 hover:border-red-400/60 hover:text-red-300 disabled:opacity-30"
+                : "text-sky-400 border-sky-400/20 hover:border-sky-400/50 hover:text-sky-300"
+            }`}
+            onClick={() => subtractMode ? removeWater(oz) : addWater(oz)}
           >
-            +{oz} oz
-          </Button>
-        ))}
-      </div>
-
-      {/* Subtract row */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {WATER_AMOUNTS.map((oz) => (
-          <Button
-            key={oz}
-            size="sm"
-            variant="ghost"
-            disabled={isEmpty}
-            className="rounded-xl h-9 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
-            onClick={() => removeWater(oz)}
-          >
-            −{oz} oz
+            {subtractMode ? `−${oz} oz` : `+${oz} oz`}
           </Button>
         ))}
       </div>

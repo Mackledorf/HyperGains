@@ -12,7 +12,18 @@ import {
   BACK_INDEX_TO_MUSCLE,
   FRONT_GAPS,
   REAR_GAPS,
+  MUSCLE_LABEL_ANCHORS,
 } from "@/lib/muscleMap";
+
+const MONO = "ui-monospace, 'Cascadia Code', 'Courier New', monospace";
+
+// Pre-computed sets of which muscles appear in each view
+const FRONT_MUSCLE_SET = new Set(
+  Object.values(FRONT_INDEX_TO_MUSCLE).filter(Boolean) as string[]
+);
+const BACK_MUSCLE_SET = new Set(
+  Object.values(BACK_INDEX_TO_MUSCLE).filter(Boolean) as string[]
+);
 
 interface Props {
   muscleData: Record<string, MuscleVolumeInfo>;
@@ -51,6 +62,55 @@ export default function MuscleVisualizer({ muscleData }: Props) {
   };
 
   const selectedInfo = selected ? muscleData[selected] : null;
+
+  // Renders a floating monospaced annotation adjacent to the selected muscle
+  // inside the SVG canvas — only when that muscle is visible in the current view.
+  const renderMuscleAnnotation = (currentView: "front" | "back") => {
+    if (!selected || !selectedInfo) return null;
+    const inThisView = currentView === "front"
+      ? FRONT_MUSCLE_SET.has(selected)
+      : BACK_MUSCLE_SET.has(selected);
+    if (!inThisView) return null;
+    const anchor = MUSCLE_LABEL_ANCHORS[selected];
+    if (!anchor) return null;
+    const { x, y } = anchor;
+    const col = selectedInfo.color;
+    return (
+      <g aria-hidden="true">
+        {/* Tick line from body edge to text */}
+        <line
+          x1={90} y1={y} x2={x - 3} y2={y}
+          stroke={col} strokeWidth={0.35} opacity={0.4}
+        />
+        {/* Anchor dot */}
+        <circle cx={90} cy={y} r={0.9} fill={col} opacity={0.45} />
+        {/* Sets count */}
+        <text
+          x={x} y={y}
+          fontFamily={MONO} fontSize={8} fontWeight="700"
+          fill={col} dominantBaseline="middle" textAnchor="start"
+        >
+          {selectedInfo.actualSets}
+        </text>
+        {/* sets/wk */}
+        <text
+          x={x} y={y + 7.5}
+          fontFamily={MONO} fontSize={3.2}
+          fill="rgba(255,255,255,0.35)" dominantBaseline="middle" textAnchor="start"
+        >
+          SETS/WK
+        </text>
+        {/* zone label */}
+        <text
+          x={x} y={y + 13}
+          fontFamily={MONO} fontSize={3.2}
+          fill="rgba(255,255,255,0.25)" dominantBaseline="middle" textAnchor="start"
+        >
+          {selectedInfo.zoneLabel.toUpperCase()}
+        </text>
+      </g>
+    );
+  };
 
   const renderFills = (fills: string[], indexMap: Record<number, string>) =>
     fills.map((d, i) => {
@@ -102,6 +162,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             </g>
             {/* Gap overlay: paints the arm-body gap shapes with card color to cover any fill bleed */}
             <path d={FRONT_GAPS} style={{ fill: "hsl(var(--card))", pointerEvents: "none" }} />
+            {renderMuscleAnnotation("front")}
           </svg>
         </div>
 
@@ -122,6 +183,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             </g>
             {/* Gap overlay: paints the arm-body gap shapes with card color to cover any fill bleed */}
             <path d={REAR_GAPS} style={{ fill: "hsl(var(--card))", pointerEvents: "none" }} />
+            {renderMuscleAnnotation("back")}
           </svg>
         </div>
       </div>
@@ -192,25 +254,6 @@ export default function MuscleVisualizer({ muscleData }: Props) {
           {showFatigue ? "Volume colors shown" : "Hover to preview"}
         </span>
       </button>
-
-      {/* Selected muscle info card */}
-      {selected && selectedInfo && (
-        <div className="rounded-xl bg-muted/40 px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold">{MUSCLE_DISPLAY_NAMES[selected] ?? selected}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{selectedInfo.zoneLabel}</p>
-          </div>
-          <div className="text-right">
-            <p
-              className="text-xl font-bold tabular-nums"
-              style={{ color: selectedInfo.color }}
-            >
-              {selectedInfo.actualSets}
-            </p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">sets / wk</p>
-          </div>
-        </div>
-      )}
 
       {/* Volume zone legend — only shown in fatigue mode */}
       {showFatigue && (
