@@ -1,17 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Dumbbell, Home, UtensilsCrossed, Pill, LogOut, CircleUser } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { HG_EVENTS } from "@/lib/storage";
+import { Dumbbell, Home, UtensilsCrossed, Pill, BarChart2 } from "lucide-react";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -21,6 +9,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/lifts", icon: Dumbbell, label: "Lifts" },
     { href: "/food", icon: UtensilsCrossed, label: "Food" },
     { href: "/supplements", icon: Pill, label: "Supps" },
+    { href: "/stats", icon: BarChart2, label: "Stats" },
   ];
 
   function isActive(href: string): boolean {
@@ -33,12 +22,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         location === "/programs" ||
         location === "/create"
       );
+    if (href === "/stats") return location === "/stats" || location === "/settings";
     return location === href || location.startsWith(href + "/");
   }
-
-  const handleLogout = () => {
-    window.dispatchEvent(new CustomEvent(HG_EVENTS.LOGOUT));
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -53,39 +39,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               HyperGains
             </span>
           </Link>
-          <div className="flex items-center gap-1">
-            <Link href="/profile">
-              <button
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Profile & Goals"
-              >
-                <CircleUser className="w-4 h-4" />
-              </button>
-            </Link>
-            <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Sign out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Sign out?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Your workout data is saved. You can log back in anytime with
-                  your password.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleLogout}>Sign out</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          </div>
         </div>
       </header>
 
@@ -104,7 +57,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-xl transition-all ${
+                  className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
                     active
                       ? "text-primary bg-primary/10"
                       : "text-muted-foreground"

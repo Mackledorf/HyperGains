@@ -19,7 +19,8 @@ import ActiveWorkout from "@/pages/ActiveWorkout";
 import History from "@/pages/History";
 import Programs from "@/pages/Programs";
 import ProgramDetail from "@/pages/ProgramDetail";
-import Profile from "@/pages/Profile";
+import Stats from "@/pages/Stats";
+import Settings from "@/pages/Settings";
 import QuickLiftSetup from "@/pages/QuickLiftSetup";
 import * as store from "@/lib/storage";
 import { HG_EVENTS, SESSION_KEY } from "@/lib/storage";
@@ -38,7 +39,8 @@ function AppRouter() {
       <Route path="/program/:id" component={ProgramDetail} />
       <Route path="/workout/:sessionId" component={ActiveWorkout} />
       <Route path="/history" component={History} />
-      <Route path="/profile" component={Profile} />
+      <Route path="/stats" component={Stats} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

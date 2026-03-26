@@ -429,26 +429,25 @@ function WaterBar({
           <GlassWater className="w-4 h-4 text-sky-400" />
           <span className="font-semibold text-sm">Water</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSubtractMode((m) => !m)}
-            aria-label="Toggle subtract mode"
-            className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
-              subtractMode
-                ? "bg-red-500/25 text-red-400"
-                : "bg-red-500/10 text-red-400/50 hover:bg-red-500/20 hover:text-red-400"
-            }`}
-          >
-            <Minus className="w-3 h-3" />
-          </button>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {Math.round(consumedOz)} / {targetOz} oz
-            {excessCarbs > 0 && (
-              <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
-            )}
-          </span>
-        </div>
+        <button
+          onClick={() => setSubtractMode((m) => !m)}
+          aria-label="Toggle subtract mode"
+          className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+            subtractMode
+              ? "bg-red-500/25 text-red-400"
+              : "bg-red-500/10 text-red-400/50 hover:bg-red-500/20 hover:text-red-400"
+          }`}
+        >
+          <Minus className="w-3 h-3" />
+        </button>
       </div>
+
+      <p className="text-center text-xs text-muted-foreground tabular-nums">
+        {Math.round(consumedOz)} / {targetOz} oz
+        {excessCarbs > 0 && (
+          <span className="text-sky-400 ml-1">(+{Math.round(excessCarbs * 0.12)})</span>
+        )}
+      </p>
 
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div
