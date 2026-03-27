@@ -220,7 +220,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
             ].map(({ color, label }) => (
               <div key={label} className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                <span className="text-[10px] sm:text-[12px] font-bold uppercase tracking-tight text-muted-foreground/80 whitespace-pre-line leading-tight">
+                <span className="text-[9px] sm:text-[12px] font-bold uppercase tracking-tight text-muted-foreground/80 whitespace-pre-line leading-tight">
                   {label}
                 </span>
               </div>
