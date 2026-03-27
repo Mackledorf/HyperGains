@@ -141,10 +141,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* FRONT VIEW */}
       <div
         className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
-        style={{
-          transform: view === "front" ? "translateX(0)" : "translateX(-100%)",
-          paddingLeft: useFatigue ? "38%" : undefined,
-        }}
+        style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
       >
         <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Front muscle map">
           <defs>
@@ -167,10 +164,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* BACK VIEW */}
       <div
         className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
-        style={{
-          transform: view === "front" ? "translateX(100%)" : "translateX(0)",
-          paddingLeft: useFatigue ? "38%" : undefined,
-        }}
+        style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
       >
         <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Back muscle map">
           <defs>
