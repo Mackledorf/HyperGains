@@ -300,7 +300,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
                     className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: color }}
                   />
-                  <span className="text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight">
+                  <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight">
                     {label}
                   </span>
                 </div>
