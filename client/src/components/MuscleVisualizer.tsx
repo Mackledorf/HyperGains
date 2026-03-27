@@ -141,7 +141,10 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* FRONT VIEW */}
       <div
         className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
-        style={{ transform: view === "front" ? "translateX(0)" : "translateX(-100%)" }}
+        style={{
+          transform: view === "front" ? "translateX(0)" : "translateX(-100%)",
+          paddingLeft: useFatigue ? "38%" : undefined,
+        }}
       >
         <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Front muscle map">
           <defs>
@@ -164,7 +167,10 @@ export default function MuscleVisualizer({ muscleData }: Props) {
       {/* BACK VIEW */}
       <div
         className="absolute inset-0 flex justify-center transition-transform duration-300 ease-in-out"
-        style={{ transform: view === "front" ? "translateX(100%)" : "translateX(0)" }}
+        style={{
+          transform: view === "front" ? "translateX(100%)" : "translateX(0)",
+          paddingLeft: useFatigue ? "38%" : undefined,
+        }}
       >
         <svg viewBox="0 0 144 150" className="w-full h-full" aria-label="Back muscle map">
           <defs>
@@ -197,7 +203,7 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {/* Accumulate Fatigue toggle — sits above both panel groups at all times */}
         <button
           onClick={() => setShowFatigue(!showFatigue)}
-          className={`absolute top-0 left-0 z-10 w-12 h-12 flex items-center justify-center rounded-2xl border transition-all active:scale-90 ${
+          className={`absolute top-0 left-0 z-20 w-12 h-12 flex items-center justify-center rounded-2xl border transition-all active:scale-90 ${
             showFatigue
               ? "bg-orange-500/20 border-orange-500/40 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.1)]"
               : "bg-background/60 backdrop-blur-sm border-border/40 text-muted-foreground hover:text-foreground"
@@ -206,6 +212,27 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         >
           <ChartNoAxesCombined className="w-6 h-6" />
         </button>
+
+        {/* Volume landmark legend — vertical, left side, fatigue mode only */}
+        {showFatigue && (
+          <div className="absolute left-0 top-0 bottom-0 z-10 w-[38%] flex flex-col justify-center gap-3.5 pt-14 pb-4 pl-3">
+            {[
+              { color: VOLUME_ZONE_COLORS.overtraining, label: "Over-\ntraining" },
+              { color: VOLUME_ZONE_COLORS.mav,          label: "Emphasizing" },
+              { color: VOLUME_ZONE_COLORS.mev,          label: "Growing" },
+              { color: VOLUME_ZONE_COLORS.mv,           label: "Maintaining" },
+              { color: VOLUME_ZONE_COLORS.warning,      label: "Under-\ntraining" },
+              { color: VOLUME_ZONE_COLORS.none,         label: "None" },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground/80 whitespace-pre-line leading-tight">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Normal panel group — hidden instantly when fatigue mode is active */}
         <div
@@ -267,47 +294,6 @@ export default function MuscleVisualizer({ muscleData }: Props) {
         {view === "front" ? "Front" : "Back"} · tap a muscle for details
       </p>
 
-      {/* Volume zone legend */}
-      <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Volume Landmarks
-            </p>
-            <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest bg-muted/30 px-2 py-0.5 rounded-full">
-              sets / week
-            </span>
-          </div>
-          
-          <div className="relative">
-            {/* Track line — spans from center of first column to center of last column */}
-            <div
-              className="absolute top-[5px] h-px rounded-full bg-muted/40"
-              style={{ left: "calc(100% / 12)", right: "calc(100% / 12)" }}
-            />
-
-            {/* Markers row — equal-width columns so dot centers are evenly spaced */}
-            <div className="relative flex items-start">
-              {[
-                { id: "none",         color: VOLUME_ZONE_COLORS.none,         label: "None" },
-                { id: "warning",      color: VOLUME_ZONE_COLORS.warning,      label: "Under-\ntraining" },
-                { id: "mv",           color: VOLUME_ZONE_COLORS.mv,           label: "Maintaining" },
-                { id: "mev",          color: VOLUME_ZONE_COLORS.mev,          label: "Growing" },
-                { id: "mav",          color: VOLUME_ZONE_COLORS.mav,          label: "Emphasizing" },
-                { id: "overtraining", color: VOLUME_ZONE_COLORS.overtraining, label: "Over-\ntraining" },
-              ].map(({ id, color, label }) => (
-                <div key={id} className="flex-1 flex flex-col items-center gap-2.5">
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[7px] sm:text-[9px] font-bold uppercase tracking-tight text-muted-foreground/70 text-center whitespace-pre-line leading-tight">
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-      </div>
     </div>
   );
 }
