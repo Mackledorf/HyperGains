@@ -122,10 +122,10 @@ function getUserLocale(): { lang: string; country: string } {
   };
 }
 
-// ── In-memory search cache (30-min TTL, persisted to localStorage) ─────────────
+// ── In-memory search cache (2-hr TTL, persisted to localStorage) ─────────────
 
 const _cache = new Map<string, { results: FoodSearchResult[]; at: number }>();
-const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 const LS_CACHE_KEY = "hg_food_cache";
 
 // Hydrate in-memory cache from localStorage on module load
@@ -160,6 +160,22 @@ function setCached(key: string, results: FoodSearchResult[]) {
     for (const [k, v] of Array.from(_cache.entries())) obj[k] = v;
     localStorage.setItem(LS_CACHE_KEY, JSON.stringify(obj));
   } catch { /* storage quota exceeded — ignore */ }
+}
+
+// ── USDA rate-limit block (persisted to localStorage) ───────────────────────────
+const LS_USDA_BLOCK_KEY = "hg_usda_blocked_until";
+let _usdaBlockedUntil: number = (() => {
+  try { return parseInt(localStorage.getItem(LS_USDA_BLOCK_KEY) ?? "0", 10) || 0; }
+  catch { return 0; }
+})();
+
+function blockUSDA(durationMs = 60 * 60 * 1000) {
+  _usdaBlockedUntil = Date.now() + durationMs;
+  try { localStorage.setItem(LS_USDA_BLOCK_KEY, String(_usdaBlockedUntil)); } catch { /* ignore */ }
+}
+
+function isUsdaBlocked(): boolean {
+  return Date.now() < _usdaBlockedUntil;
 }
 
 // ── OFF request throttle (≥1 s between requests to avoid rate limiting) ─────────
@@ -268,13 +284,14 @@ function usdaMacro(nutrients: UsdaNutrient[], id: number, fallbackName: string):
 }
 
 async function searchUSDA(query: string, signal?: AbortSignal, onRateLimit?: () => void): Promise<FoodSearchResult[]> {
+  if (isUsdaBlocked()) { onRateLimit?.(); return []; }
   try {
     const key = getUsdaKey();
     const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(
       query
     )}&api_key=${key}&dataType=Foundation,SR%20Legacy,Branded,Survey%20(FNDDS)&pageSize=20`;
     const res = await fetch(url, { signal });
-    if (res.status === 429) { onRateLimit?.(); return []; }
+    if (res.status === 429) { blockUSDA(); onRateLimit?.(); return []; }
     if (!res.ok) return [];
     const data = await res.json();
     const results: FoodSearchResult[] = [];
@@ -365,7 +382,7 @@ export async function searchFoods(
   if (instantResults.length > 0) onPartial?.(instantResults);
 
   // Enough instant results — skip APIs entirely
-  if (instantResults.length >= 8) {
+  if (instantResults.length >= 5) {
     setCached(q, instantResults);
     return instantResults;
   }
@@ -484,11 +501,11 @@ export async function searchFoods(
 
     if (rerankedOff.length > 0) onPartial?.(mergeDedup(instantResults, rerankedOff));
 
-    // USDA: lazy — only if OFF results are sparse
+    // USDA: lazy — only if OFF results are sparse and user has a custom key
     let usdaCombined: FoodSearchResult[] = [];
     let usdaBrand: FoodSearchResult[] = [];
     let usdaItem: FoodSearchResult[] = [];
-    if (rerankedOff.length < 5) {
+    if (rerankedOff.length < 5 && getUsdaKey() !== "DEMO_KEY") {
       [usdaCombined, usdaBrand, usdaItem] = await Promise.all([
         searchUSDA(q, signal, () => { usdaRateLimited = true; }).catch(() => [] as FoodSearchResult[]),
         searchUSDA(brandQ, signal).catch(() => [] as FoodSearchResult[]),
@@ -512,9 +529,9 @@ export async function searchFoods(
   rerankedOff = (() => { try { return rerankOFF(offRaw); } catch { return []; } })();
   if (rerankedOff.length > 0) onPartial?.(mergeDedup(instantResults, rerankedOff));
 
-  // USDA: lazy fallback — only if OFF returned fewer than 5 results
+  // USDA: lazy fallback — only if OFF returned fewer than 5 results and user has a custom key
   let usdaResults: FoodSearchResult[] = [];
-  if (rerankedOff.length < 5) {
+  if (rerankedOff.length < 5 && getUsdaKey() !== "DEMO_KEY") {
     usdaResults = await searchUSDA(q, signal, () => { usdaRateLimited = true; });
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   }

@@ -1962,7 +1962,9 @@ function AddFoodSheet({
                     {searchError === 'search_unavailable'
                       ? "Search temporarily unavailable — try again in a bit."
                       : searchError === 'rate_limited'
-                        ? "USDA rate-limited — add a personal API key in Settings for better coverage."
+                        ? localStorage.getItem("hg_usda_key")
+                          ? "USDA rate-limited — searches will resume in about an hour."
+                          : "Couldn't find that food. Try a different search term or create a custom entry."
                         : "We couldn't find that food."}
                   </p>
                 </div>
