@@ -705,6 +705,18 @@ function StandaloneFoodCard({
 
 type ServingUnit = "serving" | "g" | "oz" | "ml" | "floz";
 
+/** Parse canonical serving grams from a label like "1 bar (50g)", "100g", "240ml". */
+function parseServingSizeG(label: string | undefined | null): number {
+  if (!label) return 100;
+  const parenG = label.match(/\((\d+\.?\d*)\s*g\)/i);
+  if (parenG) return parseFloat(parenG[1]);
+  const plainG = label.match(/^(\d+\.?\d*)\s*g\b/i);
+  if (plainG) return parseFloat(plainG[1]);
+  const ml = label.match(/\((\d+\.?\d*)\s*ml\)/i) ?? label.match(/^(\d+\.?\d*)\s*ml\b/i);
+  if (ml) return parseFloat(ml[1]);
+  return 100;
+}
+
 function toGrams(qty: number, unit: ServingUnit, servingSizeG: number): number {
   switch (unit) {
     case "serving": return qty * servingSizeG;
@@ -2059,9 +2071,13 @@ function EditFoodSheet({
       const cf = customs.find(f => f.id === entry.customFoodId);
       if (cf) return cf as unknown as FoodSearchResult;
     }
-    // Back-calculate per-100g from the values stored on the entry
+    // Back-calculate per-100g from the actual grams consumed.
+    // servingSizeG is set from the label (e.g. "100g" label → 100) so the
+    // quantity picker initialises to the correct number-of-servings instead
+    // of always showing "1".
     const sG = entry.servingG > 0 ? entry.servingG : 100;
     const factor = 100 / sG;
+    const canonicalServingSizeG = Math.max(parseServingSizeG(entry.servingSizeLabel), 1);
     return {
       id: entry.id,
       name: entry.name,
@@ -2070,8 +2086,8 @@ function EditFoodSheet({
       proteinPer100g:  Math.round(entry.proteinG * factor * 10) / 10,
       carbsPer100g:    Math.round(entry.carbsG   * factor * 10) / 10,
       fatPer100g:      Math.round(entry.fatG     * factor * 10) / 10,
-      servingSizeG: sG,
-      servingSizeLabel: entry.servingSizeLabel || `${Math.round(sG)}g`,
+      servingSizeG: canonicalServingSizeG,
+      servingSizeLabel: entry.servingSizeLabel || `${canonicalServingSizeG}g`,
       source: "custom" as const,
     };
   }, [entry]);
