@@ -27,6 +27,8 @@ export interface FoodSearchResult {
 }
 
 import * as store from "@/lib/storage";
+import _commonFoodsRaw from "./commonFoods.json";
+const _commonFoods = _commonFoodsRaw as FoodSearchResult[];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,10 +122,23 @@ function getUserLocale(): { lang: string; country: string } {
   };
 }
 
-// ── In-memory search cache (5-minute TTL) ─────────────────────────────────────
+// ── In-memory search cache (30-min TTL, persisted to localStorage) ─────────────
 
 const _cache = new Map<string, { results: FoodSearchResult[]; at: number }>();
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const LS_CACHE_KEY = "hg_food_cache";
+
+// Hydrate in-memory cache from localStorage on module load
+try {
+  const raw = localStorage.getItem(LS_CACHE_KEY);
+  if (raw) {
+    const stored = JSON.parse(raw) as Record<string, { results: FoodSearchResult[]; at: number }>;
+    const now = Date.now();
+    for (const [k, v] of Object.entries(stored)) {
+      if (now - v.at < CACHE_TTL_MS) _cache.set(k, v);
+    }
+  }
+} catch { /* ignore */ }
 
 function getCached(key: string): FoodSearchResult[] | null {
   const entry = _cache.get(key);
@@ -133,11 +148,29 @@ function getCached(key: string): FoodSearchResult[] | null {
 }
 
 function setCached(key: string, results: FoodSearchResult[]) {
-  _cache.set(key, { results, at: Date.now() });
+  const entry = { results, at: Date.now() };
+  _cache.set(key, entry);
   if (_cache.size > 100) {
     const firstKey = _cache.keys().next().value;
     if (firstKey !== undefined) _cache.delete(firstKey);
   }
+  // Write-through to localStorage
+  try {
+    const obj: Record<string, { results: FoodSearchResult[]; at: number }> = {};
+    for (const [k, v] of Array.from(_cache.entries())) obj[k] = v;
+    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(obj));
+  } catch { /* storage quota exceeded — ignore */ }
+}
+
+// ── OFF request throttle (≥1 s between requests to avoid rate limiting) ─────────
+let _lastOFFReqAt = 0;
+function waitForOFFSlot(): Promise<void> {
+  const now = Date.now();
+  const next = _lastOFFReqAt + 1000;
+  _lastOFFReqAt = Math.max(now, next);
+  const delay = next - now;
+  if (delay <= 0) return Promise.resolve();
+  return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 // ── OFF extended type for re-ranking ─────────────────────────────────────────
@@ -273,6 +306,17 @@ async function searchUSDA(query: string, signal?: AbortSignal, onRateLimit?: () 
   }
 }
 
+// ── Result merging (dedup by name+brand, cap at 30) ────────────────────────
+function mergeDedup(...groups: FoodSearchResult[][]): FoodSearchResult[] {
+  const seen = new Set<string>();
+  const merged: FoodSearchResult[] = [];
+  for (const item of groups.flat()) {
+    const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
+    if (!seen.has(key)) { seen.add(key); merged.push(item); }
+  }
+  return merged.slice(0, 30);
+}
+
 // ── Combined Search ───────────────────────────────────────────────────────────
 
 /** Search for foods matching the query string.
@@ -304,36 +348,44 @@ export async function searchFoods(
 
   const { lang, country } = getUserLocale();
 
-  // ── 1. Library Search (Personal + Global) ──────────────────────────────────
+  // ── 1. Library + Bundled Search (instant, zero-network) ──────────────────
   const localLibrary = store.getCustomFoods() as FoodSearchResult[];
   const globalLibrary = store.getGlobalFoods() as FoodSearchResult[];
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  
-  const libraryResults = [...localLibrary, ...globalLibrary].filter(r =>
+  const wordMatch = (r: FoodSearchResult) =>
     words.every(w =>
       r.name.toLowerCase().includes(w) ||
       (r.brand?.toLowerCase() ?? "").includes(w)
-    )
-  );
+    );
 
-  if (onPartial && libraryResults.length > 0) {
-    onPartial(libraryResults);
+  const libraryResults = [...localLibrary, ...globalLibrary].filter(wordMatch);
+  const bundledResults = _commonFoods.filter(wordMatch);
+  const instantResults = mergeDedup(libraryResults, bundledResults);
+
+  if (instantResults.length > 0) onPartial?.(instantResults);
+
+  // Enough instant results — skip APIs entirely
+  if (instantResults.length >= 8) {
+    setCached(q, instantResults);
+    return instantResults;
   }
 
-  // ── 2. Instant prefix-cache results ────────────────────────────────────────
-  if (onPartial) {
-    for (const [key, entry] of Array.from(_cache.entries())) {
-      if (Date.now() - entry.at > CACHE_TTL_MS) continue;
-      const ql = q.toLowerCase();
-      const kl = key.toLowerCase();
-      if (ql.startsWith(kl) || kl.startsWith(ql)) {
-        const filtered = entry.results.filter((r: FoodSearchResult) =>
-          words.every(w =>
-            r.name.toLowerCase().includes(w) ||
-            (r.brand?.toLowerCase() ?? "").includes(w)
-          )
-        );
-        if (filtered.length > 0) { onPartial([...libraryResults, ...filtered]); break; }
+  // ── 2. Prefix-cache results ─────────────────────────────────────────────────
+  for (const [key, entry] of Array.from(_cache.entries())) {
+    if (Date.now() - entry.at > CACHE_TTL_MS) continue;
+    const ql = q.toLowerCase();
+    const kl = key.toLowerCase();
+    if (ql.startsWith(kl) || kl.startsWith(ql)) {
+      const filtered = entry.results.filter(wordMatch);
+      if (filtered.length > 0) {
+        const merged = mergeDedup(instantResults, filtered);
+        onPartial?.(merged);
+        // Sufficient coverage — skip APIs entirely
+        if (merged.length >= 8) {
+          setCached(q, merged);
+          return merged;
+        }
+        break;
       }
     }
   }
@@ -363,18 +415,8 @@ export async function searchFoods(
     return [...scoreAndSort(preferred), ...scoreAndSort(foreign)];
   }
 
-  function mergeResults(...groups: FoodSearchResult[][]): FoodSearchResult[] {
-    const seen = new Set<string>();
-    const merged: FoodSearchResult[] = [];
-    for (const item of groups.flat()) {
-      const key = `${item.name.toLowerCase()}|${item.brand?.toLowerCase() ?? ""}`;
-      if (!seen.has(key)) { seen.add(key); merged.push(item); }
-    }
-    return merged.slice(0, 30);
-  }
-
   // ── Decide which queries to fire ────────────────────────────────────────────
-  // Refine mode: brand + item supplied → fire 3 parallel queries and merge.
+  // Refine mode: brand + item supplied → serialize 3 OFF queries and merge.
   // Normal mode: single query.
   const brandQ = brand?.trim() ?? "";
   const itemQ  = item?.trim()  ?? "";
@@ -386,7 +428,9 @@ export async function searchFoods(
       ((d.hits ?? d.products ?? []) as Record<string, unknown>[])
         .map((p) => parseOFFProductWithMeta(p))
         .filter((r): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
-
+    // Throttle: enforce ≥1 s between OFF requests to avoid rate limiting
+    await waitForOFFSlot();
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     // ── Primary: new Elasticsearch endpoint ──────────────────────────────────
     try {
       const r = await fetch(
@@ -424,61 +468,61 @@ export async function searchFoods(
 
   let offFailed = false;
   let usdaRateLimited = false;
-
-  // ── 2. Fire requests ────────────────────────────────────────────────────────
   let rerankedOff: FoodSearchResult[] = [];
 
   if (isRefineMode) {
-    // Fire 3 OFF queries + 3 USDA queries in parallel, then merge
-    const [offCombined, offBrand, offItem, usdaCombined, usdaBrand, usdaItem] =
-      await Promise.all([
-        fetchOFF(q, () => { offFailed = true; }).catch(() => [] as OffResultWithMeta[]),
-        fetchOFF(brandQ).catch(() => [] as OffResultWithMeta[]),
-        fetchOFF(itemQ).catch(() => [] as OffResultWithMeta[]),
+    // Serialize OFF queries to respect the 1-req/sec throttle
+    const offCombined = await fetchOFF(q, () => { offFailed = true; }).catch(() => [] as OffResultWithMeta[]);
+    const offBrand    = await fetchOFF(brandQ).catch(() => [] as OffResultWithMeta[]);
+    const offItem     = await fetchOFF(itemQ).catch(() => [] as OffResultWithMeta[]);
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+    const combinedRanked = rerankOFF(offCombined);
+    const brandRanked    = rerankOFF(offBrand);
+    const itemRanked     = rerankOFF(offItem);
+    rerankedOff = mergeDedup(combinedRanked, brandRanked, itemRanked);
+
+    if (rerankedOff.length > 0) onPartial?.(mergeDedup(instantResults, rerankedOff));
+
+    // USDA: lazy — only if OFF results are sparse
+    let usdaCombined: FoodSearchResult[] = [];
+    let usdaBrand: FoodSearchResult[] = [];
+    let usdaItem: FoodSearchResult[] = [];
+    if (rerankedOff.length < 5) {
+      [usdaCombined, usdaBrand, usdaItem] = await Promise.all([
         searchUSDA(q, signal, () => { usdaRateLimited = true; }).catch(() => [] as FoodSearchResult[]),
         searchUSDA(brandQ, signal).catch(() => [] as FoodSearchResult[]),
         searchUSDA(itemQ, signal).catch(() => [] as FoodSearchResult[]),
       ]);
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    }
 
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-    // Re-rank combined OFF query first (most relevant), then supplement with brand/item extras
-    const combinedRanked = rerankOFF(offCombined);
-    const brandRanked    = rerankOFF(offBrand);
-    const itemRanked     = rerankOFF(offItem);
-
-    rerankedOff = mergeResults(combinedRanked, brandRanked, itemRanked);
-    const results = mergeResults(libraryResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
-
+    const results = mergeDedup(instantResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
     if (results.length > 0) setCached(q, results);
-    else if (offFailed && usdaCombined.length === 0 && usdaBrand.length === 0 && usdaItem.length === 0 && libraryResults.length === 0) onError?.('search_unavailable');
+    else if (offFailed && !usdaCombined.length && !usdaBrand.length && !usdaItem.length && !instantResults.length) onError?.('search_unavailable');
     else if (usdaRateLimited) onError?.('rate_limited');
-
     onPartial?.(results);
     return results;
   }
 
-  // Normal single-query path
-  const offFetch = fetchOFF(q, () => { offFailed = true; });
-  const usdaFetch = searchUSDA(q, signal, () => { usdaRateLimited = true; });
+  // ── Normal single-query path ──────────────────────────────────────────────
+  const offRaw = await fetchOFF(q, () => { offFailed = true; });
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  // Show OFF results as soon as they arrive
-  offFetch.then(off => {
-    if (signal?.aborted) return;
-    try { rerankedOff = rerankOFF(off); } catch { return; }
-    if (rerankedOff.length > 0) onPartial?.(mergeResults(libraryResults, rerankedOff));
-  }).catch(() => {});
+  rerankedOff = (() => { try { return rerankOFF(offRaw); } catch { return []; } })();
+  if (rerankedOff.length > 0) onPartial?.(mergeDedup(instantResults, rerankedOff));
 
-  // ── 3. Wait for both, merge, cache, fire final onPartial ──────────────────
-  const [offRaw, usdaResults] = await Promise.all([offFetch, usdaFetch]);
-  if (rerankedOff.length === 0) {
-    try { rerankedOff = rerankOFF(offRaw); } catch { rerankedOff = []; }
+  // USDA: lazy fallback — only if OFF returned fewer than 5 results
+  let usdaResults: FoodSearchResult[] = [];
+  if (rerankedOff.length < 5) {
+    usdaResults = await searchUSDA(q, signal, () => { usdaRateLimited = true; });
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   }
 
-  const results = mergeResults(libraryResults, rerankedOff, usdaResults);
+  const results = mergeDedup(instantResults, rerankedOff, usdaResults);
   if (results.length > 0) {
     setCached(q, results);
-  } else if (offFailed && usdaResults.length === 0 && libraryResults.length === 0) {
+  } else if (offFailed && !usdaResults.length && !instantResults.length) {
     onError?.('search_unavailable');
   } else if (usdaRateLimited) {
     onError?.('rate_limited');

@@ -1606,7 +1606,7 @@ function AddFoodSheet({
       } finally {
         if (!ctrl.signal.aborted) setIsSearching(false);
       }
-    }, 500);
+    }, 750);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, showRefine, refineBrand, refineItem]);
 
