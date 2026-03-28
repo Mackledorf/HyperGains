@@ -92,20 +92,20 @@ function parseOFFProduct(product: Record<string, unknown>): FoodSearchResult | n
   };
 }
 
-/** Look up a single product by barcode via Open Food Facts. */
+/** Look up a single product by barcode via Open Food Facts direct product API.
+ *  Uses the product endpoint (100 req/min) instead of search (10 req/min). */
 export async function lookupBarcode(
   barcode: string
 ): Promise<FoodSearchResult | null> {
   try {
-    const url = `https://search.openfoodfacts.org/search?code=${encodeURIComponent(
+    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(
       barcode
-    )}&fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code&page_size=1`;
+    )}.json?fields=product_name,abbreviated_product_name,brands,serving_size,nutriments,code`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    const hit = (data.hits ?? [])[0];
-    if (!hit) return null;
-    return parseOFFProduct(hit as Record<string, unknown>);
+    if (data.status !== 1 || !data.product) return null;
+    return parseOFFProduct(data.product as Record<string, unknown>);
   } catch {
     return null;
   }
@@ -202,7 +202,7 @@ function isOFFBlocked(): boolean {
 let _lastOFFReqAt = 0;
 function waitForOFFSlot(): Promise<void> {
   const now = Date.now();
-  const next = _lastOFFReqAt + 2000;
+  const next = _lastOFFReqAt + 7000;
   _lastOFFReqAt = Math.max(now, next);
   const delay = next - now;
   if (delay <= 0) return Promise.resolve();
@@ -463,42 +463,23 @@ export async function searchFoods(
     if (isOFFBlocked()) { onFail?.(); return []; }
     const OFF_FIELDS = "product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags";
     const parseHits = (d: Record<string, unknown>): OffResultWithMeta[] =>
-      ((d.hits ?? d.products ?? []) as Record<string, unknown>[])
+      ((d.products ?? []) as Record<string, unknown>[])
         .map((p) => parseOFFProductWithMeta(p))
         .filter((r): r is OffResultWithMeta => r !== null && r.caloriesPer100g > 0);
-    // Throttle: enforce ≥1 s between OFF requests to avoid rate limiting
+    // Throttle: enforce ≥7 s between OFF search requests to stay under 10 req/min limit
     await waitForOFFSlot();
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    // ── Primary: new Elasticsearch endpoint ──────────────────────────────────
-    try {
-      const r = await fetch(
-        `https://search.openfoodfacts.org/search?q=${encodeURIComponent(searchQ)}` +
-        `&fields=${OFF_FIELDS}&page_size=30&sort_by=popularity_key`,
-        { signal }
-      );
-      if (r.ok) {
-        const d = await r.json();
-        const results = parseHits(d as Record<string, unknown>);
-        if (results.length > 0) { clearOFFBlock(); return results; }
-        // Fall through to classic endpoint if ES returned 0 results (index may be stale)
-      }
-    } catch (e) {
-      if ((e as Error)?.name === "AbortError") throw e;
-      // swallow and fall through to classic endpoint
-    }
-
-    // ── Fallback: stable classic CGI endpoint ─────────────────────────────────
     try {
       const r = await fetch(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(searchQ)}` +
-        `&json=1&page_size=30&sort_by=popularity&fields=${OFF_FIELDS}`,
+        `&json=1&page_size=30&sort_by=unique_scans_n&fields=${OFF_FIELDS}`,
         { signal }
       );
       if (!r.ok) { blockOFF(); onFail?.(); return []; }
       const d = await r.json();
-      const fallbackResults = parseHits(d as Record<string, unknown>);
-      if (fallbackResults.length > 0) clearOFFBlock();
-      return fallbackResults;
+      const results = parseHits(d as Record<string, unknown>);
+      if (results.length > 0) clearOFFBlock();
+      return results;
     } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
       blockOFF();
@@ -512,35 +493,23 @@ export async function searchFoods(
   let rerankedOff: FoodSearchResult[] = [];
 
   if (isRefineMode) {
-    // Serialize OFF queries to respect the 1-req/sec throttle
-    const offCombined = await fetchOFF(q, () => { offFailed = true; }).catch(() => [] as OffResultWithMeta[]);
-    const offBrand    = await fetchOFF(brandQ).catch(() => [] as OffResultWithMeta[]);
-    const offItem     = await fetchOFF(itemQ).catch(() => [] as OffResultWithMeta[]);
+    // Single combined query — avoids burning 3x search quota
+    const offResults = await fetchOFF(q, () => { offFailed = true; }).catch(() => [] as OffResultWithMeta[]);
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-    const combinedRanked = rerankOFF(offCombined);
-    const brandRanked    = rerankOFF(offBrand);
-    const itemRanked     = rerankOFF(offItem);
-    rerankedOff = mergeDedup(combinedRanked, brandRanked, itemRanked);
-
+    rerankedOff = rerankOFF(offResults);
     if (rerankedOff.length > 0) onPartial?.(mergeDedup(instantResults, rerankedOff));
 
     // USDA: lazy — only if OFF results are sparse and user has a custom key
-    let usdaCombined: FoodSearchResult[] = [];
-    let usdaBrand: FoodSearchResult[] = [];
-    let usdaItem: FoodSearchResult[] = [];
+    let usdaResults: FoodSearchResult[] = [];
     if (rerankedOff.length < 5 && getUsdaKey() !== "DEMO_KEY") {
-      [usdaCombined, usdaBrand, usdaItem] = await Promise.all([
-        searchUSDA(q, signal, () => { usdaRateLimited = true; }).catch(() => [] as FoodSearchResult[]),
-        searchUSDA(brandQ, signal).catch(() => [] as FoodSearchResult[]),
-        searchUSDA(itemQ, signal).catch(() => [] as FoodSearchResult[]),
-      ]);
+      usdaResults = await searchUSDA(q, signal, () => { usdaRateLimited = true; }).catch(() => [] as FoodSearchResult[]);
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     }
 
-    const results = mergeDedup(instantResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
+    const results = mergeDedup(instantResults, rerankedOff, usdaResults);
     if (results.length > 0) setCached(q, results);
-    else if (offFailed && !usdaCombined.length && !usdaBrand.length && !usdaItem.length) onError?.('search_unavailable');
+    else if (offFailed && !usdaResults.length) onError?.('search_unavailable');
     else if (usdaRateLimited) onError?.('rate_limited');
     onPartial?.(results);
     return results;
