@@ -178,11 +178,31 @@ function isUsdaBlocked(): boolean {
   return Date.now() < _usdaBlockedUntil;
 }
 
-// ── OFF request throttle (≥1 s between requests to avoid rate limiting) ─────────
+// ── OFF rate-limit backoff (exponential cooldown after consecutive failures) ──────
+let _offBlockedUntil = 0;
+let _offConsecutiveFails = 0;
+
+function blockOFF() {
+  _offConsecutiveFails++;
+  // 5min, 10min, 20min … capped at 30min
+  const mins = Math.min(5 * Math.pow(2, _offConsecutiveFails - 1), 30);
+  _offBlockedUntil = Date.now() + mins * 60 * 1000;
+}
+
+function clearOFFBlock() {
+  _offConsecutiveFails = 0;
+  _offBlockedUntil = 0;
+}
+
+function isOFFBlocked(): boolean {
+  return Date.now() < _offBlockedUntil;
+}
+
+// ── OFF request throttle (≥2 s between requests to avoid rate limiting) ─────────
 let _lastOFFReqAt = 0;
 function waitForOFFSlot(): Promise<void> {
   const now = Date.now();
-  const next = _lastOFFReqAt + 1000;
+  const next = _lastOFFReqAt + 2000;
   _lastOFFReqAt = Math.max(now, next);
   const delay = next - now;
   if (delay <= 0) return Promise.resolve();
@@ -440,6 +460,7 @@ export async function searchFoods(
   const isRefineMode = brandQ.length > 0 && itemQ.length > 0;
 
   const fetchOFF = async (searchQ: string, onFail?: () => void): Promise<OffResultWithMeta[]> => {
+    if (isOFFBlocked()) { onFail?.(); return []; }
     const OFF_FIELDS = "product_name,abbreviated_product_name,brands,serving_size,nutriments,code,lang,countries_tags";
     const parseHits = (d: Record<string, unknown>): OffResultWithMeta[] =>
       ((d.hits ?? d.products ?? []) as Record<string, unknown>[])
@@ -458,7 +479,7 @@ export async function searchFoods(
       if (r.ok) {
         const d = await r.json();
         const results = parseHits(d as Record<string, unknown>);
-        if (results.length > 0) return results;
+        if (results.length > 0) { clearOFFBlock(); return results; }
         // Fall through to classic endpoint if ES returned 0 results (index may be stale)
       }
     } catch (e) {
@@ -473,11 +494,14 @@ export async function searchFoods(
         `&json=1&page_size=30&sort_by=popularity&fields=${OFF_FIELDS}`,
         { signal }
       );
-      if (!r.ok) { onFail?.(); return []; }
+      if (!r.ok) { blockOFF(); onFail?.(); return []; }
       const d = await r.json();
-      return parseHits(d as Record<string, unknown>);
+      const fallbackResults = parseHits(d as Record<string, unknown>);
+      if (fallbackResults.length > 0) clearOFFBlock();
+      return fallbackResults;
     } catch (e) {
       if ((e as Error)?.name === "AbortError") throw e;
+      blockOFF();
       onFail?.();
       return [];
     }
@@ -516,7 +540,7 @@ export async function searchFoods(
 
     const results = mergeDedup(instantResults, rerankedOff, usdaCombined, usdaBrand, usdaItem);
     if (results.length > 0) setCached(q, results);
-    else if (offFailed && !usdaCombined.length && !usdaBrand.length && !usdaItem.length && !instantResults.length) onError?.('search_unavailable');
+    else if (offFailed && !usdaCombined.length && !usdaBrand.length && !usdaItem.length) onError?.('search_unavailable');
     else if (usdaRateLimited) onError?.('rate_limited');
     onPartial?.(results);
     return results;
@@ -539,7 +563,7 @@ export async function searchFoods(
   const results = mergeDedup(instantResults, rerankedOff, usdaResults);
   if (results.length > 0) {
     setCached(q, results);
-  } else if (offFailed && !usdaResults.length && !instantResults.length) {
+  } else if (offFailed && !usdaResults.length) {
     onError?.('search_unavailable');
   } else if (usdaRateLimited) {
     onError?.('rate_limited');
